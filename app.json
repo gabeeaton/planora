@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "TaskFlow",
+    "slug": "taskflow",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.yourcompany.taskflow"
+    }
+  }
+}
