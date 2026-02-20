@@ -1,0 +1,287 @@
+// ============================================================
+// src/screens/ProfileScreen.js
+// ============================================================
+
+import React, { useState, useEffect } from "react";
+import {
+  View, Text, TouchableOpacity, StyleSheet,
+  ScrollView, Alert, TextInput,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
+import { useAuth }         from "../hooks/useAuth";
+import { useUserProfile }  from "../hooks/useUserProfile";
+import { useSubscription } from "../hooks/useSubscription";
+import {
+  colors, typography, spacing, radius, shadows,
+  COLOR_THEMES, setActiveTheme, getAccentColors,
+} from "../utils/theme";
+import { saveUserProfile } from "../services/firebase";
+
+const ProfileScreen = ({ navigation }) => {
+  const { user, logout }                                       = useAuth();
+  const { profile }                                            = useUserProfile();
+  const { isPro, isInTrial, trialDaysRemaining, hasProAccess } = useSubscription();
+
+  // Local theme state so label + dots update immediately on press
+  const [activeThemeKey, setActiveThemeKeyState] = useState(
+    profile?.colorTheme ?? "purple"
+  );
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput]     = useState("");
+
+  useEffect(() => {
+    setNameInput(profile?.name ?? "");
+    if (profile?.colorTheme) setActiveThemeKeyState(profile.colorTheme);
+  }, [profile?.name, profile?.colorTheme]);
+
+  const ac = getAccentColors();
+
+  const displayInitial = profile?.name
+    ? profile.name[0].toUpperCase()
+    : user?.email?.[0]?.toUpperCase() ?? "?";
+
+  const handleLogout = () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign Out", style: "destructive", onPress: logout },
+    ]);
+  };
+
+  const handleSaveName = async () => {
+    await saveUserProfile(user.uid, { name: nameInput.trim() || null });
+    setEditingName(false);
+  };
+
+  const handleThemeChange = async (key) => {
+    setActiveTheme(key);           // Updates module-level theme immediately
+    setActiveThemeKeyState(key);   // Updates local state so label/dots re-render
+    await saveUserProfile(user.uid, { colorTheme: key });
+  };
+
+  const SectionHeader = ({ title }) =>
+    title ? <Text style={styles.sectionHeader}>{title}</Text> : <View style={{ height: spacing.xs }} />;
+
+  const Row = ({ icon, label, value, onPress, danger }) => (
+    <TouchableOpacity
+      style={styles.row} onPress={onPress}
+      disabled={!onPress} activeOpacity={onPress ? 0.7 : 1}
+    >
+      <View style={[styles.rowIcon, { backgroundColor: ac.accentGlow }, danger && styles.rowIconDanger]}>
+        <Feather name={icon} size={16} color={danger ? colors.high : ac.accent} />
+      </View>
+      <Text style={[styles.rowLabel, danger && { color: colors.high }]}>{label}</Text>
+      <View style={styles.rowRight}>
+        {value ? <Text style={styles.rowValue}>{value}</Text> : null}
+        {onPress ? <Feather name="chevron-right" size={16} color={colors.textMuted} /> : null}
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* Avatar + name */}
+        <View style={styles.header}>
+          <View style={[styles.avatar, { backgroundColor: ac.accentGlow, borderColor: ac.accent, ...ac.accentShadow }]}>
+            <Text style={[styles.avatarText, { color: ac.accent }]}>{displayInitial}</Text>
+          </View>
+
+          {editingName ? (
+            <View style={styles.nameEditRow}>
+              <TextInput
+                style={[styles.nameInput, { borderColor: ac.accent }]}
+                value={nameInput}
+                onChangeText={setNameInput}
+                placeholder="Your name"
+                placeholderTextColor={colors.textMuted}
+                autoFocus
+              />
+              <TouchableOpacity onPress={handleSaveName} style={[styles.nameSaveBtn, { backgroundColor: ac.accent }]}>
+                <Feather name="check" size={16} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEditingName(false)} style={styles.nameCancelBtn}>
+                <Feather name="x" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.nameRow} onPress={() => setEditingName(true)}>
+              <Text style={styles.displayName}>{profile?.name || user?.email}</Text>
+              <Feather name="edit-2" size={13} color={colors.textMuted} style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+          )}
+
+          <View style={[styles.planBadge, hasProAccess && { borderColor: ac.accent }]}>
+            <Feather name={hasProAccess ? "zap" : "user"} size={11} color={hasProAccess ? ac.accent : colors.textMuted} />
+            <Text style={[styles.planText, hasProAccess && { color: ac.accent }]}>
+              {isPro ? "Pro" : isInTrial ? `Trial — ${trialDaysRemaining}d left` : "Free"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Upgrade banner */}
+        {!isPro && (
+          <TouchableOpacity
+            style={[styles.upgradeCard, { borderColor: ac.accentGlow, ...ac.accentShadow }]}
+            onPress={() => navigation.navigate("Paywall")}
+            activeOpacity={0.85}
+          >
+            <View style={styles.upgradeLeft}>
+              <Feather name="zap" size={18} color={ac.accent} />
+              <View>
+                <Text style={styles.upgradeTitle}>Upgrade to Pro</Text>
+                <Text style={styles.upgradeSubtitle}>AI coaching, weekly plans & more</Text>
+              </View>
+            </View>
+            <Feather name="chevron-right" size={18} color={ac.accent} />
+          </TouchableOpacity>
+        )}
+
+        {/* Color theme */}
+        <SectionHeader title="Color Theme" />
+        <View style={styles.card}>
+          <View style={styles.themeRow}>
+            {Object.values(COLOR_THEMES).map((theme) => {
+              const isActive = activeThemeKey === theme.key;
+              return (
+                <TouchableOpacity
+                  key={theme.key}
+                  style={[
+                    styles.themeDot,
+                    { backgroundColor: theme.accent },
+                    isActive && styles.themeDotActive,
+                  ]}
+                  onPress={() => handleThemeChange(theme.key)}
+                >
+                  {isActive && <Feather name="check" size={14} color="#fff" />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {/* Label reflects local state, updates immediately */}
+          <Text style={styles.themeLabel}>
+            {COLOR_THEMES[activeThemeKey]?.label ?? "Purple"}
+          </Text>
+        </View>
+
+        {/* Academic profile */}
+        <SectionHeader title="Academic Profile" />
+        <View style={styles.card}>
+          <Row icon="book"   label="Semester"             value={profile?.semester ?? "Not set"} />
+          <View style={styles.divider} />
+          <Row icon="layers" label="Classes"               value={profile?.classes?.length ? `${profile.classes.length} classes` : "Not set"} />
+          <View style={styles.divider} />
+          <Row icon="sun"    label="Best work time"        value={profile?.preferredWorkTime ?? "Not set"} />
+          <View style={styles.divider} />
+          <Row icon="edit"   label="Edit Academic Profile" onPress={() => navigation.navigate("Onboarding")} />
+        </View>
+
+        {/* Classes list */}
+        {profile?.classes?.length > 0 && (
+          <>
+            <SectionHeader title="Your Classes" />
+            <View style={styles.card}>
+              {profile.classes.map((cls, i) => (
+                <View key={cls.id ?? i}>
+                  {i > 0 && <View style={styles.divider} />}
+                  <View style={styles.classRow}>
+                    <Text style={styles.className}>{cls.name}</Text>
+                    <Text style={styles.classMeta}>{cls.creditHours} credits · Grade: {cls.grade ?? "?"}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        {/* Account */}
+        <SectionHeader title="Account" />
+        <View style={styles.card}>
+          <Row icon="mail" label="Email" value={user?.email} />
+        </View>
+
+        <SectionHeader title="" />
+        <View style={styles.card}>
+          <Row icon="log-out" label="Sign Out" onPress={handleLogout} danger />
+        </View>
+
+        <Text style={styles.version}>TaskFlow v1.0.0</Text>
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safe:   { flex: 1, backgroundColor: colors.bg },
+  scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+
+  header:       { alignItems: "center", paddingVertical: spacing.lg, marginBottom: spacing.md },
+  avatar: {
+    width: 72, height: 72, borderRadius: 36,
+    borderWidth: 2, alignItems: "center", justifyContent: "center",
+    marginBottom: spacing.sm,
+  },
+  avatarText:    { fontSize: 28, fontWeight: "800" },
+  nameRow:       { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  displayName:   { fontSize: 16, fontWeight: "600", color: colors.textPrimary },
+  nameEditRow:   { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  nameInput: {
+    flex: 1, backgroundColor: colors.bgCard, borderWidth: 1,
+    borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 8,
+    color: colors.textPrimary, fontSize: 15,
+  },
+  nameSaveBtn: {
+    width: 34, height: 34, borderRadius: 8, alignItems: "center", justifyContent: "center",
+  },
+  nameCancelBtn: {
+    width: 34, height: 34, borderRadius: 8, backgroundColor: colors.bgCard,
+    alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border,
+  },
+  planBadge: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: colors.bgCard, borderRadius: radius.full,
+    paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: colors.border,
+  },
+  planText: { fontSize: 12, color: colors.textMuted, fontWeight: "700" },
+
+  upgradeCard: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md,
+    marginBottom: spacing.md, borderWidth: 1,
+  },
+  upgradeLeft:     { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  upgradeTitle:    { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+  upgradeSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+
+  sectionHeader: { ...typography.label, marginBottom: spacing.sm, marginTop: spacing.sm, paddingLeft: 4 },
+  card: {
+    backgroundColor: colors.bgCard, borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md, overflow: "hidden",
+  },
+
+  themeRow:      { flexDirection: "row", gap: 14, paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: 8 },
+  themeDot:      { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  themeDotActive:{ borderWidth: 3, borderColor: "#fff" },
+  themeLabel:    { fontSize: 12, color: colors.textSecondary, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+
+  row: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: spacing.md, paddingVertical: 14, gap: 12,
+  },
+  rowIcon:       { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  rowIconDanger: { backgroundColor: "rgba(255,92,92,0.12)" },
+  rowLabel:      { flex: 1, fontSize: 15, color: colors.textPrimary, fontWeight: "500" },
+  rowRight:      { flexDirection: "row", alignItems: "center", gap: 6 },
+  rowValue:      { fontSize: 13, color: colors.textSecondary },
+  divider:       { height: 1, backgroundColor: colors.border, marginLeft: 56 },
+
+  classRow:  { paddingHorizontal: spacing.md, paddingVertical: 12 },
+  className: { fontSize: 14, fontWeight: "600", color: colors.textPrimary },
+  classMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+
+  version: { textAlign: "center", fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
+});
+
+export default ProfileScreen;

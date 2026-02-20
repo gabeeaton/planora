@@ -1,48 +1,35 @@
 // ============================================================
-// components/TaskCard.js
-// Renders a single task with:
-// - Checkbox (tap to complete)
-// - Title, description, due date
-// - Priority badge (with AI badge if AI-suggested)
-// - Edit and delete action buttons
+// src/components/TaskCard.js
+// Updated with recurring task badge
 // ============================================================
 
 import React, { useRef } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Animated,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { colors, typography, spacing, radius, priorityColors, priorityGlow } from "../utils/theme";
 import { format } from "date-fns";
+import ClassTag from "./ClassTag";
+import { getRecurrenceLabel } from "../services/recurringTasks";
 
-const TaskCard = ({ task, onToggle, onEdit, onDelete }) => {
-  // Animated value for the press-scale effect
+const TaskCard = ({ task, onToggle, onEdit, onDelete, highlighted = false }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      useNativeDriver: true,
-    }).start();
-  };
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
-  };
+  const handlePressIn  = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true }).start();
+  const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true }).start();
 
-  // Use AI priority if available, fallback to manual priority
   const displayPriority = task.aiPriority || task.priority;
-  const priorityColor = displayPriority ? priorityColors[displayPriority] : colors.textMuted;
-  const glowColor = displayPriority ? priorityGlow[displayPriority] : "transparent";
+  const priorityColor   = displayPriority ? priorityColors[displayPriority] : colors.textMuted;
+  const glowColor       = displayPriority ? priorityGlow[displayPriority]   : "transparent";
 
-  const isOverdue =
-    task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
+  const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
+
+  const lastTouched      = task.lastTouchedAt ? new Date(task.lastTouchedAt) : null;
+  const daysSinceTouched = lastTouched
+    ? Math.floor((new Date() - lastTouched) / (1000 * 60 * 60 * 24))
+    : null;
+  const isBeingAvoided = !task.completed && daysSinceTouched !== null && daysSinceTouched >= 3;
+
+  const recurrenceLabel = task.recurrence ? getRecurrenceLabel(task.recurrence) : null;
 
   return (
     <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
@@ -55,12 +42,13 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete }) => {
           styles.card,
           task.completed && styles.cardCompleted,
           displayPriority && { borderLeftColor: priorityColor, borderLeftWidth: 3 },
+          highlighted && styles.cardHighlighted,
         ]}
       >
-        {/* AI priority glow background */}
         {task.aiPriority && (
           <View style={[styles.glowOverlay, { backgroundColor: glowColor }]} />
         )}
+        {highlighted && <View style={styles.highlightOverlay} />}
 
         <View style={styles.row}>
           {/* Checkbox */}
@@ -69,41 +57,46 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete }) => {
             style={[styles.checkbox, task.completed && styles.checkboxDone]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            {task.completed && (
-              <Feather name="check" size={12} color={colors.bg} />
-            )}
+            {task.completed && <Feather name="check" size={12} color={colors.bg} />}
           </TouchableOpacity>
 
-          {/* Task content */}
           <View style={styles.content}>
+            {/* Title row */}
             <View style={styles.titleRow}>
-              <Text
-                style={[styles.title, task.completed && styles.titleCompleted]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.title, task.completed && styles.titleCompleted]} numberOfLines={1}>
                 {task.title}
               </Text>
-
-              {/* Priority badge */}
               {displayPriority && (
                 <View style={[styles.badge, { backgroundColor: glowColor, borderColor: priorityColor }]}>
                   {task.aiPriority && (
                     <Feather name="zap" size={8} color={priorityColor} style={{ marginRight: 2 }} />
                   )}
-                  <Text style={[styles.badgeText, { color: priorityColor }]}>
-                    {displayPriority}
-                  </Text>
+                  <Text style={[styles.badgeText, { color: priorityColor }]}>{displayPriority}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Meta row: class + recurrence + avoidance */}
+            <View style={styles.metaRow}>
+              {task.className && <ClassTag className={task.className} size="sm" />}
+              {recurrenceLabel && (
+                <View style={styles.recurrenceChip}>
+                  <Feather name="repeat" size={9} color={colors.accent} />
+                  <Text style={styles.recurrenceText}>{recurrenceLabel}</Text>
+                </View>
+              )}
+              {isBeingAvoided && (
+                <View style={styles.avoidanceChip}>
+                  <Feather name="alert-triangle" size={9} color={colors.medium} />
+                  <Text style={styles.avoidanceText}>{daysSinceTouched}d untouched</Text>
                 </View>
               )}
             </View>
 
             {task.description ? (
-              <Text style={styles.description} numberOfLines={2}>
-                {task.description}
-              </Text>
+              <Text style={styles.description} numberOfLines={2}>{task.description}</Text>
             ) : null}
 
-            {/* AI reason (shown after 'Suggest Priority') */}
             {task.aiReason ? (
               <View style={styles.aiReasonRow}>
                 <Feather name="cpu" size={10} color={colors.accent} />
@@ -111,43 +104,21 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete }) => {
               </View>
             ) : null}
 
-            {/* Footer: due date + actions */}
+            {/* Footer */}
             <View style={styles.footer}>
               {task.dueDate ? (
                 <View style={styles.dueDateRow}>
-                  <Feather
-                    name="calendar"
-                    size={11}
-                    color={isOverdue ? colors.high : colors.textMuted}
-                  />
-                  <Text
-                    style={[
-                      styles.dueDate,
-                      isOverdue && { color: colors.high },
-                    ]}
-                  >
-                    {isOverdue ? "Overdue · " : ""}
-                    {format(new Date(task.dueDate), "MMM d")}
+                  <Feather name="calendar" size={11} color={isOverdue ? colors.high : colors.textMuted} />
+                  <Text style={[styles.dueDate, isOverdue && { color: colors.high }]}>
+                    {isOverdue ? "Overdue · " : ""}{format(new Date(task.dueDate), "MMM d")}
                   </Text>
                 </View>
-              ) : (
-                <View />
-              )}
-
-              {/* Edit / Delete */}
+              ) : <View />}
               <View style={styles.actions}>
-                <TouchableOpacity
-                  onPress={() => onEdit(task)}
-                  style={styles.actionBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
+                <TouchableOpacity onPress={() => onEdit(task)} style={styles.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Feather name="edit-2" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => onDelete(task)}
-                  style={styles.actionBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
+                <TouchableOpacity onPress={() => onDelete(task)} style={styles.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Feather name="trash-2" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -161,115 +132,64 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete }) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.bgCard,
-    borderRadius: 14,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.border,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: "hidden",
+    backgroundColor: colors.bgCard, borderRadius: 14, padding: spacing.md,
+    marginBottom: spacing.sm, borderLeftWidth: 3, borderLeftColor: colors.border,
+    borderWidth: 1, borderColor: colors.border, overflow: "hidden",
   },
-  cardCompleted: {
-    opacity: 0.5,
-  },
+  cardCompleted:   { opacity: 0.5 },
+  cardHighlighted: { borderColor: colors.accent, borderWidth: 1.5 },
   glowOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 14,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: 14,
   },
-  row: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+  highlightOverlay: {
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(108,99,255,0.06)", borderRadius: 14,
   },
+  row:      { flexDirection: "row", alignItems: "flex-start" },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: colors.border,
-    marginRight: spacing.sm,
-    marginTop: 2,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+    borderColor: colors.border, marginRight: spacing.sm, marginTop: 2,
+    alignItems: "center", justifyContent: "center",
   },
-  checkboxDone: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  content: {
-    flex: 1,
-  },
+  checkboxDone: { backgroundColor: colors.accent, borderColor: colors.accent },
+  content:      { flex: 1 },
   titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
+    flexDirection: "row", alignItems: "center",
+    justifyContent: "space-between", marginBottom: 4,
   },
-  title: {
-    ...typography.h3,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  titleCompleted: {
-    textDecorationLine: "line-through",
-    color: colors.textMuted,
-  },
+  title:          { ...typography.h3, flex: 1, marginRight: spacing.sm },
+  titleCompleted: { textDecorationLine: "line-through", color: colors.textMuted },
   badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: radius.full,
-    borderWidth: 1,
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: radius.full, borderWidth: 1,
   },
-  badgeText: {
-    ...typography.label,
-    fontSize: 9,
+  badgeText:   { ...typography.label, fontSize: 9 },
+  metaRow:     { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" },
+  recurrenceChip: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: colors.accentGlow, borderRadius: radius.full,
+    paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: colors.accent,
   },
-  description: {
-    ...typography.bodySmall,
-    marginBottom: 8,
+  recurrenceText: { fontSize: 9, color: colors.accent, fontWeight: "600" },
+  avoidanceChip: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: colors.mediumGlow, borderRadius: radius.full,
+    paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: colors.medium,
   },
+  avoidanceText: { fontSize: 9, color: colors.medium, fontWeight: "600" },
+  description:   { ...typography.bodySmall, marginBottom: 8 },
   aiReasonRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
+    flexDirection: "row", alignItems: "center", marginBottom: 8,
     backgroundColor: "rgba(108,99,255,0.08)",
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6,
   },
-  aiReason: {
-    ...typography.bodySmall,
-    color: colors.accent,
-    marginLeft: 4,
-    fontStyle: "italic",
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  dueDateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  dueDate: {
-    ...typography.bodySmall,
-    marginLeft: 4,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  actionBtn: {
-    padding: 4,
-  },
+  aiReason:   { ...typography.bodySmall, color: colors.accent, marginLeft: 4, fontStyle: "italic" },
+  footer:     { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  dueDateRow: { flexDirection: "row", alignItems: "center" },
+  dueDate:    { ...typography.bodySmall, marginLeft: 4 },
+  actions:    { flexDirection: "row", gap: spacing.sm },
+  actionBtn:  { padding: 4 },
 });
 
 export default TaskCard;

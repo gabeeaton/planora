@@ -1,81 +1,67 @@
 // ============================================================
-// services/offlineStorage.js
-// Caches tasks locally using AsyncStorage so the app works
-// without an internet connection. Firestore's own persistence
-// handles most offline cases, but this adds an extra layer
-// for immediate UI availability on app launch.
+// src/services/offlineStorage.js
 // ============================================================
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const TASKS_KEY = "@taskflow_tasks";
-const USER_KEY = "@taskflow_user";
+const TASKS_KEY   = "@taskflow_tasks";
+const USER_KEY    = "@taskflow_user";
+const PROFILE_KEY = "@taskflow_profile";
+const HISTORY_KEY = "@taskflow_history";
 
-/**
- * Save tasks to local device storage.
- * Called every time Firestore snapshot updates.
- */
 export const cacheTasksLocally = async (tasks) => {
-  try {
-    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
-  } catch (error) {
-    console.error("Failed to cache tasks:", error);
-  }
+  try { await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(tasks)); }
+  catch (e) { console.error("Failed to cache tasks:", e); }
 };
 
-/**
- * Load tasks from local device storage.
- * Used on app launch before Firestore responds.
- * @returns {Promise<Array>} - Cached tasks or empty array
- */
 export const loadCachedTasks = async () => {
   try {
     const data = await AsyncStorage.getItem(TASKS_KEY);
     return data ? JSON.parse(data) : [];
-  } catch (error) {
-    console.error("Failed to load cached tasks:", error);
-    return [];
-  }
+  } catch { return []; }
 };
 
-/**
- * Save user session info locally for faster startup.
- */
 export const cacheUserSession = async (user) => {
   try {
-    if (user) {
-      await AsyncStorage.setItem(
-        USER_KEY,
-        JSON.stringify({ uid: user.uid, email: user.email })
-      );
-    } else {
-      await AsyncStorage.removeItem(USER_KEY);
-    }
-  } catch (error) {
-    console.error("Failed to cache user session:", error);
-  }
+    if (user) await AsyncStorage.setItem(USER_KEY, JSON.stringify({ uid: user.uid, email: user.email }));
+    else       await AsyncStorage.removeItem(USER_KEY);
+  } catch (e) { console.error("Failed to cache user session:", e); }
 };
 
-/**
- * Load cached user session.
- * @returns {Promise<object|null>}
- */
 export const loadCachedUser = async () => {
   try {
     const data = await AsyncStorage.getItem(USER_KEY);
     return data ? JSON.parse(data) : null;
-  } catch (error) {
-    return null;
-  }
+  } catch { return null; }
 };
 
-/**
- * Clear all cached data (called on logout).
- */
-export const clearCache = async () => {
+export const cacheUserProfile = async (profile) => {
   try {
-    await AsyncStorage.multiRemove([TASKS_KEY, USER_KEY]);
-  } catch (error) {
-    console.error("Failed to clear cache:", error);
-  }
+    if (profile) await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    else         await AsyncStorage.removeItem(PROFILE_KEY);
+  } catch (e) { console.error("Failed to cache profile:", e); }
+};
+
+export const loadCachedProfile = async () => {
+  try {
+    const data = await AsyncStorage.getItem(PROFILE_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch { return null; }
+};
+
+export const cacheTaskHistory = async (history) => {
+  try { await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history)); }
+  catch (e) { console.error("Failed to cache history:", e); }
+};
+
+export const loadCachedHistory = async () => {
+  try {
+    const data = await AsyncStorage.getItem(HISTORY_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+};
+
+export const clearCache = async () => {
+  try { await AsyncStorage.multiRemove([TASKS_KEY, USER_KEY, PROFILE_KEY, HISTORY_KEY]); }
+  catch (e) { console.error("Failed to clear cache:", e); }
 };
