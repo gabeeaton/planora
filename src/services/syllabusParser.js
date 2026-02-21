@@ -5,13 +5,25 @@
 // Output: array of task objects ready to be saved.
 // ============================================================
 
-import OpenAI from "openai";
 import { OPENAI_API_KEY, APP_CONFIG } from "../config";
 
-const client = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+// Lazy-initialized — avoids Metro circular import warning caused by
+// OpenAI's CJS/ESM interop being traced back through the module graph.
+let _client = null;
+const getClient = () => {
+  if (!_client) {
+    const OpenAI = require("openai").default ?? require("openai");
+    _client = new OpenAI({ apiKey: OPENAI_API_KEY, dangerouslyAllowBrowser: true });
+  }
+  return _client;
+};
+
+// Parse YYYY-MM-DD as LOCAL date (not UTC) to avoid off-by-one day errors
+const parseLocalDate = (iso) => {
+  if (!iso) return null;
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0); // noon local time
+};
 
 const today = () =>
   new Date().toLocaleDateString("en-US", {
@@ -55,7 +67,7 @@ Respond ONLY with this JSON array, no other text:
 ]`;
 
   try {
-    const response = await client.chat.completions.create({
+    const response = await getClient().chat.completions.create({
       model:       APP_CONFIG.gptModel,
       messages:    [{ role: "user", content: prompt }],
       temperature: 0.1,
@@ -79,7 +91,7 @@ Respond ONLY with this JSON array, no other text:
       })
       .map((t) => ({
         title:       t.title?.trim() ?? "Untitled",
-        dueDate:     t.dueDate ? new Date(t.dueDate) : null,
+        dueDate:     t.dueDate ? parseLocalDate(t.dueDate) : null,
         priority:    ["HIGH","MEDIUM","LOW"].includes(t.priority) ? t.priority : "MEDIUM",
         description: t.description?.trim() ?? "",
         className:   className ?? null,
@@ -115,7 +127,7 @@ Respond ONLY with JSON array:
 [{"title":"...","dueDate":"YYYY-MM-DD or null","priority":"HIGH|MEDIUM|LOW","description":"..."}]`;
 
   try {
-    const response = await client.chat.completions.create({
+    const response = await getClient().chat.completions.create({
       model: APP_CONFIG.gptModel,
       messages: [
         {
@@ -152,7 +164,7 @@ Respond ONLY with JSON array:
       })
       .map((t) => ({
         title:       t.title?.trim() ?? "Untitled",
-        dueDate:     t.dueDate ? new Date(t.dueDate) : null,
+        dueDate:     t.dueDate ? parseLocalDate(t.dueDate) : null,
         priority:    ["HIGH","MEDIUM","LOW"].includes(t.priority) ? t.priority : "MEDIUM",
         description: t.description?.trim() ?? "",
         className:   className ?? null,

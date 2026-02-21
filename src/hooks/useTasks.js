@@ -1,37 +1,66 @@
 // ============================================================
 // src/hooks/useTasks.js
-// Updated — spawns next recurring task on completion
+// Fixed: pattern analysis now wired up correctly
 // ============================================================
 
 import { useState, useEffect, useCallback } from "react";
 import {
   subscribeTasks, addTask, updateTask,
   toggleTask, deleteTask, recordTaskCompletion,
+  loadTaskHistory,
 } from "../services/firebase";
-import { cacheTasksLocally, loadCachedTasks } from "../services/offlineStorage";
+import { cacheTasksLocally, loadCachedTasks, cacheTaskHistory, loadCachedHistory } from "../services/offlineStorage";
 import { scheduleTaskReminder, cancelTaskReminder } from "../services/notifications";
 import { spawnNextRecurringTask } from "../services/recurringTasks";
+import { analyzePatterns } from "../services/patternAnalysis";
 import { useAuth } from "./useAuth";
 
 export const useTasks = () => {
   const { user } = useAuth();
-  const [tasks, setTasks]     = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
+  const [tasks, setTasks]       = useState([]);
+  const [history, setHistory]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
   const [patterns, setPatterns] = useState(null);
 
+  // Recompute patterns whenever tasks or history change
   useEffect(() => {
-    if (!user) { setTasks([]); setLoading(false); return; }
+    if (tasks.length > 0 || history.length > 0) {
+      setPatterns(analyzePatterns(tasks, history, null));
+    }
+  }, [tasks, history]);
 
-    loadCachedTasks().then((cached) => {
-      if (cached.length > 0) { setTasks(cached); setLoading(false); }
+  useEffect(() => {
+    if (!user) { setTasks([]); setHistory([]); setLoading(false); return; }
+
+    // Load cached data immediately for snappy offline-first UI
+    Promise.all([loadCachedTasks(), loadCachedHistory()]).then(([cachedTasks, cachedHistory]) => {
+      if (cachedTasks.length > 0) {
+        // Sanitize className on cache read — old cached data may have full class objects
+        const sanitized = cachedTasks.map((t) => ({
+          ...t,
+          className: typeof t.className === "string" ? t.className : (t.className?.name ?? null),
+        }));
+        setTasks(sanitized);
+        setLoading(false);
+      }
+      if (cachedHistory.length > 0) {
+        setHistory(cachedHistory);
+      }
     });
 
+    // Subscribe to live task updates
     const unsubscribe = subscribeTasks(user.uid, (freshTasks) => {
       setTasks(freshTasks);
       cacheTasksLocally(freshTasks);
       setLoading(false);
     });
+
+    // Load full task history for pattern analysis (non-blocking)
+    loadTaskHistory(user.uid, 100).then((freshHistory) => {
+      setHistory(freshHistory);
+      cacheTaskHistory(freshHistory);
+    }).catch(() => {}); // Non-critical — patterns just won't be available
 
     return unsubscribe;
   }, [user]);
@@ -80,13 +109,16 @@ export const useTasks = () => {
   const completeTask = useCallback(async (task) => {
     try {
       await toggleTask(task.id, task.completed);
-      // If completing (not uncompleting) a recurring task, spawn the next instance
       if (!task.completed && task.recurrence) {
         await spawnNextRecurringTask({ ...task, userId: user.uid });
       }
-      // Record to history for pattern analysis
       if (!task.completed) {
         await recordTaskCompletion({ ...task, userId: user.uid });
+        // Refresh history so patterns update after completion
+        loadTaskHistory(user.uid, 100).then((fresh) => {
+          setHistory(fresh);
+          cacheTaskHistory(fresh);
+        }).catch(() => {});
       }
       if (!task.completed && task.notificationId) {
         await cancelTaskReminder(task.notificationId);

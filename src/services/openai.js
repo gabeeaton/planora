@@ -1,9 +1,7 @@
 // ============================================================
 // src/services/openai.js
-// All OpenAI calls. Every function is personalized using:
-//   - The user's full task list
-//   - Their academic profile (classes, grades)
-//   - Behavioral patterns from patternAnalysis.js
+// Fixed: weekly plan prompt tightened to eliminate hallucinations.
+// All AI calls receive full behavioral context via patterns.
 // ============================================================
 
 import OpenAI from "openai";
@@ -32,13 +30,22 @@ const today = () => new Date().toLocaleDateString("en-US", {
   weekday: "long", year: "numeric", month: "long", day: "numeric",
 });
 
+// Safe JSON parse — handles minor model formatting issues
+const safeParseJSON = (raw, type = "object") => {
+  const pattern = type === "array" ? /\[.*\]/s : /\{.*\}/s;
+  const match   = raw.match(pattern);
+  if (!match) throw new Error(`No JSON ${type} in response`);
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    // Attempt to clean common issues (trailing commas, unquoted keys)
+    const cleaned = match[0].replace(/,\s*([}\]])/g, "$1");
+    return JSON.parse(cleaned);
+  }
+};
+
 // ── 1. What Do I Do Right Now? ───────────────────────────────
 
-/**
- * THE core feature. Returns a single, confident recommendation
- * for what the user should work on right now.
- * Only possible because we have their full context.
- */
 export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
   const pending = tasks.filter((t) => !t.completed);
   if (pending.length === 0) return {
@@ -47,16 +54,15 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
     taskId: null,
   };
 
-  const patternCtx  = buildPatternContext(patterns);
-  const taskList    = formatTaskList(pending);
-  const classes     = userProfile?.classes?.map(
+  const patternCtx = patterns ? buildPatternContext(patterns) : "No pattern data yet.";
+  const taskList   = formatTaskList(pending);
+  const classes    = userProfile?.classes?.map(
     (c) => `${c.name} (${c.creditHours} credits, current grade: ${c.grade ?? "unknown"})`
   ).join(", ") ?? "Not specified";
 
   const prompt = `You are a smart academic coach. Based on everything you know about this student, tell them exactly ONE task to work on right now and why.
 
 Today: ${today()}
-
 Student's classes: ${classes}
 Preferred work time: ${userProfile?.preferredWorkTime ?? "not set"}
 
@@ -66,13 +72,17 @@ ${patternCtx}
 Pending tasks:
 ${taskList}
 
-Give a direct, confident recommendation. Do not hedge. Do not list multiple options. Pick ONE.
+Rules:
+- Pick exactly ONE task. Do not hedge or list alternatives.
+- Reference the task by its EXACT title as written above.
+- If they have a pattern of leaving a certain class late, call it out by name.
+- Be direct and confident. Max 1 sentence for recommendation.
 
-Respond ONLY with this JSON, no other text:
+Respond ONLY with this JSON, no markdown, no explanation:
 {
-  "taskId": "the_task_id",
-  "recommendation": "One punchy sentence telling them what to do (e.g. 'Start your HIST 201 essay — it's due in 2 days and you always leave history late.')",
-  "reasoning": "2-3 sentences max explaining why this task, referencing their actual patterns and deadlines."
+  "taskId": "the_exact_task_id_from_list",
+  "recommendation": "One confident sentence using the exact task title (e.g. 'Start your HIST 201 essay — it\\'s due in 2 days and you always leave history late.')",
+  "reasoning": "2-3 sentences max explaining why, referencing their actual patterns and deadlines."
 }`;
 
   try {
@@ -82,75 +92,88 @@ Respond ONLY with this JSON, no other text:
       temperature: 0.3,
       max_tokens:  300,
     });
-
-    const raw   = response.choices[0].message.content.trim();
-    const match = raw.match(/\{.*\}/s);
-    if (!match) throw new Error("No JSON in response");
-    return JSON.parse(match[0]);
+    return safeParseJSON(response.choices[0].message.content.trim());
   } catch (err) {
     console.error("getWhatDoIDo failed:", err);
     throw new Error("Couldn't get recommendation. Check your connection and try again.");
   }
 };
 
-// ── 2. Weekly Plan ───────────────────────────────────────────
+// ── 2. Weekly Plan (hallucination-resistant) ─────────────────
 
-/**
- * Generates a full day-by-day plan for the next 7 days.
- * Shown on the WeeklyBriefingScreen (Pro feature).
- */
 export const getWeeklyPlan = async (tasks, userProfile, patterns) => {
-  const pending     = tasks.filter((t) => !t.completed);
-  const patternCtx  = buildPatternContext(patterns);
-  const taskList    = formatTaskList(pending);
-  const classes     = userProfile?.classes?.map(
+  const pending       = tasks.filter((t) => !t.completed);
+  const patternCtx    = patterns ? buildPatternContext(patterns) : "No pattern data yet.";
+  const taskList      = formatTaskList(pending);
+  const classes       = userProfile?.classes?.map(
     (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade ?? "?"})`
   ).join("\n  ") ?? "Not specified";
   const preferredTime = userProfile?.preferredWorkTime ?? "not specified";
 
-  const prompt = `You are an academic coach building a realistic week plan for a college student.
+  // Build exact task title list for the constraint section
+  const exactTitles = pending.slice(0, APP_CONFIG.maxTasksForAI)
+    .map((t) => `"${t.title}"`).join(", ");
 
-Today: ${today()}
-Preferred study time: ${preferredTime}
+  const prompt = `You are an academic planner. Build a realistic 7-day study plan for a college student.
 
-Classes:
+TODAY: ${today()}
+PREFERRED STUDY TIME: ${preferredTime}
+
+CLASSES:
   ${classes}
 
-Behavioral patterns:
+BEHAVIORAL PATTERNS:
 ${patternCtx}
 
-Pending tasks:
+TASKS TO SCHEDULE:
 ${taskList}
 
-Create a realistic day-by-day plan for the next 7 days. Account for their patterns — if they tend to be late on a certain class, front-load those tasks.
+STRICT RULES — READ CAREFULLY:
+1. Each day's task list must contain ONLY exact task titles from this list: ${exactTitles}
+2. NEVER invent chapter numbers, page numbers, reading assignments, or subtasks.
+3. NEVER suggest tasks not in the list above. Do not say "review notes", "study chapter X", etc.
+4. If a task has a due date, schedule it on or before that date.
+5. Front-load tasks for classes where the student has a late pattern.
+6. Schedule tasks during their preferred study time window where possible.
+7. Maximum 3 tasks per day — realistic, not optimistic.
+8. If no tasks fit a day naturally, leave it as a rest day (empty tasks array).
+9. The "note" field for each day should be a brief coach tip referencing real data (e.g. their lateness pattern), not generic advice.
 
-Respond ONLY with this JSON:
+Respond ONLY with this JSON (no markdown, no extra text):
 {
-  "headline": "One encouraging sentence about their week",
-  "keyInsight": "One behavioral insight from their patterns (e.g. 'You tend to leave HIST work until the last day — this plan front-loads it.')",
+  "headline": "One encouraging sentence about their week (specific, not generic)",
+  "keyInsight": "One behavioral insight from their patterns referencing a specific class or habit",
   "days": [
     {
       "day": "Monday",
       "date": "Feb 24",
-      "tasks": ["task title 1", "task title 2"],
-      "note": "Optional short note for this day"
+      "tasks": ["exact task title from list", "another exact title"],
+      "note": "Optional short coach tip for this specific day"
     }
   ],
-  "warnings": ["Any overdue or at-risk items the student should know about"]
+  "warnings": ["Any overdue or at-risk items with specific due dates"]
 }`;
 
   try {
     const response = await client.chat.completions.create({
       model:       APP_CONFIG.gptModel,
       messages:    [{ role: "user", content: prompt }],
-      temperature: 0.4,
+      temperature: 0.3,
       max_tokens:  1200,
     });
 
-    const raw   = response.choices[0].message.content.trim();
-    const match = raw.match(/\{.*\}/s);
-    if (!match) throw new Error("No JSON in response");
-    return JSON.parse(match[0]);
+    const result = safeParseJSON(response.choices[0].message.content.trim());
+
+    // Post-process: validate that all task titles in plan actually exist
+    const validTitles = new Set(pending.map((t) => t.title));
+    if (result.days) {
+      result.days = result.days.map((day) => ({
+        ...day,
+        tasks: (day.tasks ?? []).filter((title) => validTitles.has(title)),
+      }));
+    }
+
+    return result;
   } catch (err) {
     console.error("getWeeklyPlan failed:", err);
     throw new Error("Couldn't generate weekly plan.");
@@ -159,10 +182,6 @@ Respond ONLY with this JSON:
 
 // ── 3. Avoidance Alert Message ───────────────────────────────
 
-/**
- * Generates a personalized, non-naggy push notification message
- * for a task the user has been avoiding.
- */
 export const getAvoidanceAlert = async (task, patternForClass) => {
   const daysAvoided   = task.daysSinceTouched ?? 3;
   const daysUntilDue  = task.dueDate
@@ -188,12 +207,12 @@ Reply with ONLY the notification text, nothing else.`;
       max_tokens:  60,
     });
     return response.choices[0].message.content.trim().replace(/^"|"$/g, "");
-  } catch (err) {
+  } catch {
     return `"${task.title}" is still waiting — ${daysUntilDue ? `due in ${daysUntilDue} days` : "no deadline set"}.`;
   }
 };
 
-// ── 4. Daily Summary (updated with pattern context) ──────────
+// ── 4. Daily Summary ─────────────────────────────────────────
 
 export const summarizeTasks = async (tasks, patterns) => {
   if (!tasks || tasks.length === 0) {
@@ -207,12 +226,12 @@ export const summarizeTasks = async (tasks, patterns) => {
   const prompt = `You are a friendly productivity coach. Give a brief, personalized daily summary for a college student.
 
 Stats: ${pending.length} pending, ${highPriority.length} high-priority.
-${patternCtx ? `\nPatterns:\n${patternCtx}` : ""}
+${patternCtx ? `\nBehavioral patterns:\n${patternCtx}` : ""}
 
 Pending tasks:
 ${formatTaskList(pending)}
 
-Write 2-3 sentences max. Be specific and encouraging. If they have avoidance patterns, gently acknowledge them.`;
+Write 2-3 sentences max. Be specific and encouraging. Reference actual task titles where possible. If they have avoidance patterns with specific classes, gently acknowledge them by class name.`;
 
   try {
     const response = await client.chat.completions.create({
@@ -228,7 +247,7 @@ Write 2-3 sentences max. Be specific and encouraging. If they have avoidance pat
   }
 };
 
-// ── 5. AI Priority Suggestion (updated) ─────────────────────
+// ── 5. AI Priority Suggestion ────────────────────────────────
 
 export const suggestPriorities = async (tasks, patterns) => {
   if (!tasks || tasks.length === 0) return [];
@@ -236,7 +255,7 @@ export const suggestPriorities = async (tasks, patterns) => {
   const patternCtx = patterns ? buildPatternContext(patterns) : "";
   const taskList   = formatTaskList(tasks);
 
-  const prompt = `You are a productivity assistant. Assign each task a priority.
+  const prompt = `You are a productivity assistant. Assign each task a priority based on urgency, due dates, and student behavioral patterns.
 
 Today: ${today()}
 ${patternCtx ? `\nUser patterns:\n${patternCtx}` : ""}
@@ -245,12 +264,12 @@ Tasks:
 ${taskList}
 
 Rules:
-- HIGH: Due within 2 days, or user historically struggles with this class
-- MEDIUM: Due within a week, moderate importance
-- LOW: No deadline or low stakes
+- HIGH: Due within 2 days, or student historically struggles with this class
+- MEDIUM: Due within a week, or moderate importance
+- LOW: No deadline, or low stakes
 
-Return ONLY a JSON array:
-[{"id":"task_id","aiPriority":"HIGH","aiReason":"Max 12 words"}]`;
+Return ONLY a JSON array, no markdown:
+[{"id":"task_id","aiPriority":"HIGH","aiReason":"Max 12 words explaining why"}]`;
 
   try {
     const response = await client.chat.completions.create({
@@ -260,10 +279,7 @@ Return ONLY a JSON array:
       max_tokens:  800,
     });
 
-    const raw   = response.choices[0].message.content.trim();
-    const match = raw.match(/\[.*\]/s);
-    if (!match) throw new Error("No JSON array");
-    const data = JSON.parse(match[0]);
+    const data = safeParseJSON(response.choices[0].message.content.trim(), "array");
 
     return tasks.map((task) => {
       const s = data.find((p) => p.id === task.id);

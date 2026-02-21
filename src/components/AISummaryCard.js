@@ -1,7 +1,6 @@
 // ============================================================
 // components/AISummaryCard.js
-// Shows the GPT-generated daily task summary on the dashboard.
-// Also contains the "Suggest Priority" button.
+// Fixed: patterns prop now correctly passed to AI calls
 // ============================================================
 
 import React, { useState } from "react";
@@ -13,114 +12,12 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { colors, typography, spacing, radius, shadows } from "../utils/theme";
+import { typography, spacing, radius, shadows } from "../utils/theme";
+import { useTheme } from "../utils/ThemeContext";
 import { summarizeTasks, suggestPriorities } from "../services/openai";
 
-const AISummaryCard = ({ tasks, onPrioritiesUpdated }) => {
-  const [summary, setSummary] = useState(null);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [priorityLoading, setPriorityLoading] = useState(false);
-  const [error, setError] = useState(null);
 
-  const handleSummarize = async () => {
-    setSummaryLoading(true);
-    setError(null);
-    try {
-      const result = await summarizeTasks(tasks);
-      setSummary(result);
-    } catch (err) {
-      setError("Failed to get summary. Check your OpenAI API key.");
-    } finally {
-      setSummaryLoading(false);
-    }
-  };
-
-  const handleSuggestPriority = async () => {
-    setPriorityLoading(true);
-    setError(null);
-    try {
-      // Get AI-annotated tasks back
-      const annotatedTasks = await suggestPriorities(
-        tasks.filter((t) => !t.completed)
-      );
-      // Bubble back up to parent so task cards can show AI badges
-      onPrioritiesUpdated(annotatedTasks);
-    } catch (err) {
-      setError("Failed to suggest priorities. Check your OpenAI API key.");
-    } finally {
-      setPriorityLoading(false);
-    }
-  };
-
-  return (
-    <View style={styles.card}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.aiTag}>
-          <Feather name="cpu" size={12} color={colors.accent} />
-          <Text style={styles.aiTagText}>AI Assistant</Text>
-        </View>
-        <Text style={styles.title}>Smart Insights</Text>
-      </View>
-
-      {/* Summary text */}
-      {summary ? (
-        <View style={styles.summaryBox}>
-          <Text style={styles.summaryText}>{summary}</Text>
-        </View>
-      ) : (
-        <Text style={styles.placeholder}>
-          Let AI analyze your tasks and give you a daily briefing.
-        </Text>
-      )}
-
-      {/* Error message */}
-      {error ? (
-        <View style={styles.errorRow}>
-          <Feather name="alert-triangle" size={13} color={colors.high} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
-
-      {/* Action buttons */}
-      <View style={styles.btnRow}>
-        {/* Summarize button */}
-        <TouchableOpacity
-          onPress={handleSummarize}
-          style={[styles.btn, styles.btnOutline]}
-          disabled={summaryLoading || priorityLoading}
-        >
-          {summaryLoading ? (
-            <ActivityIndicator size={14} color={colors.accent} />
-          ) : (
-            <Feather name="message-square" size={14} color={colors.accent} />
-          )}
-          <Text style={styles.btnOutlineText}>
-            {summaryLoading ? "Analyzing..." : "Summarize"}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Suggest Priority button */}
-        <TouchableOpacity
-          onPress={handleSuggestPriority}
-          style={[styles.btn, styles.btnFilled]}
-          disabled={summaryLoading || priorityLoading}
-        >
-          {priorityLoading ? (
-            <ActivityIndicator size={14} color={colors.white} />
-          ) : (
-            <Feather name="zap" size={14} color={colors.white} />
-          )}
-          <Text style={styles.btnFilledText}>
-            {priorityLoading ? "Thinking..." : "Suggest Priority"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   card: {
     backgroundColor: colors.bgCard,
     borderRadius: radius.lg,
@@ -145,10 +42,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   title: {
-    ...typography.h2,
+    ...typography.h2, color: colors.textPrimary,
   },
   placeholder: {
-    ...typography.body,
+    ...typography.body, color: colors.textSecondary,
     marginBottom: spacing.md,
     fontStyle: "italic",
   },
@@ -209,5 +106,110 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
+
+// Fixed: now accepts patterns prop and passes it to AI calls
+const AISummaryCard = ({ tasks, patterns, onPrioritiesUpdated }) => {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [priorityLoading, setPriorityLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSummarize = async () => {
+    setSummaryLoading(true);
+    setError(null);
+    try {
+      // Fixed: pass patterns so AI has behavioral context
+      const result = await summarizeTasks(tasks, patterns);
+      setSummary(result);
+    } catch (err) {
+      setError("Failed to get summary. Check your OpenAI API key.");
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const handleSuggestPriority = async () => {
+    setPriorityLoading(true);
+    setError(null);
+    try {
+      const pending = tasks.filter((t) => !t.completed);
+      // Fixed: pass patterns so AI has behavioral context
+      const annotatedTasks = await suggestPriorities(pending, patterns);
+      onPrioritiesUpdated(annotatedTasks);
+    } catch (err) {
+      setError("Failed to suggest priorities. Check your OpenAI API key.");
+    } finally {
+      setPriorityLoading(false);
+    }
+  };
+
+  return (
+    <View style={styles.card}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.aiTag}>
+          <Feather name="cpu" size={12} color={colors.accent} />
+          <Text style={styles.aiTagText}>AI Assistant</Text>
+        </View>
+        <Text style={styles.title}>Smart Insights</Text>
+      </View>
+
+      {/* Summary text */}
+      {summary ? (
+        <View style={styles.summaryBox}>
+          <Text style={styles.summaryText}>{summary}</Text>
+        </View>
+      ) : (
+        <Text style={styles.placeholder}>
+          Let AI analyze your tasks and give you a daily briefing.
+        </Text>
+      )}
+
+      {/* Error message */}
+      {error ? (
+        <View style={styles.errorRow}>
+          <Feather name="alert-triangle" size={13} color={colors.high} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      {/* Action buttons */}
+      <View style={styles.btnRow}>
+        <TouchableOpacity
+          onPress={handleSummarize}
+          style={[styles.btn, styles.btnOutline]}
+          disabled={summaryLoading || priorityLoading}
+        >
+          {summaryLoading ? (
+            <ActivityIndicator size={14} color={colors.accent} />
+          ) : (
+            <Feather name="message-square" size={14} color={colors.accent} />
+          )}
+          <Text style={styles.btnOutlineText}>
+            {summaryLoading ? "Analyzing..." : "Summarize"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleSuggestPriority}
+          style={[styles.btn, styles.btnFilled]}
+          disabled={summaryLoading || priorityLoading}
+        >
+          {priorityLoading ? (
+            <ActivityIndicator size={14} color={colors.white} />
+          ) : (
+            <Feather name="zap" size={14} color={colors.white} />
+          )}
+          <Text style={styles.btnFilledText}>
+            {priorityLoading ? "Thinking..." : "Suggest Priority"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
 
 export default AISummaryCard;

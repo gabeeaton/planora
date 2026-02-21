@@ -1,7 +1,110 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { colors, spacing, radius } from "../utils/theme";
+import { spacing, radius } from "../utils/theme";
+import { useTheme } from "../utils/ThemeContext";
 import { Feather } from "@expo/vector-icons";
+
+
+const makeStyles = (colors) => StyleSheet.create({
+  container: {
+    backgroundColor: colors.bgInput,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 4,
+    paddingBottom: 4,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  navBtn: { padding: 4 },
+  navDisabled: { opacity: 0.3 },
+  monthTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  // Week header row — mirrors grid row exactly
+  weekRow: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  weekCell: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 20,
+  },
+  weekLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+  },
+  // Each row is a flex row — cells use flex:1 so they're equally spaced
+  gridRow: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    marginBottom: 2,
+  },
+  cell: {
+    flex: 1,
+    height: CELL,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: CELL / 2,
+  },
+  cellSelected: {
+    backgroundColor: "#6C63FF",
+  },
+  cellToday: {
+    borderWidth: 1.5,
+    borderColor: "#6C63FF",
+  },
+  cellPast: {
+    opacity: 0.25,
+  },
+  cellText: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    fontWeight: "400",
+    textAlign: "center",
+  },
+  cellTextSelected: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  cellTextToday: {
+    color: "#6C63FF",
+    fontWeight: "700",
+  },
+  cellTextPast: {
+    color: colors.textMuted,
+  },
+  clearBtn: {
+    alignItems: "center",
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: 6,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  clearText: {
+    color: "#FF6B6B",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});
 
 const MONTHS = ["January","February","March","April","May","June",
                  "July","August","September","October","November","December"];
@@ -17,6 +120,8 @@ function daysInMonth(month, year) {
 }
 
 const DatePicker = ({ value, onChange, onClear }) => {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -154,105 +259,5 @@ const DatePicker = ({ value, onChange, onClear }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.bgInput,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginTop: 4,
-    paddingBottom: 4,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  navBtn: { padding: 4 },
-  navDisabled: { opacity: 0.3 },
-  monthTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  // Week header row — mirrors grid row exactly
-  weekRow: {
-    flexDirection: "row",
-    paddingHorizontal: 8,
-    paddingTop: 10,
-    paddingBottom: 4,
-  },
-  weekCell: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    height: 20,
-  },
-  weekLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: colors.textMuted,
-    textTransform: "uppercase",
-  },
-  // Each row is a flex row — cells use flex:1 so they're equally spaced
-  gridRow: {
-    flexDirection: "row",
-    paddingHorizontal: 8,
-    marginBottom: 2,
-  },
-  cell: {
-    flex: 1,
-    height: CELL,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: CELL / 2,
-  },
-  cellSelected: {
-    backgroundColor: "#6C63FF",
-  },
-  cellToday: {
-    borderWidth: 1.5,
-    borderColor: "#6C63FF",
-  },
-  cellPast: {
-    opacity: 0.25,
-  },
-  cellText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    fontWeight: "400",
-    textAlign: "center",
-  },
-  cellTextSelected: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  cellTextToday: {
-    color: "#6C63FF",
-    fontWeight: "700",
-  },
-  cellTextPast: {
-    color: colors.textMuted,
-  },
-  clearBtn: {
-    alignItems: "center",
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: 6,
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 6,
-  },
-  clearText: {
-    color: "#FF6B6B",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-});
 
 export default DatePicker;

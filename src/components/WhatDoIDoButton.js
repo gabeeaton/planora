@@ -11,103 +11,12 @@ import {
   ActivityIndicator, Animated,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { colors, spacing, radius, shadows } from "../utils/theme";
+import { spacing, radius, shadows } from "../utils/theme";
+import { useTheme } from "../utils/ThemeContext";
 import { getWhatDoIDo } from "../services/openai";
 
-const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
-  const [loading, setLoading]           = useState(false);
-  const [result, setResult]             = useState(null);
-  const [error, setError]               = useState(null);
 
-  const handlePress = async () => {
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    try {
-      const recommendation = await getWhatDoIDo(tasks, userProfile, patterns);
-      setResult(recommendation);
-      if (recommendation?.taskId && onTaskHighlight) {
-        onTaskHighlight(recommendation.taskId);
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDismiss = () => { setResult(null); setError(null); };
-
-  return (
-    <View style={styles.wrapper}>
-      {/* The main button */}
-      {!result && (
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonLoading]}
-          onPress={handlePress}
-          disabled={loading}
-          activeOpacity={0.85}
-        >
-          {loading ? (
-            <>
-              <ActivityIndicator size={18} color="#fff" />
-              <Text style={styles.buttonText}>Thinking...</Text>
-            </>
-          ) : (
-            <>
-              <Feather name="cpu" size={18} color="#fff" />
-              <Text style={styles.buttonText}>What should I do right now?</Text>
-              <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.6)" />
-            </>
-          )}
-        </TouchableOpacity>
-      )}
-
-      {/* Error state */}
-      {error && (
-        <View style={styles.errorCard}>
-          <Feather name="alert-triangle" size={14} color={colors.high} />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={handleDismiss}>
-            <Feather name="x" size={16} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Result card */}
-      {result && (
-        <View style={styles.resultCard}>
-          {/* Header */}
-          <View style={styles.resultHeader}>
-            <View style={styles.aiChip}>
-              <Feather name="cpu" size={11} color={colors.accent} />
-              <Text style={styles.aiChipText}>AI Coach</Text>
-            </View>
-            <TouchableOpacity onPress={handleDismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Feather name="x" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Recommendation */}
-          <Text style={styles.recommendation}>{result.recommendation}</Text>
-
-          {/* Reasoning */}
-          {result.reasoning && (
-            <Text style={styles.reasoning}>{result.reasoning}</Text>
-          )}
-
-          {/* Ask again */}
-          <TouchableOpacity style={styles.askAgainBtn} onPress={handlePress}>
-            <Feather name="refresh-cw" size={12} color={colors.accent} />
-            <Text style={styles.askAgainText}>Ask again</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   wrapper: {
     marginBottom: spacing.md,
   },
@@ -204,5 +113,101 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
+const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+  const [loading, setLoading]           = useState(false);
+  const [result, setResult]             = useState(null);
+  const [error, setError]               = useState(null);
+
+  const handlePress = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const recommendation = await getWhatDoIDo(tasks, userProfile, patterns);
+      setResult(recommendation);
+      if (recommendation?.taskId && onTaskHighlight) {
+        onTaskHighlight(recommendation.taskId);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDismiss = () => { setResult(null); setError(null); };
+
+  return (
+    <View style={styles.wrapper}>
+      {/* The main button */}
+      {!result && (
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonLoading]}
+          onPress={handlePress}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          {loading ? (
+            <>
+              <ActivityIndicator size={18} color="#fff" />
+              <Text style={styles.buttonText}>Thinking...</Text>
+            </>
+          ) : (
+            <>
+              <Feather name="cpu" size={18} color="#fff" />
+              <Text style={styles.buttonText}>What should I do right now?</Text>
+              <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.6)" />
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+
+      {/* Error state */}
+      {error && (
+        <View style={styles.errorCard}>
+          <Feather name="alert-triangle" size={14} color={colors.high} />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={handleDismiss}>
+            <Feather name="x" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Result card */}
+      {result && (
+        <View style={styles.resultCard}>
+          {/* Header */}
+          <View style={styles.resultHeader}>
+            <View style={styles.aiChip}>
+              <Feather name="cpu" size={11} color={colors.accent} />
+              <Text style={styles.aiChipText}>AI Coach</Text>
+            </View>
+            <TouchableOpacity onPress={handleDismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Feather name="x" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Recommendation */}
+          <Text style={styles.recommendation}>{result.recommendation}</Text>
+
+          {/* Reasoning */}
+          {result.reasoning && (
+            <Text style={styles.reasoning}>{result.reasoning}</Text>
+          )}
+
+          {/* Ask again */}
+          <TouchableOpacity style={styles.askAgainBtn} onPress={handlePress}>
+            <Feather name="refresh-cw" size={12} color={colors.accent} />
+            <Text style={styles.askAgainText}>Ask again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+};
+
 
 export default WhatDoIDoButton;

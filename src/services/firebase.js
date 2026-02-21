@@ -4,9 +4,21 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
-  getFirestore, collection, addDoc, updateDoc,
-  deleteDoc, doc, query, where, orderBy,
-  onSnapshot, Timestamp, setDoc, getDoc, getDocs, limit,
+  getFirestore,
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  Timestamp,
+  setDoc,
+  getDoc,
+  getDocs,
+  limit,
 } from "firebase/firestore";
 import {
   initializeAuth,
@@ -16,6 +28,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  sendEmailVerification,
 } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FIREBASE_CONFIG } from "../config";
@@ -36,9 +49,16 @@ export { auth };
 
 // ── Auth ─────────────────────────────────────────────────────
 
-export const loginUser    = (email, password) => signInWithEmailAndPassword(auth, email, password);
-export const registerUser = (email, password) => createUserWithEmailAndPassword(auth, email, password);
-export const logoutUser   = () => signOut(auth);
+export const loginUser = (email, password) =>
+  signInWithEmailAndPassword(auth, email, password);
+export const registerUser = async (email, password) => {
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  await sendEmailVerification(cred.user);
+  return cred;
+};
+export const logoutUser = () => signOut(auth);
+export const resendVerificationEmail = () =>
+  sendEmailVerification(auth.currentUser);
 export const onAuthChange = (cb) => onAuthStateChanged(auth, cb);
 
 // ── Tasks ────────────────────────────────────────────────────
@@ -50,14 +70,28 @@ export const subscribeTasks = (userId, callback) => {
     orderBy("createdAt", "desc")
   );
   return onSnapshot(q, (snapshot) => {
-    const tasks = snapshot.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-      createdAt: d.data().createdAt?.toDate(),
-      dueDate:   d.data().dueDate?.toDate(),
-    }));
+    const tasks = snapshot.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        // Sanitize className on READ so any old bad data in Firestore is fixed immediately
+        className: resolveClassName(data.className),
+        createdAt: data.createdAt?.toDate(),
+        dueDate: data.dueDate?.toDate(),
+      };
+    });
     callback(tasks);
   });
+};
+
+// Normalise className — guard against accidentally passing a full class object
+// e.g. {name, id, creditHours, grade} instead of just a name string.
+const resolveClassName = (v) => {
+  if (!v) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "object" && v.name) return String(v.name);
+  return null;
 };
 
 export const addTask = (userId, taskData) =>
@@ -67,19 +101,26 @@ export const addTask = (userId, taskData) =>
     completed: false,
     createdAt: Timestamp.now(),
     lastTouchedAt: Timestamp.now(),
-    dueDate: taskData.dueDate ? Timestamp.fromDate(new Date(taskData.dueDate)) : null,
+    className: resolveClassName(taskData.className),
+    dueDate: taskData.dueDate
+      ? Timestamp.fromDate(new Date(taskData.dueDate))
+      : null,
   });
 
 export const updateTask = (taskId, updates) => {
   const data = { ...updates, lastTouchedAt: Timestamp.now() };
-  if (updates.dueDate instanceof Date) data.dueDate = Timestamp.fromDate(updates.dueDate);
+  if (updates.dueDate instanceof Date)
+    data.dueDate = Timestamp.fromDate(updates.dueDate);
+  // Sanitise className on edits too
+  if ("className" in updates)
+    data.className = resolveClassName(updates.className);
   return updateDoc(doc(db, "tasks", taskId), data);
 };
 
 export const toggleTask = async (taskId, currentStatus) => {
   await updateDoc(doc(db, "tasks", taskId), {
-    completed:    !currentStatus,
-    completedAt:  !currentStatus ? Timestamp.now() : null,
+    completed: !currentStatus,
+    completedAt: !currentStatus ? Timestamp.now() : null,
     lastTouchedAt: Timestamp.now(),
   });
 };
@@ -101,16 +142,18 @@ export const recordTaskCompletion = async (task) => {
       : null;
 
     await addDoc(collection(db, "taskHistory"), {
-      userId:             task.userId,
-      taskId:             task.id,
-      title:              task.title,
-      classId:            task.classId   ?? null,
-      className:          task.className ?? null,
-      priority:           task.priority  ?? null,
-      completedAt:        Timestamp.now(),
-      dueDate:            dueDate ? Timestamp.fromDate(dueDate) : null,
+      userId: task.userId,
+      taskId: task.id,
+      title: task.title,
+      classId: task.classId ?? null,
+      className: resolveClassName(task.className),
+      priority: task.priority ?? null,
+      completedAt: Timestamp.now(),
+      dueDate: dueDate ? Timestamp.fromDate(dueDate) : null,
       daysBeforeDeadline, // negative = completed late
-      createdAt:          task.createdAt ? Timestamp.fromDate(new Date(task.createdAt)) : null,
+      createdAt: task.createdAt
+        ? Timestamp.fromDate(new Date(task.createdAt))
+        : null,
     });
   } catch (err) {
     // Non-critical — don't surface to user
@@ -120,22 +163,32 @@ export const recordTaskCompletion = async (task) => {
 
 /**
  * Load last N completed task history records for pattern analysis.
+ * Uses a simple where-only query (no orderBy) to avoid requiring a
+ * composite Firestore index. Results are sorted client-side.
  */
-export const loadTaskHistory = async (userId, limitCount = 50) => {
+export const loadTaskHistory = async (userId, limitCount = 100) => {
   try {
+    // Simple single-field query — no composite index needed
     const q = query(
       collection(db, "taskHistory"),
       where("userId", "==", userId),
-      orderBy("completedAt", "desc"),
       limit(limitCount)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({
+    const records = snap.docs.map((d) => ({
       id: d.id,
       ...d.data(),
-      completedAt: d.data().completedAt?.toDate(),
-      dueDate:     d.data().dueDate?.toDate(),
+      completedAt: d.data().completedAt?.toDate() ?? null,
+      dueDate: d.data().dueDate?.toDate() ?? null,
     }));
+    // Sort client-side: most recent first
+    records.sort((a, b) => {
+      if (!a.completedAt && !b.completedAt) return 0;
+      if (!a.completedAt) return 1;
+      if (!b.completedAt) return -1;
+      return b.completedAt - a.completedAt;
+    });
+    return records;
   } catch (err) {
     console.warn("Failed to load task history:", err);
     return [];

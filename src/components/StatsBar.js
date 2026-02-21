@@ -1,31 +1,47 @@
-// ============================================================
-// components/StatsBar.js
-// Displays 3 stat counters: Today / Pending / Completed
-// ============================================================
-
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { colors, spacing, radius } from "../utils/theme";
-
-const Stat = ({ icon, value, label, color }) => (
-  <View style={styles.stat}>
-    <View style={[styles.iconWrap, { backgroundColor: color + "18" }]}>
-      <Feather name={icon} size={16} color={color} />
-    </View>
-    <Text style={styles.value}>{value}</Text>
-    <Text style={styles.label}>{label}</Text>
-  </View>
-);
+import { spacing, radius } from "../utils/theme";
+import { useTheme } from "../utils/ThemeContext";
 
 const StatsBar = ({ todayCount, pendingCount, completedCount }) => {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.container}>
-      <Stat icon="sun" value={todayCount} label="Today" color={colors.medium} />
-      <View style={styles.divider} />
-      <Stat icon="clock" value={pendingCount} label="Pending" color={colors.accent} />
-      <View style={styles.divider} />
-      <Stat icon="check-circle" value={completedCount} label="Done" color={colors.low} />
+    <View style={[styles.container, {
+      backgroundColor: colors.bgCard,
+      borderColor: colors.border,
+    }]}>
+      {/* Today */}
+      <View style={styles.stat}>
+        <View style={[styles.iconWrap, { backgroundColor: colors.medium + "18" }]}>
+          <Feather name="sun" size={16} color={colors.medium} />
+        </View>
+        <Text style={[styles.value, { color: colors.textPrimary }]}>{todayCount}</Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Today</Text>
+      </View>
+
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+      {/* Pending */}
+      <View style={styles.stat}>
+        <View style={[styles.iconWrap, { backgroundColor: colors.accent + "18" }]}>
+          <Feather name="clock" size={16} color={colors.accent} />
+        </View>
+        <Text style={[styles.value, { color: colors.textPrimary }]}>{pendingCount}</Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Pending</Text>
+      </View>
+
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+      {/* Done */}
+      <View style={styles.stat}>
+        <View style={[styles.iconWrap, { backgroundColor: colors.low + "18" }]}>
+          <Feather name="check-circle" size={16} color={colors.low} />
+        </View>
+        <Text style={[styles.value, { color: colors.textPrimary }]}>{completedCount}</Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Done</Text>
+      </View>
     </View>
   );
 };
@@ -33,46 +49,18 @@ const StatsBar = ({ todayCount, pendingCount, completedCount }) => {
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    backgroundColor: colors.bgCard,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "space-around",
   },
-  stat: {
-    alignItems: "center",
-    flex: 1,
-  },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 6,
-  },
-  value: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  label: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: "500",
-    marginTop: 2,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  divider: {
-    width: 1,
-    height: 40,
-    backgroundColor: colors.border,
-  },
+  stat:     { alignItems: "center", flex: 1 },
+  iconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 6 },
+  value:    { fontSize: 22, fontWeight: "800", letterSpacing: -0.5 },
+  label:    { fontSize: 11, fontWeight: "500", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
+  divider:  { width: 1, height: 40 },
 });
 
 export default StatsBar;

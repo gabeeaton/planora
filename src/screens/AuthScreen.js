@@ -12,7 +12,60 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "../hooks/useAuth";
-import { colors, typography, spacing, radius, shadows } from "../utils/theme";
+import { typography, spacing, radius, shadows } from "../utils/theme";
+import { useTheme } from "../utils/ThemeContext";
+
+
+const makeStyles = (colors) => StyleSheet.create({
+  safe:      { flex: 1, backgroundColor: colors.bg },
+  kav:       { flex: 1 },
+  container: { flexGrow: 1, paddingHorizontal: spacing.lg, justifyContent: "center", paddingVertical: spacing.xxl },
+  brand:     { alignItems: "center", marginBottom: spacing.xxl },
+  logoWrap: {
+    width: 72, height: 72, borderRadius: 20,
+    backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.md, ...shadows.accent,
+  },
+  brandName:    { fontSize: 34, fontWeight: "900", color: colors.textPrimary, letterSpacing: -1 },
+  brandTagline: { ...typography.body, color: colors.textSecondary, textAlign: "center", marginTop: spacing.xs },
+  card: {
+    backgroundColor: colors.bgCard, borderRadius: radius.xl,
+    padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.card,
+  },
+  cardTitle: { ...typography.h1, color: colors.textPrimary, marginBottom: spacing.lg },
+  field:     { marginBottom: spacing.md },
+  label:     { ...typography.label, color: colors.textMuted, marginBottom: spacing.xs },
+  inputWrap: { position: "relative", borderRadius: radius.md, overflow: "hidden" },
+  inputWrapError: {},
+  input: {
+    backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingLeft: 42,
+    paddingVertical: 13, color: colors.textPrimary, fontSize: 15,
+  },
+  inputIcon:  { position: "absolute", left: 14, top: 15, zIndex: 1 },
+  eyeBtn:     { position: "absolute", right: 14, top: 15, zIndex: 1 },
+  fieldError: { fontSize: 12, color: colors.high, marginTop: 4, marginLeft: 2 },
+  errorRow: {
+    flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.md,
+    backgroundColor: "rgba(255,92,92,0.1)", padding: spacing.sm, borderRadius: radius.sm,
+    borderWidth: 1, borderColor: "rgba(255,92,92,0.3)",
+  },
+  errorText:  { color: colors.high, fontSize: 13, flex: 1 },
+  submitBtn: {
+    backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 15,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: spacing.sm, marginTop: spacing.xs, ...shadows.accent,
+  },
+  submitBtnDisabled: { opacity: 0.6 },
+  submitText:        { color: colors.white, fontSize: 16, fontWeight: "700" },
+  forgotHint: {
+    ...typography.bodySmall, color: colors.textSecondary, textAlign: "center",
+    marginTop: spacing.sm, color: colors.textMuted,
+  },
+  toggleBtn:  { alignItems: "center", marginTop: spacing.md, padding: spacing.xs },
+  toggleText: { ...typography.body, color: colors.textSecondary },
+  toggleLink: { color: colors.accent, fontWeight: "600" },
+});
 
 // ── Friendly error message mapping ───────────────────────────
 const friendlyAuthError = (err) => {
@@ -35,7 +88,10 @@ const friendlyAuthError = (err) => {
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
 const AuthScreen = () => {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   const { login, register } = useAuth();
+  const { resendVerificationEmail } = require('../services/firebase');
   const [isLogin, setIsLogin]           = useState(true);
   const [email, setEmail]               = useState("");
   const [password, setPassword]         = useState("");
@@ -43,6 +99,7 @@ const AuthScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState("");
+  const [verificationSent, setVerificationSent] = useState(false);
 
   // Per-field inline errors
   const [emailError, setEmailError]         = useState("");
@@ -92,6 +149,8 @@ const AuthScreen = () => {
         await login(email.trim(), password);
       } else {
         await register(email.trim(), password);
+        setVerificationSent(true);
+        return;
       }
     } catch (err) {
       setError(friendlyAuthError(err));
@@ -104,6 +163,33 @@ const AuthScreen = () => {
     setIsLogin((v) => !v);
     clearErrors();
   };
+
+  if (verificationSent) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.container}>
+          <View style={[styles.card, { alignItems: "center" }]}>
+            <View style={[styles.logoWrap, { marginBottom: spacing.md }]}>
+              <Feather name="mail" size={32} color={colors.accent} />
+            </View>
+            <Text style={[styles.cardTitle, { textAlign: "center", color: colors.textPrimary }]}>Check your email</Text>
+            <Text style={[typography.body, { textAlign: "center", marginBottom: spacing.lg, color: colors.textSecondary }]}>
+              We sent a verification link to{" "}
+              <Text style={{ color: colors.accent, fontWeight: "700" }}>{email}</Text>.
+              {" "}Tap it to activate your account, then sign in.
+            </Text>
+            <TouchableOpacity onPress={() => setIsLogin(true)} style={[styles.submitBtn, { marginBottom: spacing.sm }]}>
+              <Feather name="log-in" size={18} color={colors.white} />
+              <Text style={styles.submitText}>Go to Sign In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => resendVerificationEmail().catch(()=>{})} style={styles.toggleBtn}>
+              <Text style={[styles.toggleText, { color: colors.textMuted }]}>Didn't get it? <Text style={styles.toggleLink}>Resend email</Text></Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -235,55 +321,5 @@ const AuthScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  safe:      { flex: 1, backgroundColor: colors.bg },
-  kav:       { flex: 1 },
-  container: { flexGrow: 1, paddingHorizontal: spacing.lg, justifyContent: "center", paddingVertical: spacing.xxl },
-  brand:     { alignItems: "center", marginBottom: spacing.xxl },
-  logoWrap: {
-    width: 72, height: 72, borderRadius: 20,
-    backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center", marginBottom: spacing.md, ...shadows.accent,
-  },
-  brandName:    { fontSize: 34, fontWeight: "900", color: colors.textPrimary, letterSpacing: -1 },
-  brandTagline: { ...typography.body, textAlign: "center", marginTop: spacing.xs },
-  card: {
-    backgroundColor: colors.bgCard, borderRadius: radius.xl,
-    padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.card,
-  },
-  cardTitle: { ...typography.h1, marginBottom: spacing.lg },
-  field:     { marginBottom: spacing.md },
-  label:     { ...typography.label, marginBottom: spacing.xs },
-  inputWrap: { position: "relative", borderRadius: radius.md, overflow: "hidden" },
-  inputWrapError: {},
-  input: {
-    backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingLeft: 42,
-    paddingVertical: 13, color: colors.textPrimary, fontSize: 15,
-  },
-  inputIcon:  { position: "absolute", left: 14, top: 15, zIndex: 1 },
-  eyeBtn:     { position: "absolute", right: 14, top: 15, zIndex: 1 },
-  fieldError: { fontSize: 12, color: colors.high, marginTop: 4, marginLeft: 2 },
-  errorRow: {
-    flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.md,
-    backgroundColor: "rgba(255,92,92,0.1)", padding: spacing.sm, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: "rgba(255,92,92,0.3)",
-  },
-  errorText:  { color: colors.high, fontSize: 13, flex: 1 },
-  submitBtn: {
-    backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 15,
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: spacing.sm, marginTop: spacing.xs, ...shadows.accent,
-  },
-  submitBtnDisabled: { opacity: 0.6 },
-  submitText:        { color: colors.white, fontSize: 16, fontWeight: "700" },
-  forgotHint: {
-    ...typography.bodySmall, textAlign: "center",
-    marginTop: spacing.sm, color: colors.textMuted,
-  },
-  toggleBtn:  { alignItems: "center", marginTop: spacing.md, padding: spacing.xs },
-  toggleText: { ...typography.body, color: colors.textSecondary },
-  toggleLink: { color: colors.accent, fontWeight: "600" },
-});
 
 export default AuthScreen;

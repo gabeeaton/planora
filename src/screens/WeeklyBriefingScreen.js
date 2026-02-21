@@ -7,14 +7,107 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { colors, spacing, radius, shadows, typography } from "../utils/theme";
+import { spacing, radius, shadows, typography } from "../utils/theme";
+import { useTheme } from "../utils/ThemeContext";
 import { useTasks }       from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { getWeeklyPlan }  from "../services/openai";
+
+
+const makeStyles = (colors) => StyleSheet.create({
+  safe:   { flex: 1, backgroundColor: colors.bg },
+  header: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  backBtn:     { padding: 4 },
+  headerTitle: { ...typography.h2, color: colors.textPrimary, },
+  refreshBtn:  { padding: 4 },
+  scroll:      { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+
+  loadingContainer: { alignItems: "center", paddingTop: 80 },
+  loadingText:      { ...typography.h3, color: colors.textPrimary, marginTop: spacing.md },
+  loadingSubtext:   { ...typography.body, color: colors.textSecondary, textAlign: "center", marginTop: 6 },
+  loadingHint: {
+    ...typography.bodySmall, color: colors.textSecondary, textAlign: "center", marginTop: 12,
+    color: colors.textMuted, fontStyle: "italic",
+  },
+
+  errorContainer: { alignItems: "center", paddingTop: 80 },
+  errorTitle:     { ...typography.h2, color: colors.textPrimary, marginTop: spacing.md, marginBottom: 6 },
+  errorText:      { ...typography.body, color: colors.textSecondary, textAlign: "center", marginBottom: spacing.lg },
+  retryBtn: {
+    backgroundColor: colors.accent, borderRadius: radius.md,
+    paddingVertical: 12, paddingHorizontal: spacing.lg,
+  },
+  retryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+
+  headlineCard: {
+    backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md,
+    borderWidth: 1, borderColor: colors.accentGlow, marginBottom: spacing.md, ...shadows.accent,
+  },
+  aiChip: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: colors.accentGlow, borderRadius: radius.full,
+    paddingHorizontal: 8, paddingVertical: 3, alignSelf: "flex-start",
+    marginBottom: 8, borderWidth: 1, borderColor: colors.accent,
+  },
+  aiChipText:  { fontSize: 10, color: colors.accent, fontWeight: "700", textTransform: "uppercase" },
+  headline:    { ...typography.h2, color: colors.textPrimary, lineHeight: 26, marginBottom: spacing.sm },
+  insightRow:  { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  insightText: { ...typography.bodySmall, color: colors.accent, flex: 1, fontStyle: "italic" },
+
+  warningsCard: {
+    backgroundColor: "rgba(255,92,92,0.08)", borderRadius: radius.md, padding: spacing.md,
+    borderWidth: 1, borderColor: colors.high, marginBottom: spacing.md,
+  },
+  warningsHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.sm },
+  warningsTitle:  { fontSize: 14, fontWeight: "700", color: colors.high },
+  warningItem:    { ...typography.bodySmall, color: colors.high, marginBottom: 4 },
+
+  dayCard: {
+    backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md,
+    marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border,
+  },
+  dayHeader:  { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
+  dayName:    { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+  dayDate:    { ...typography.bodySmall, color: colors.textSecondary, },
+  taskRow:    { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
+  taskDot:    { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent, flexShrink: 0 },
+  taskTitle:  { ...typography.body, color: colors.textPrimary, flex: 1 },
+  restDay:    { ...typography.bodySmall, color: colors.textSecondary, fontStyle: "italic" },
+  dayNote: {
+    ...typography.bodySmall, color: colors.accent, marginTop: 4, fontStyle: "italic",
+    borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8,
+  },
+  toast: {
+    position: "absolute",
+    top: 60,
+    alignSelf: "center",
+    backgroundColor: colors.accent,
+    borderRadius: radius.full,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  toastText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+});
 
 // Module-level cache so plan survives navigation away and back
 let _cachedPlan      = null;
@@ -23,6 +116,8 @@ let _pendingPromise  = null;
 const CACHE_TTL_MS   = 10 * 60 * 1000; // 10 minutes
 
 const WeeklyBriefingScreen = ({ navigation }) => {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   const { tasks, patterns }  = useTasks();
   const { profile }          = useUserProfile();
 
@@ -30,11 +125,27 @@ const WeeklyBriefingScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(!_cachedPlan);
   const [error, setError]     = useState(null);
   const mountedRef            = useRef(true);
+  const isVisibleRef          = useRef(true);
+  const toastAnim             = useRef(new Animated.Value(0)).current;
+
+  const showToast = () => {
+    Animated.sequence([
+      Animated.timing(toastAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.delay(3000),
+      Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+  };
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
+    const unsubFocus = navigation.addListener('focus', () => { isVisibleRef.current = true; });
+    const unsubBlur  = navigation.addListener('blur',  () => { isVisibleRef.current = false; });
+    return () => {
+      mountedRef.current = false;
+      unsubFocus();
+      unsubBlur();
+    };
+  }, [navigation]);
 
   useEffect(() => {
     // If we have a fresh cache, use it immediately
@@ -54,7 +165,11 @@ const WeeklyBriefingScreen = ({ navigation }) => {
     if (_pendingPromise) {
       try {
         const result = await _pendingPromise;
-        if (mountedRef.current) { setPlan(result); setLoading(false); }
+        if (mountedRef.current) {
+        setPlan(result);
+        setLoading(false);
+        if (!isVisibleRef.current) showToast();
+      }
       } catch (err) {
         if (mountedRef.current) { setError(err.message ?? "Failed to generate plan."); setLoading(false); }
       }
@@ -76,7 +191,11 @@ const WeeklyBriefingScreen = ({ navigation }) => {
       const result = await _pendingPromise;
       _cachedPlan    = result;
       _cacheLoadedAt = Date.now();
-      if (mountedRef.current) { setPlan(result); setLoading(false); }
+      if (mountedRef.current) {
+        setPlan(result);
+        setLoading(false);
+        if (!isVisibleRef.current) showToast();
+      }
     } catch (err) {
       if (mountedRef.current) { setError(err.message ?? "Failed to generate plan."); setLoading(false); }
     } finally {
@@ -179,77 +298,20 @@ const WeeklyBriefingScreen = ({ navigation }) => {
           </>
         ) : null}
       </ScrollView>
+      {/* Toast — shown when plan loads while user is on another screen */}
+      <Animated.View
+        style={[styles.toast, {
+          opacity: toastAnim,
+          transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }],
+        }]}
+        pointerEvents="none"
+      >
+        <Feather name="calendar" size={14} color="#fff" />
+        <Text style={styles.toastText}>Your weekly plan is ready!</Text>
+      </Animated.View>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  backBtn:     { padding: 4 },
-  headerTitle: { ...typography.h2 },
-  refreshBtn:  { padding: 4 },
-  scroll:      { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-
-  loadingContainer: { alignItems: "center", paddingTop: 80 },
-  loadingText:      { ...typography.h3, marginTop: spacing.md },
-  loadingSubtext:   { ...typography.body, textAlign: "center", marginTop: 6 },
-  loadingHint: {
-    ...typography.bodySmall, textAlign: "center", marginTop: 12,
-    color: colors.textMuted, fontStyle: "italic",
-  },
-
-  errorContainer: { alignItems: "center", paddingTop: 80 },
-  errorTitle:     { ...typography.h2, marginTop: spacing.md, marginBottom: 6 },
-  errorText:      { ...typography.body, textAlign: "center", marginBottom: spacing.lg },
-  retryBtn: {
-    backgroundColor: colors.accent, borderRadius: radius.md,
-    paddingVertical: 12, paddingHorizontal: spacing.lg,
-  },
-  retryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-
-  headlineCard: {
-    backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md,
-    borderWidth: 1, borderColor: colors.accentGlow, marginBottom: spacing.md, ...shadows.accent,
-  },
-  aiChip: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: colors.accentGlow, borderRadius: radius.full,
-    paddingHorizontal: 8, paddingVertical: 3, alignSelf: "flex-start",
-    marginBottom: 8, borderWidth: 1, borderColor: colors.accent,
-  },
-  aiChipText:  { fontSize: 10, color: colors.accent, fontWeight: "700", textTransform: "uppercase" },
-  headline:    { ...typography.h2, lineHeight: 26, marginBottom: spacing.sm },
-  insightRow:  { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  insightText: { ...typography.bodySmall, color: colors.accent, flex: 1, fontStyle: "italic" },
-
-  warningsCard: {
-    backgroundColor: "rgba(255,92,92,0.08)", borderRadius: radius.md, padding: spacing.md,
-    borderWidth: 1, borderColor: colors.high, marginBottom: spacing.md,
-  },
-  warningsHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.sm },
-  warningsTitle:  { fontSize: 14, fontWeight: "700", color: colors.high },
-  warningItem:    { ...typography.bodySmall, color: colors.high, marginBottom: 4 },
-
-  dayCard: {
-    backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md,
-    marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border,
-  },
-  dayHeader:  { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
-  dayName:    { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
-  dayDate:    { ...typography.bodySmall },
-  taskRow:    { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
-  taskDot:    { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent, flexShrink: 0 },
-  taskTitle:  { ...typography.body, color: colors.textPrimary, flex: 1 },
-  restDay:    { ...typography.bodySmall, fontStyle: "italic" },
-  dayNote: {
-    ...typography.bodySmall, color: colors.accent, marginTop: 4, fontStyle: "italic",
-    borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8,
-  },
-});
 
 export default WeeklyBriefingScreen;

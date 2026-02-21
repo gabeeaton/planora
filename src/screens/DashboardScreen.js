@@ -1,8 +1,10 @@
 // ============================================================
 // src/screens/DashboardScreen.js
+// Updated: empty-state coaching, streak system, due-date bucketing,
+// grade-impact weighting in AI hint, light mode polish.
 // ============================================================
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, RefreshControl,
@@ -19,12 +21,174 @@ import AISummaryCard       from "../components/AISummaryCard";
 import StatsBar            from "../components/StatsBar";
 import WhatDoIDoButton     from "../components/WhatDoIDoButton";
 import SubscriptionGate    from "../components/SubscriptionGate";
-import { colors, typography, spacing, radius, shadows } from "../utils/theme";
-import { format, addDays, subDays, isToday, isTomorrow, isYesterday } from "date-fns";
+import { typography, spacing, radius, shadows } from "../utils/theme";
+import { useTheme } from "../utils/ThemeContext";
+import { format, addDays, subDays, isToday, isTomorrow, isYesterday, differenceInCalendarDays } from "date-fns";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Safely convert any date value (JS Date, Firestore Timestamp, ISO string, null) to a JS Date or null.
+// Prevents RangeError: Invalid time value when Firestore Timestamps slip through
+// before the snapshot listener has a chance to call .toDate().
+const safeDate = (val) => {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+  // Firestore Timestamp object
+  if (typeof val?.toDate === "function") return val.toDate();
+  // Numeric seconds (Firestore Timestamp-like plain object)
+  if (typeof val?.seconds === "number") return new Date(val.seconds * 1000);
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+// ── Streak helpers ────────────────────────────────────────────
+const STREAK_KEY = "@tf_streak";
+const STREAK_DATE_KEY = "@tf_streak_date";
+
+const loadStreak = async () => {
+  try {
+    const [s, d] = await AsyncStorage.multiGet([STREAK_KEY, STREAK_DATE_KEY]);
+    return { count: parseInt(s[1] ?? "0", 10) || 0, lastDate: d[1] };
+  } catch { return { count: 0, lastDate: null }; }
+};
+
+const updateStreak = async (completedToday) => {
+  const today = format(new Date(), "yyyy-MM-dd");
+  const { count, lastDate } = await loadStreak();
+  if (lastDate === today) return count; // already updated today
+  const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
+  const newCount = completedToday ? (lastDate === yesterday ? count + 1 : 1) : (lastDate === yesterday ? count : 0);
+  await AsyncStorage.multiSet([[STREAK_KEY, String(newCount)], [STREAK_DATE_KEY, today]]);
+  return newCount;
+};
+
+const makeStyles = (colors) => StyleSheet.create({
+  safe:          { flex: 1, backgroundColor: colors.bg },
+  header: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm, paddingBottom: spacing.sm,
+  },
+  headerLeft:  { flex: 1 },
+  greeting:    { fontSize: 22, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.3 },
+  date:        { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+  headerBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: "center", justifyContent: "center",
+  },
+
+  // Streak pill
+  streakPill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: colors.mediumGlow, borderRadius: radius.full,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1, borderColor: colors.medium,
+  },
+  streakText: { fontSize: 12, fontWeight: "700", color: colors.medium },
+
+  scroll:        { flex: 1 },
+  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
+
+  insightStrip: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    borderLeftWidth: 3, borderRadius: radius.sm,
+    paddingLeft: spacing.sm, paddingRight: spacing.md, paddingVertical: 10,
+    marginBottom: spacing.sm,
+  },
+  insightText: { fontSize: 13, fontWeight: "500", flex: 1, lineHeight: 18 },
+
+  tabScroll:    { marginBottom: spacing.sm },
+  tabContainer: { gap: 6, paddingRight: spacing.md },
+  tab: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.bgCard,
+  },
+  tabActive:     { backgroundColor: colors.accentGlow, borderColor: colors.accent },
+  tabText:       { fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
+  tabTextActive: { color: colors.accent },
+
+  dayCycler: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: colors.bgCard, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border,
+    marginBottom: spacing.md, overflow: "hidden",
+  },
+  dayCyclerBtn:    { padding: spacing.md },
+  dayCyclerCenter: { flex: 1, alignItems: "center", paddingVertical: spacing.sm },
+  dayCyclerLabel:  { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+  dayCyclerDate:   { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+
+  // Bucket section headers
+  bucketHeader: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    marginTop: spacing.sm, marginBottom: 6,
+  },
+  bucketDot:  { width: 8, height: 8, borderRadius: 4 },
+  bucketLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.8, textTransform: "uppercase" },
+  bucketCount: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+
+  sectionLabel: {
+    fontSize: 11, fontWeight: "700", color: colors.textMuted,
+    letterSpacing: 0.8, textTransform: "uppercase",
+    marginBottom: spacing.sm, marginTop: spacing.sm,
+  },
+
+  loadingContainer: { alignItems: "center", paddingTop: 60 },
+  loadingText:      { ...typography.body, color: colors.textSecondary, marginTop: spacing.md },
+
+  // Empty state — coaching-focused
+  emptyContainer: { alignItems: "center", paddingTop: 48, paddingBottom: 24 },
+  emptyIcon: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent,
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
+  },
+  emptyTitle:    { fontSize: 20, fontWeight: "800", color: colors.textPrimary, marginBottom: spacing.xs, textAlign: "center", letterSpacing: -0.3 },
+  emptySubtitle: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.lg, paddingHorizontal: spacing.md },
+  emptyActionsRow: { flexDirection: "row", gap: spacing.sm },
+  emptyBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: colors.accent, borderRadius: radius.md,
+    paddingVertical: 12, paddingHorizontal: spacing.md, ...shadows.accent,
+  },
+  emptyBtnOutline: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: colors.bgCard, borderRadius: radius.md,
+    paddingVertical: 12, paddingHorizontal: spacing.md,
+    borderWidth: 1, borderColor: colors.accent,
+  },
+  emptyBtnText:        { color: "#fff", fontWeight: "700", fontSize: 13 },
+  emptyBtnOutlineText: { color: colors.accent, fontWeight: "700", fontSize: 13 },
+
+  // All-done state
+  allDoneContainer: { alignItems: "center", paddingTop: 48, paddingBottom: 24 },
+  allDoneIcon: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: "rgba(92,255,143,0.15)", borderWidth: 1, borderColor: colors.low,
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
+  },
+  allDoneTitle:    { fontSize: 20, fontWeight: "800", color: colors.textPrimary, marginBottom: spacing.xs, letterSpacing: -0.3 },
+  allDoneSubtitle: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22 },
+
+  fabRow: {
+    position: "absolute", bottom: 32, right: spacing.lg,
+    flexDirection: "row", alignItems: "center", gap: 10,
+  },
+  fab: {
+    width: 58, height: 58, borderRadius: 29,
+    backgroundColor: colors.accent, alignItems: "center", justifyContent: "center",
+    ...shadows.accent,
+  },
+  fabSecondary: {
+    width: 58, height: 58, borderRadius: 29,
+    backgroundColor: colors.bgCard, borderWidth: 1.5, borderColor: colors.accent,
+    alignItems: "center", justifyContent: "center",
+  },
+});
 
 const TABS = ["All", "Today", "Pending", "Done"];
 
-// Format a day label nicely
 const getDayLabel = (date) => {
   if (isToday(date))     return "Today";
   if (isTomorrow(date))  return "Tomorrow";
@@ -32,10 +196,37 @@ const getDayLabel = (date) => {
   return format(date, "EEE, MMM d");
 };
 
+// Group pending tasks into buckets: Overdue / Today / This Week / Later / No Date
+const bucketTasks = (tasks) => {
+  const now   = new Date();
+  const today = new Date(now); today.setHours(23, 59, 59, 999);
+  const week  = addDays(today, 7);
+
+  const overdue  = [];
+  const dueToday = [];
+  const thisWeek = [];
+  const later    = [];
+  const noDate   = [];
+
+  tasks.filter((t) => !t.completed).forEach((t) => {
+    const d = safeDate(t.dueDate);
+    if (!d) { noDate.push(t); return; }
+    if (d < now)    { overdue.push(t); return; }
+    if (d <= today) { dueToday.push(t); return; }
+    if (d <= week)  { thisWeek.push(t); return; }
+    later.push(t);
+  });
+
+  const completed = tasks.filter((t) => t.completed);
+  return { overdue, dueToday, thisWeek, later, noDate, completed };
+};
+
 const DashboardScreen = ({ navigation }) => {
-  const { user, logout }          = useAuth();
-  const { profile }               = useUserProfile();
-  const { hasProAccess }          = useSubscription();
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+  const { user }              = useAuth();
+  const { profile }           = useUserProfile();
+  const { hasProAccess }      = useSubscription();
   const {
     tasks, pendingTasks, completedTasks, todaysTasks,
     patterns, loading,
@@ -47,64 +238,85 @@ const DashboardScreen = ({ navigation }) => {
   const [editingTask, setEditingTask]           = useState(null);
   const [aiAnnotatedTasks, setAiAnnotatedTasks] = useState([]);
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
+  const [showAISummary, setShowAISummary]       = useState(false);
+  const [streak, setStreak]                     = useState(0);
 
-  // Live clock
   const [now, setNow] = useState(new Date());
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60000); // update every minute
+    const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Day cycling — for "Today" tab, allow browsing other days
+  // Load + update streak
+  useEffect(() => {
+    const completedToday = completedTasks.some((t) => {
+      if (!t.completedAt) return false;
+      const d = safeDate(t.completedAt);
+      return d && format(d, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+    });
+    updateStreak(completedToday).then(setStreak);
+  }, [completedTasks.length]);
+
   const [selectedDay, setSelectedDay] = useState(new Date());
   const cycleDay = (direction) => {
-    setSelectedDay((prev) =>
-      direction === "next" ? addDays(prev, 1) : subDays(prev, 1)
-    );
+    setSelectedDay((prev) => direction === "next" ? addDays(prev, 1) : subDays(prev, 1));
     setActiveTab("Today");
   };
 
-  // Merge AI annotations
+  // Merge AI annotations + grade-impact weighting
   const enrichedTasks = useMemo(() => {
-    if (aiAnnotatedTasks.length === 0) return tasks;
+    const gradeMap = {};
+    (profile?.classes ?? []).forEach((c) => {
+      if (c.name && c.grade) gradeMap[c.name] = c.grade;
+    });
+    // Grade impact: if a class has a low grade, boost that as a hint
+    const gradeWeighted = tasks.map((t) => {
+      const grade = gradeMap[t.className];
+      const lowGrade = grade && (grade.startsWith("D") || grade.startsWith("F") || grade === "C-" || grade === "C" || grade === "C+");
+      return lowGrade ? { ...t, _lowGrade: true } : t;
+    });
+    if (aiAnnotatedTasks.length === 0) return gradeWeighted;
     const aiMap = {};
-    aiAnnotatedTasks.forEach((t) => {
-      aiMap[t.id] = { aiPriority: t.aiPriority, aiReason: t.aiReason };
-    });
-    return tasks.map((t) => ({ ...t, ...(aiMap[t.id] || {}) }));
-  }, [tasks, aiAnnotatedTasks]);
+    aiAnnotatedTasks.forEach((t) => { aiMap[t.id] = { aiPriority: t.aiPriority, aiReason: t.aiReason }; });
+    return gradeWeighted.map((t) => ({ ...t, ...(aiMap[t.id] || {}) }));
+  }, [tasks, aiAnnotatedTasks, profile?.classes]);
 
-  // Tab filtering — also hides completed recurring tasks (they spawn a new instance)
+  const sortByDue = (arr) => [...arr].sort((a, b) => {
+    const da = safeDate(a.dueDate), db = safeDate(b.dueDate);
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
+  });
+
   const displayedTasks = useMemo(() => {
-    let filtered = enrichedTasks;
-
-    // Hide completed recurring tasks — the new instance is what you should see
-    filtered = filtered.filter((t) => {
-      if (t.recurrence && t.completed) return false;
-      return true;
-    });
-
+    const filtered = enrichedTasks.filter((t) => !(t.recurrence && t.completed));
     switch (activeTab) {
       case "Today":
-        return filtered.filter((t) => {
-          if (!t.dueDate) return false;
-          const due = new Date(t.dueDate);
-          return (
-            due.getDate()     === selectedDay.getDate() &&
-            due.getMonth()    === selectedDay.getMonth() &&
-            due.getFullYear() === selectedDay.getFullYear()
-          );
-        });
-      case "Pending": return filtered.filter((t) => !t.completed);
-      case "Done":    return enrichedTasks.filter((t) => t.completed); // show completed in Done tab
-      default:        return filtered;
+        return sortByDue(filtered.filter((t) => {
+          const d = safeDate(t.dueDate);
+          if (!d) return false;
+          return d.getDate() === selectedDay.getDate() && d.getMonth() === selectedDay.getMonth() && d.getFullYear() === selectedDay.getFullYear();
+        }));
+      case "Pending": return sortByDue(filtered.filter((t) => !t.completed));
+      case "Done":    return enrichedTasks.filter((t) => t.completed);
+      default:        return sortByDue(filtered);
     }
   }, [enrichedTasks, activeTab, selectedDay]);
 
-  // Behavioral insight
+  const buckets = useMemo(() => bucketTasks(enrichedTasks), [enrichedTasks]);
+
   const behavioralInsight = useMemo(() => {
     if (!patterns) return null;
     const { urgentUntouched, staleTasks, latenessProfile, overallStats } = patterns;
+    // Grade-impact nudge — highest priority insight
+    const lowGradeUrgent = enrichedTasks.find((t) => {
+      const d = safeDate(t.dueDate);
+      return t._lowGrade && !t.completed && d && differenceInCalendarDays(d, new Date()) <= 3;
+    });
+    if (lowGradeUrgent) {
+      return { type: "grade", text: `"${lowGradeUrgent.title}" is due soon and you have a low grade in ${lowGradeUrgent.className} — prioritize this.`, icon: "trending-up", color: colors.high };
+    }
     if (urgentUntouched?.length > 0) {
       const t = urgentUntouched[0];
       return { type: "urgent", text: `"${t.title}" is due soon and hasn't been touched today.`, icon: "alert-triangle", color: colors.high };
@@ -117,7 +329,7 @@ const DashboardScreen = ({ navigation }) => {
       return { type: "pattern", text: "You tend to finish tasks late. Start your highest-priority item first today.", icon: "trending-up", color: colors.accent };
     }
     return null;
-  }, [patterns]);
+  }, [patterns, enrichedTasks]);
 
   const handleAddTask    = () => { setEditingTask(null); setModalVisible(true); };
   const handleEditTask   = (task) => { if (!task) return; setEditingTask(task); setModalVisible(true); };
@@ -132,13 +344,7 @@ const DashboardScreen = ({ navigation }) => {
       { text: "Delete", style: "destructive", onPress: () => removeTask(task.id, task.notificationId) },
     ]);
   };
-  const handleToggle  = (task) => { if (!task) return; completeTask(task); };
-  const handleLogout  = () => {
-    Alert.alert("Sign Out", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: logout },
-    ]);
-  };
+  const handleToggle = (task) => { if (!task) return; completeTask(task); };
 
   const greeting = () => {
     const h = now.getHours();
@@ -147,23 +353,51 @@ const DashboardScreen = ({ navigation }) => {
     return "Good evening";
   };
 
+  const firstName = profile?.name?.split(" ")[0] ?? null;
+  const isFirstTime = !loading && tasks.length === 0 && completedTasks.length === 0;
+
+  // ── Bucket render helper ───────────────────────────────────
+  const renderBucket = (label, taskList, color) => {
+    if (taskList.length === 0) return null;
+    return (
+      <View key={label}>
+        <View style={styles.bucketHeader}>
+          <View style={[styles.bucketDot, { backgroundColor: color }]} />
+          <Text style={[styles.bucketLabel, { color }]}>{label}</Text>
+          <Text style={styles.bucketCount}>({taskList.length})</Text>
+        </View>
+        {sortByDue(taskList).map((task) =>
+          task ? (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onToggle={handleToggle}
+              onEdit={handleEditTask}
+              onDelete={handleDeleteTask}
+              highlighted={task.id === highlightedTaskId}
+            />
+          ) : null
+        )}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>{greeting()}</Text>
-          {/* Live date + time */}
-          <Text style={styles.date}>
-            {format(now, "EEEE, MMMM d")}
-            <Text style={styles.time}>  {format(now, "h:mm a")}</Text>
-          </Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.greeting}>{greeting()}{firstName ? `, ${firstName}` : ""}</Text>
+          <Text style={styles.date}>{format(now, "EEEE, MMMM d")}</Text>
         </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate("WeeklyBriefing")}
-            style={styles.headerBtn}
-          >
+        <View style={styles.headerRight}>
+          {streak > 0 && (
+            <View style={styles.streakPill}>
+              <Text>🔥</Text>
+              <Text style={styles.streakText}>{streak}</Text>
+            </View>
+          )}
+          <TouchableOpacity onPress={() => navigation.navigate("WeeklyBriefing")} style={styles.headerBtn}>
             <Feather name="calendar" size={18} color={hasProAccess ? colors.accent : colors.textMuted} />
           </TouchableOpacity>
         </View>
@@ -173,7 +407,7 @@ const DashboardScreen = ({ navigation }) => {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={loading} tintColor={colors.accent} colors={[colors.accent]} />}
+        refreshControl={<RefreshControl refreshing={loading && tasks.length === 0} tintColor={colors.accent} colors={[colors.accent]} />}
       >
         {/* Stats */}
         <StatsBar
@@ -182,79 +416,31 @@ const DashboardScreen = ({ navigation }) => {
           completedCount={completedTasks.length}
         />
 
+        {/* AI Coach — always above fold */}
+        <SubscriptionGate featureName="AI Coach — What Should I Do Right Now?" onUpgrade={() => navigation.navigate("Paywall")}>
+          <WhatDoIDoButton tasks={tasks} userProfile={profile} patterns={patterns} onTaskHighlight={setHighlightedTaskId} />
+        </SubscriptionGate>
+
         {/* Behavioral insight strip */}
         {behavioralInsight && (
-          <View style={[styles.insightStrip, { borderColor: behavioralInsight.color }]}>
+          <View style={[styles.insightStrip, { borderLeftColor: behavioralInsight.color }]}>
             <Feather name={behavioralInsight.icon} size={13} color={behavioralInsight.color} />
-            <Text style={[styles.insightText, { color: behavioralInsight.color }]}>
-              {behavioralInsight.text}
-            </Text>
+            <Text style={[styles.insightText, { color: behavioralInsight.color }]}>{behavioralInsight.text}</Text>
           </View>
         )}
 
-        {/* What Do I Do — Pro */}
-        <SubscriptionGate
-          featureName="What Should I Do Right Now?"
-          onUpgrade={() => navigation.navigate("Paywall")}
-        >
-          <WhatDoIDoButton
-            tasks={tasks}
-            userProfile={profile}
-            patterns={patterns}
-            onTaskHighlight={setHighlightedTaskId}
-          />
-        </SubscriptionGate>
-
-        {/* AI Summary */}
-        <AISummaryCard
-          tasks={tasks}
-          patterns={patterns}
-          onPrioritiesUpdated={setAiAnnotatedTasks}
-        />
-
-        {/* Weekly plan promo */}
-        {!hasProAccess && (
-          <TouchableOpacity
-            style={styles.weeklyPromo}
-            onPress={() => navigation.navigate("Paywall")}
-          >
-            <View style={styles.weeklyPromoLeft}>
-              <Feather name="calendar" size={16} color={colors.accent} />
-              <Text style={styles.weeklyPromoText}>Get your AI weekly study plan →</Text>
-            </View>
-            <View style={styles.proBadge}>
-              <Text style={styles.proBadgeText}>PRO</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {hasProAccess && (
-          <TouchableOpacity
-            style={styles.weeklyPromo}
-            onPress={() => navigation.navigate("WeeklyBriefing")}
-          >
-            <Feather name="calendar" size={16} color={colors.accent} />
-            <Text style={styles.weeklyPromoText}>Open Weekly Study Plan →</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Tab filter */}
-        <ScrollView
-          horizontal showsHorizontalScrollIndicator={false}
-          style={styles.tabScroll} contentContainerStyle={styles.tabContainer}
-        >
+        {/* Tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContainer}>
           {TABS.map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              onPress={() => setActiveTab(tab)}
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+            <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.tabActive]}>
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab}{tab === "Pending" && pendingTasks.length > 0 ? ` (${pendingTasks.length})` : ""}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        {/* Day cycler — only shown on Today tab */}
+        {/* Day cycler — Today tab only */}
         {activeTab === "Today" && (
           <View style={styles.dayCycler}>
             <TouchableOpacity onPress={() => cycleDay("prev")} style={styles.dayCyclerBtn}>
@@ -270,27 +456,90 @@ const DashboardScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Task list */}
+        {/* Task content */}
         {loading && tasks.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.accent} />
             <Text style={styles.loadingText}>Loading tasks...</Text>
           </View>
-        ) : displayedTasks.length === 0 ? (
+
+        ) : isFirstTime ? (
+          /* ── First-time empty state coaching ── */
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>{activeTab === "Done" ? "🎉" : "📋"}</Text>
+            <View style={styles.emptyIcon}>
+              <Feather name="zap" size={32} color={colors.accent} />
+            </View>
+            <Text style={styles.emptyTitle}>You're all set up!</Text>
+            <Text style={styles.emptySubtitle}>
+              Add your first task manually, or import your entire semester from a syllabus or Canvas calendar in seconds — the AI will use it to coach you.
+            </Text>
+            <View style={styles.emptyActionsRow}>
+              <TouchableOpacity style={styles.emptyBtn} onPress={handleAddTask}>
+                <Feather name="plus" size={15} color="#fff" />
+                <Text style={styles.emptyBtnText}>Add Task</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.emptyBtnOutline} onPress={() => navigation.navigate("SyllabusParser")}>
+                <Feather name="upload" size={15} color={colors.accent} />
+                <Text style={styles.emptyBtnOutlineText}>Import</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+        ) : activeTab === "All" && displayedTasks.filter((t) => !t.completed).length === 0 && completedTasks.length > 0 ? (
+          /* ── All-done state ── */
+          <View style={styles.allDoneContainer}>
+            <View style={styles.allDoneIcon}>
+              <Feather name="check-circle" size={32} color={colors.low} />
+            </View>
+            <Text style={styles.allDoneTitle}>All done! 🎉</Text>
+            <Text style={styles.allDoneSubtitle}>Nothing pending. Add something new or check your weekly plan.</Text>
+          </View>
+
+        ) : activeTab === "All" ? (
+          /* ── Bucketed view (All tab) ── */
+          <>
+            {renderBucket("Overdue", buckets.overdue, colors.high)}
+            {renderBucket("Due Today", buckets.dueToday, colors.medium)}
+            {renderBucket("This Week", buckets.thisWeek, colors.accent)}
+            {renderBucket("Later", buckets.later, colors.textMuted)}
+            {renderBucket("No Due Date", buckets.noDate, colors.textMuted)}
+            {buckets.completed.length > 0 && (
+              <View style={{ marginTop: spacing.sm }}>
+                <View style={styles.bucketHeader}>
+                  <View style={[styles.bucketDot, { backgroundColor: colors.low }]} />
+                  <Text style={[styles.bucketLabel, { color: colors.low }]}>Completed</Text>
+                  <Text style={styles.bucketCount}>({buckets.completed.length})</Text>
+                </View>
+                {buckets.completed.slice(0, 5).map((task) =>
+                  task ? <TaskCard key={task.id} task={task} onToggle={handleToggle} onEdit={handleEditTask} onDelete={handleDeleteTask} /> : null
+                )}
+                {buckets.completed.length > 5 && (
+                  <Text style={[styles.sectionLabel, { textAlign: "center", marginTop: spacing.xs }]}>
+                    + {buckets.completed.length - 5} more completed
+                  </Text>
+                )}
+              </View>
+            )}
+          </>
+
+        ) : displayedTasks.length === 0 ? (
+          /* ── Tab-specific empty states ── */
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIcon}>
+              <Feather name={activeTab === "Done" ? "check-circle" : "inbox"} size={28} color={colors.accent} />
+            </View>
             <Text style={styles.emptyTitle}>
-              {activeTab === "Done" ? "Nothing completed yet" : "All clear!"}
+              {activeTab === "Done" ? "Nothing completed yet" : activeTab === "Today" ? `Nothing due ${getDayLabel(selectedDay).toLowerCase()}` : "All clear!"}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {activeTab === "Done"
-                ? "Complete tasks and they'll appear here."
-                : activeTab === "Today"
-                ? `No tasks due ${getDayLabel(selectedDay).toLowerCase()}.`
-                : "No tasks here. Tap + to add one."}
+              {activeTab === "Done" ? "Check off tasks and they'll appear here." :
+               activeTab === "Today" ? "Enjoy the breather — or get ahead on upcoming work." :
+               "No pending tasks. Tap + to add one."}
             </Text>
           </View>
+
         ) : (
+          /* ── Flat list for Today / Pending / Done tabs ── */
           displayedTasks.map((task) =>
             task ? (
               <TaskCard
@@ -305,15 +554,34 @@ const DashboardScreen = ({ navigation }) => {
           )
         )}
 
-        <View style={{ height: 100 }} />
+        {/* AI Summary — collapsible, below task list */}
+        {tasks.length > 0 && (
+          <>
+            <TouchableOpacity
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.md, marginBottom: spacing.xs }}
+              onPress={() => setShowAISummary((v) => !v)}
+            >
+              <Feather name="cpu" size={13} color={colors.accent} />
+              <Text style={[styles.sectionLabel, { color: colors.accent, marginBottom: 0, marginTop: 0 }]}>AI Smart Insights</Text>
+              <Feather name={showAISummary ? "chevron-up" : "chevron-down"} size={13} color={colors.accent} />
+            </TouchableOpacity>
+            {showAISummary && (
+              <AISummaryCard tasks={tasks} patterns={patterns} onPrioritiesUpdated={setAiAnnotatedTasks} />
+            )}
+          </>
+        )}
       </ScrollView>
 
-      {/* FAB */}
-      <TouchableOpacity onPress={handleAddTask} style={styles.fab} activeOpacity={0.85}>
-        <Feather name="plus" size={26} color={colors.white} />
-      </TouchableOpacity>
+      {/* FABs */}
+      <View style={styles.fabRow}>
+        <TouchableOpacity onPress={() => navigation.navigate("SyllabusParser")} style={styles.fabSecondary} activeOpacity={0.85}>
+          <Feather name="file-text" size={22} color={colors.accent} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleAddTask} style={styles.fab} activeOpacity={0.85}>
+          <Feather name="plus" size={26} color="#fff" />
+        </TouchableOpacity>
+      </View>
 
-      {/* Task modal */}
       <TaskModal
         visible={modalVisible}
         task={editingTask}
@@ -323,91 +591,5 @@ const DashboardScreen = ({ navigation }) => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm, paddingBottom: spacing.md,
-  },
-  greeting: { fontSize: 20, fontWeight: "700", color: colors.textPrimary },
-  date:     { ...typography.body, color: colors.textMuted, marginTop: 2 },
-  time:     { color: colors.accent, fontWeight: "600" },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerBtn: {
-    width: 34, height: 34, borderRadius: 8,
-    backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border,
-    alignItems: "center", justifyContent: "center",
-  },
-  scroll:        { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg },
-
-  insightStrip: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    borderWidth: 1, borderRadius: radius.md,
-    paddingHorizontal: spacing.sm, paddingVertical: 10,
-    marginBottom: spacing.md, backgroundColor: colors.bgCard,
-  },
-  insightText: { fontSize: 13, fontWeight: "500", flex: 1, lineHeight: 18 },
-
-  weeklyPromo: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md,
-    marginBottom: spacing.md, borderWidth: 1, borderColor: colors.accentGlow,
-  },
-  weeklyPromoLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
-  weeklyPromoText: { fontSize: 14, color: colors.accent, fontWeight: "600" },
-  proBadge: {
-    backgroundColor: colors.accent, borderRadius: radius.full,
-    paddingHorizontal: 8, paddingVertical: 3,
-  },
-  proBadgeText: { fontSize: 9, color: "#fff", fontWeight: "800", letterSpacing: 0.5 },
-
-  tabScroll:     { marginBottom: spacing.sm },
-  tabContainer:  { gap: spacing.sm, paddingRight: spacing.md },
-  tab: {
-    paddingHorizontal: spacing.md, paddingVertical: 8,
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.bgCard,
-  },
-  tabActive:     { backgroundColor: colors.accentGlow, borderColor: colors.accent },
-  tabText:       { ...typography.body, fontWeight: "600" },
-  tabTextActive: { color: colors.accent },
-
-  dayCycler: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: colors.bgCard, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    marginBottom: spacing.md, overflow: "hidden",
-  },
-  dayCyclerBtn: {
-    padding: spacing.md,
-    borderColor: colors.border,
-  },
-  dayCyclerCenter: {
-    flex: 1, alignItems: "center", paddingVertical: spacing.sm,
-  },
-  dayCyclerLabel: {
-    fontSize: 15, fontWeight: "700", color: colors.textPrimary,
-  },
-  dayCyclerDate: {
-    fontSize: 11, color: colors.textMuted, marginTop: 2,
-  },
-
-  loadingContainer: { alignItems: "center", paddingTop: 60 },
-  loadingText:      { ...typography.body, marginTop: spacing.md },
-  emptyContainer:   { alignItems: "center", paddingTop: 60 },
-  emptyEmoji:       { fontSize: 48, marginBottom: spacing.md },
-  emptyTitle:       { ...typography.h2, marginBottom: spacing.xs },
-  emptySubtitle:    { ...typography.body, textAlign: "center" },
-
-  fab: {
-    position: "absolute", bottom: 32, right: spacing.lg,
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: colors.accent, alignItems: "center", justifyContent: "center",
-    ...shadows.accent,
-  },
-});
 
 export default DashboardScreen;
