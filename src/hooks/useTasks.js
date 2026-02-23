@@ -14,9 +14,11 @@ import { scheduleTaskReminder, cancelTaskReminder } from "../services/notificati
 import { spawnNextRecurringTask } from "../services/recurringTasks";
 import { analyzePatterns } from "../services/patternAnalysis";
 import { useAuth } from "./useAuth";
+import { useUserProfile } from "./useUserProfile";
 
 export const useTasks = () => {
   const { user } = useAuth();
+  const { profile } = useUserProfile();
   const [tasks, setTasks]       = useState([]);
   const [history, setHistory]   = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -26,7 +28,7 @@ export const useTasks = () => {
   // Recompute patterns whenever tasks or history change
   useEffect(() => {
     if (tasks.length > 0 || history.length > 0) {
-      setPatterns(analyzePatterns(tasks, history, null));
+      setPatterns(analyzePatterns(tasks, history, profile));
     }
   }, [tasks, history]);
 

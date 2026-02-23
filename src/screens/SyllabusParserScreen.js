@@ -455,7 +455,8 @@ const SyllabusParserScreen = ({ navigation }) => {
     setError(null); setParsing(true); setParsedTasks(null);
     try {
       const className = selectedClass?.name ?? null;
-      const tasks = await parseSyllabusText(syllabusText, className);
+      const semesterLabel = profile?.semester ?? null;
+      const tasks = await parseSyllabusText(syllabusText, className, semesterLabel);
       if (tasks.length === 0) {
         setError("No upcoming assignments found. Try pasting just the assignments or schedule section.");
         return;

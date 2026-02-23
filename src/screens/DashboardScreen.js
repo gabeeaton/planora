@@ -115,6 +115,16 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   insightText: { fontSize: 13, fontWeight: "500", flex: 1, lineHeight: 18 },
 
+  focusHint: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingVertical: 8, paddingHorizontal: 10,
+    backgroundColor: colors.accentGlow,
+    borderRadius: radius.sm,
+    borderWidth: 1, borderColor: colors.accent,
+    marginBottom: spacing.sm,
+  },
+  focusHintText: { fontSize: 12, color: colors.accent, fontWeight: "500", flex: 1 },
+
   tabScroll:    { marginBottom: spacing.sm },
   tabContainer: { gap: 6, paddingRight: spacing.md },
   tab: {
@@ -342,7 +352,14 @@ const DashboardScreen = ({ navigation }) => {
     ]);
   };
   const handleToggle    = (task) => { if (!task) return; completeTask(task); };
-  const handleFocusTask = (task) => { if (!task) return; navigation.navigate("FocusMode", { task }); };
+  const serializeTask = (task) => ({
+    ...task,
+    createdAt:    task.createdAt    instanceof Date ? task.createdAt.toISOString()    : task.createdAt    ?? null,
+    dueDate:      task.dueDate      instanceof Date ? task.dueDate.toISOString()      : task.dueDate      ?? null,
+    completedAt:  task.completedAt  instanceof Date ? task.completedAt.toISOString()  : task.completedAt  ?? null,
+    lastTouchedAt: task.lastTouchedAt instanceof Date ? task.lastTouchedAt.toISOString() : task.lastTouchedAt ?? null,
+  });
+  const handleFocusTask = (task) => { if (!task) return; hasProAccess ? navigation.navigate("FocusMode", { task: serializeTask(task) }) : navigation.navigate("Paywall"); };
 
   const greeting = () => {
     const h = now.getHours();
@@ -421,9 +438,9 @@ const DashboardScreen = ({ navigation }) => {
             </TouchableOpacity>
           )}
 
-          {/* Weekly briefing */}
+          {/* Weekly briefing — Pro only */}
           <TouchableOpacity
-            onPress={() => navigation.navigate("WeeklyBriefing")}
+            onPress={() => hasProAccess ? navigation.navigate("WeeklyBriefing") : navigation.navigate("Paywall")}
             style={styles.headerBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -460,6 +477,19 @@ const DashboardScreen = ({ navigation }) => {
             <Feather name={behavioralInsight.icon} size={13} color={behavioralInsight.color} />
             <Text style={[styles.insightText, { color: behavioralInsight.color }]}>{behavioralInsight.text}</Text>
           </View>
+        )}
+
+        {/* Focus Mode hint — shows once when tasks exist */}
+        {pendingTasks.length > 0 && (
+          <TouchableOpacity
+            style={styles.focusHint}
+            onPress={() => { if (!pendingTasks[0]) return; hasProAccess ? navigation.navigate("FocusMode", { task: serializeTask(pendingTasks[0]) }) : navigation.navigate("Paywall"); }}
+            activeOpacity={0.7}
+          >
+            <Feather name="zap" size={12} color={colors.accent} />
+            <Text style={styles.focusHintText}>Hold any task to enter Focus Mode (Pomodoro)</Text>
+            <Feather name="chevron-right" size={12} color={colors.textMuted} />
+          </TouchableOpacity>
         )}
 
         {/* Tabs */}
