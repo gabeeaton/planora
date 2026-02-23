@@ -1,7 +1,10 @@
 // ============================================================
 // src/screens/DashboardScreen.js
-// Updated: empty-state coaching, streak system, due-date bucketing,
-// grade-impact weighting in AI hint, light mode polish.
+// Updated:
+//   - AI Insights + Suggest Priority moved to header icon buttons
+//   - Import (SyllabusParser) moved to header, FAB is add-only now
+//   - Safe area paddingBottom increased to clear tab bar properly
+//   - AISummaryCard still collapsible but triggered from header
 // ============================================================
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -25,23 +28,18 @@ import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { format, addDays, subDays, isToday, isTomorrow, isYesterday, differenceInCalendarDays } from "date-fns";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Safely convert any date value (JS Date, Firestore Timestamp, ISO string, null) to a JS Date or null.
-// Prevents RangeError: Invalid time value when Firestore Timestamps slip through
-// before the snapshot listener has a chance to call .toDate().
 const safeDate = (val) => {
   if (!val) return null;
   if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
-  // Firestore Timestamp object
   if (typeof val?.toDate === "function") return val.toDate();
-  // Numeric seconds (Firestore Timestamp-like plain object)
   if (typeof val?.seconds === "number") return new Date(val.seconds * 1000);
   const d = new Date(val);
   return isNaN(d.getTime()) ? null : d;
 };
 
-// ── Streak helpers ────────────────────────────────────────────
-const STREAK_KEY = "@tf_streak";
+const STREAK_KEY      = "@tf_streak";
 const STREAK_DATE_KEY = "@tf_streak_date";
 
 const loadStreak = async () => {
@@ -54,9 +52,11 @@ const loadStreak = async () => {
 const updateStreak = async (completedToday) => {
   const today = format(new Date(), "yyyy-MM-dd");
   const { count, lastDate } = await loadStreak();
-  if (lastDate === today) return count; // already updated today
+  if (lastDate === today) return count;
   const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
-  const newCount = completedToday ? (lastDate === yesterday ? count + 1 : 1) : (lastDate === yesterday ? count : 0);
+  const newCount = completedToday
+    ? (lastDate === yesterday ? count + 1 : 1)
+    : (lastDate === yesterday ? count : 0);
   await AsyncStorage.multiSet([[STREAK_KEY, String(newCount)], [STREAK_DATE_KEY, today]]);
   return newCount;
 };
@@ -71,23 +71,41 @@ const makeStyles = (colors) => StyleSheet.create({
   headerLeft:  { flex: 1 },
   greeting:    { fontSize: 22, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.3 },
   date:        { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 4 },
   headerBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: 36, height: 36, borderRadius: 18,
     alignItems: "center", justifyContent: "center",
   },
+  importBtn: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: colors.accentGlow, borderRadius: radius.full,
+    borderWidth: 1, borderColor: colors.accent,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  importBtnText: { fontSize: 12, fontWeight: "700", color: colors.accent },
+  aiBtn: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: colors.accentGlow, borderRadius: radius.full,
+    borderWidth: 1, borderColor: colors.accent,
+    paddingHorizontal: 8, paddingVertical: 5,
+  },
+  aiBtnActive: { backgroundColor: colors.accent },
+  aiBtnText: { fontSize: 11, fontWeight: "800", color: colors.accent, letterSpacing: 0.3 },
+  headerBtnActive: {
+    backgroundColor: colors.accentGlow,
+    borderWidth: 1, borderColor: colors.accent,
+  },
 
-  // Streak pill
   streakPill: {
     flexDirection: "row", alignItems: "center", gap: 4,
     backgroundColor: colors.mediumGlow, borderRadius: radius.full,
-    paddingHorizontal: 10, paddingVertical: 5,
+    paddingHorizontal: 8, paddingVertical: 4,
     borderWidth: 1, borderColor: colors.medium,
   },
   streakText: { fontSize: 12, fontWeight: "700", color: colors.medium },
 
   scroll:        { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
+  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 110 },
 
   insightStrip: {
     flexDirection: "row", alignItems: "center", gap: 8,
@@ -119,12 +137,11 @@ const makeStyles = (colors) => StyleSheet.create({
   dayCyclerLabel:  { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
   dayCyclerDate:   { fontSize: 11, color: colors.textMuted, marginTop: 2 },
 
-  // Bucket section headers
   bucketHeader: {
     flexDirection: "row", alignItems: "center", gap: 6,
     marginTop: spacing.sm, marginBottom: 6,
   },
-  bucketDot:  { width: 8, height: 8, borderRadius: 4 },
+  bucketDot:   { width: 8, height: 8, borderRadius: 4 },
   bucketLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.8, textTransform: "uppercase" },
   bucketCount: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
 
@@ -137,7 +154,6 @@ const makeStyles = (colors) => StyleSheet.create({
   loadingContainer: { alignItems: "center", paddingTop: 60 },
   loadingText:      { ...typography.body, color: colors.textSecondary, marginTop: spacing.md },
 
-  // Empty state — coaching-focused
   emptyContainer: { alignItems: "center", paddingTop: 48, paddingBottom: 24 },
   emptyIcon: {
     width: 72, height: 72, borderRadius: 36,
@@ -161,7 +177,6 @@ const makeStyles = (colors) => StyleSheet.create({
   emptyBtnText:        { color: "#fff", fontWeight: "700", fontSize: 13 },
   emptyBtnOutlineText: { color: colors.accent, fontWeight: "700", fontSize: 13 },
 
-  // All-done state
   allDoneContainer: { alignItems: "center", paddingTop: 48, paddingBottom: 24 },
   allDoneIcon: {
     width: 72, height: 72, borderRadius: 36,
@@ -171,19 +186,12 @@ const makeStyles = (colors) => StyleSheet.create({
   allDoneTitle:    { fontSize: 20, fontWeight: "800", color: colors.textPrimary, marginBottom: spacing.xs, letterSpacing: -0.3 },
   allDoneSubtitle: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22 },
 
-  fabRow: {
-    position: "absolute", bottom: 32, right: spacing.lg,
-    flexDirection: "row", alignItems: "center", gap: 10,
-  },
+  // Single FAB — add task only
   fab: {
+    position: "absolute", right: spacing.lg,
     width: 58, height: 58, borderRadius: 29,
     backgroundColor: colors.accent, alignItems: "center", justifyContent: "center",
     ...shadows.accent,
-  },
-  fabSecondary: {
-    width: 58, height: 58, borderRadius: 29,
-    backgroundColor: colors.bgCard, borderWidth: 1.5, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center",
   },
 });
 
@@ -196,37 +204,30 @@ const getDayLabel = (date) => {
   return format(date, "EEE, MMM d");
 };
 
-// Group pending tasks into buckets: Overdue / Today / This Week / Later / No Date
 const bucketTasks = (tasks) => {
   const now   = new Date();
   const today = new Date(now); today.setHours(23, 59, 59, 999);
   const week  = addDays(today, 7);
-
-  const overdue  = [];
-  const dueToday = [];
-  const thisWeek = [];
-  const later    = [];
-  const noDate   = [];
-
+  const overdue = [], dueToday = [], thisWeek = [], later = [], noDate = [];
   tasks.filter((t) => !t.completed).forEach((t) => {
     const d = safeDate(t.dueDate);
     if (!d) { noDate.push(t); return; }
-    if (d < now)    { overdue.push(t); return; }
+    if (d < now)    { overdue.push(t);  return; }
     if (d <= today) { dueToday.push(t); return; }
     if (d <= week)  { thisWeek.push(t); return; }
     later.push(t);
   });
-
-  const completed = tasks.filter((t) => t.completed);
-  return { overdue, dueToday, thisWeek, later, noDate, completed };
+  return { overdue, dueToday, thisWeek, later, noDate, completed: tasks.filter((t) => t.completed) };
 };
 
 const DashboardScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const { user }              = useAuth();
-  const { profile }           = useUserProfile();
-  const { hasProAccess }      = useSubscription();
+  const insets = useSafeAreaInsets();
+
+  const { user }         = useAuth();
+  const { profile }      = useUserProfile();
+  const { hasProAccess } = useSubscription();
   const {
     tasks, pendingTasks, completedTasks, todaysTasks,
     patterns, loading,
@@ -240,14 +241,13 @@ const DashboardScreen = ({ navigation }) => {
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
   const [showAISummary, setShowAISummary]       = useState(false);
   const [streak, setStreak]                     = useState(0);
+  const [now, setNow]                           = useState(new Date());
 
-  const [now, setNow] = useState(new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Load + update streak
   useEffect(() => {
     const completedToday = completedTasks.some((t) => {
       if (!t.completedAt) return false;
@@ -263,15 +263,13 @@ const DashboardScreen = ({ navigation }) => {
     setActiveTab("Today");
   };
 
-  // Merge AI annotations + grade-impact weighting
   const enrichedTasks = useMemo(() => {
     const gradeMap = {};
     (profile?.classes ?? []).forEach((c) => {
       if (c.name && c.grade) gradeMap[c.name] = c.grade;
     });
-    // Grade impact: if a class has a low grade, boost that as a hint
     const gradeWeighted = tasks.map((t) => {
-      const grade = gradeMap[t.className];
+      const grade    = gradeMap[t.className];
       const lowGrade = grade && (grade.startsWith("D") || grade.startsWith("F") || grade === "C-" || grade === "C" || grade === "C+");
       return lowGrade ? { ...t, _lowGrade: true } : t;
     });
@@ -309,7 +307,6 @@ const DashboardScreen = ({ navigation }) => {
   const behavioralInsight = useMemo(() => {
     if (!patterns) return null;
     const { urgentUntouched, staleTasks, latenessProfile, overallStats } = patterns;
-    // Grade-impact nudge — highest priority insight
     const lowGradeUrgent = enrichedTasks.find((t) => {
       const d = safeDate(t.dueDate);
       return t._lowGrade && !t.completed && d && differenceInCalendarDays(d, new Date()) <= 3;
@@ -319,7 +316,7 @@ const DashboardScreen = ({ navigation }) => {
     }
     if (urgentUntouched?.length > 0) {
       const t = urgentUntouched[0];
-      return { type: "urgent", text: `"${t.title}" is due soon and hasn't been touched today.`, icon: "alert-triangle", color: colors.high };
+      return { type: "urgent", text: `"${t.title}" is due soon and hasn't been started.`, icon: "alert-triangle", color: colors.high };
     }
     if (staleTasks?.length > 0) {
       const t = staleTasks[0];
@@ -344,7 +341,8 @@ const DashboardScreen = ({ navigation }) => {
       { text: "Delete", style: "destructive", onPress: () => removeTask(task.id, task.notificationId) },
     ]);
   };
-  const handleToggle = (task) => { if (!task) return; completeTask(task); };
+  const handleToggle    = (task) => { if (!task) return; completeTask(task); };
+  const handleFocusTask = (task) => { if (!task) return; navigation.navigate("FocusMode", { task }); };
 
   const greeting = () => {
     const h = now.getHours();
@@ -353,10 +351,9 @@ const DashboardScreen = ({ navigation }) => {
     return "Good evening";
   };
 
-  const firstName = profile?.name?.split(" ")[0] ?? null;
+  const firstName   = profile?.name?.split(" ")[0] ?? null;
   const isFirstTime = !loading && tasks.length === 0 && completedTasks.length === 0;
 
-  // ── Bucket render helper ───────────────────────────────────
   const renderBucket = (label, taskList, color) => {
     if (taskList.length === 0) return null;
     return (
@@ -374,6 +371,7 @@ const DashboardScreen = ({ navigation }) => {
               onToggle={handleToggle}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
+              onFocus={handleFocusTask}
               highlighted={task.id === highlightedTaskId}
             />
           ) : null
@@ -382,9 +380,12 @@ const DashboardScreen = ({ navigation }) => {
     );
   };
 
+  // FAB sits just above the tab bar
+  const fabBottom = insets.bottom + 80; // lowered slightly from tab bar
+
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Header */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.greeting}>{greeting()}{firstName ? `, ${firstName}` : ""}</Text>
@@ -397,7 +398,35 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.streakText}>{streak}</Text>
             </View>
           )}
-          <TouchableOpacity onPress={() => navigation.navigate("WeeklyBriefing")} style={styles.headerBtn}>
+
+          {/* Import syllabus — moved from FAB to header */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate("SyllabusParser")}
+            style={styles.importBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="upload-cloud" size={14} color={colors.accent} />
+            <Text style={styles.importBtnText}>Import</Text>
+          </TouchableOpacity>
+
+          {/* AI Insights toggle — moved from bottom of list to header */}
+          {tasks.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setShowAISummary((v) => !v)}
+              style={[styles.aiBtn, showAISummary && styles.aiBtnActive]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather name="zap" size={12} color={showAISummary ? "#fff" : colors.accent} />
+              <Text style={[styles.aiBtnText, showAISummary && { color: "#fff" }]}>AI</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Weekly briefing */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate("WeeklyBriefing")}
+            style={styles.headerBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Feather name="calendar" size={18} color={hasProAccess ? colors.accent : colors.textMuted} />
           </TouchableOpacity>
         </View>
@@ -409,17 +438,21 @@ const DashboardScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading && tasks.length === 0} tintColor={colors.accent} colors={[colors.accent]} />}
       >
-        {/* Stats */}
         <StatsBar
           todayCount={todaysTasks.length}
           pendingCount={pendingTasks.length}
           completedCount={completedTasks.length}
         />
 
-        {/* AI Coach — always above fold */}
-        <SubscriptionGate featureName="AI Coach — What Should I Do Right Now?" onUpgrade={() => navigation.navigate("Paywall")}>
+        {/* WhatDoIDo */}
+        <SubscriptionGate featureName="What should I do right now?" onUpgrade={() => navigation.navigate("Paywall")}>
           <WhatDoIDoButton tasks={tasks} userProfile={profile} patterns={patterns} onTaskHighlight={setHighlightedTaskId} />
         </SubscriptionGate>
+
+        {/* AI Summary — now toggled from header icon, shown inline here */}
+        {showAISummary && tasks.length > 0 && (
+          <AISummaryCard tasks={tasks} patterns={patterns} onPrioritiesUpdated={setAiAnnotatedTasks} />
+        )}
 
         {/* Behavioral insight strip */}
         {behavioralInsight && (
@@ -440,7 +473,7 @@ const DashboardScreen = ({ navigation }) => {
           ))}
         </ScrollView>
 
-        {/* Day cycler — Today tab only */}
+        {/* Day cycler */}
         {activeTab === "Today" && (
           <View style={styles.dayCycler}>
             <TouchableOpacity onPress={() => cycleDay("prev")} style={styles.dayCyclerBtn}>
@@ -456,7 +489,7 @@ const DashboardScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Task content */}
+        {/* Task list */}
         {loading && tasks.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.accent} />
@@ -464,14 +497,13 @@ const DashboardScreen = ({ navigation }) => {
           </View>
 
         ) : isFirstTime ? (
-          /* ── First-time empty state coaching ── */
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIcon}>
               <Feather name="zap" size={32} color={colors.accent} />
             </View>
             <Text style={styles.emptyTitle}>You're all set up!</Text>
             <Text style={styles.emptySubtitle}>
-              Add your first task manually, or import your entire semester from a syllabus or Canvas calendar in seconds — the AI will use it to coach you.
+              Add your first task, or import your entire semester from a Canvas calendar — the AI will use it to coach you.
             </Text>
             <View style={styles.emptyActionsRow}>
               <TouchableOpacity style={styles.emptyBtn} onPress={handleAddTask}>
@@ -486,7 +518,6 @@ const DashboardScreen = ({ navigation }) => {
           </View>
 
         ) : activeTab === "All" && displayedTasks.filter((t) => !t.completed).length === 0 && completedTasks.length > 0 ? (
-          /* ── All-done state ── */
           <View style={styles.allDoneContainer}>
             <View style={styles.allDoneIcon}>
               <Feather name="check-circle" size={32} color={colors.low} />
@@ -496,13 +527,12 @@ const DashboardScreen = ({ navigation }) => {
           </View>
 
         ) : activeTab === "All" ? (
-          /* ── Bucketed view (All tab) ── */
           <>
-            {renderBucket("Overdue", buckets.overdue, colors.high)}
-            {renderBucket("Due Today", buckets.dueToday, colors.medium)}
-            {renderBucket("This Week", buckets.thisWeek, colors.accent)}
-            {renderBucket("Later", buckets.later, colors.textMuted)}
-            {renderBucket("No Due Date", buckets.noDate, colors.textMuted)}
+            {renderBucket("Overdue",    buckets.overdue,   colors.high)}
+            {renderBucket("Due Today",  buckets.dueToday,  colors.medium)}
+            {renderBucket("This Week",  buckets.thisWeek,  colors.accent)}
+            {renderBucket("Later",      buckets.later,     colors.textMuted)}
+            {renderBucket("No Due Date",buckets.noDate,    colors.textMuted)}
             {buckets.completed.length > 0 && (
               <View style={{ marginTop: spacing.sm }}>
                 <View style={styles.bucketHeader}>
@@ -511,7 +541,7 @@ const DashboardScreen = ({ navigation }) => {
                   <Text style={styles.bucketCount}>({buckets.completed.length})</Text>
                 </View>
                 {buckets.completed.slice(0, 5).map((task) =>
-                  task ? <TaskCard key={task.id} task={task} onToggle={handleToggle} onEdit={handleEditTask} onDelete={handleDeleteTask} /> : null
+                  task ? <TaskCard key={task.id} task={task} onToggle={handleToggle} onEdit={handleEditTask} onDelete={handleDeleteTask} onFocus={handleFocusTask} /> : null
                 )}
                 {buckets.completed.length > 5 && (
                   <Text style={[styles.sectionLabel, { textAlign: "center", marginTop: spacing.xs }]}>
@@ -523,7 +553,6 @@ const DashboardScreen = ({ navigation }) => {
           </>
 
         ) : displayedTasks.length === 0 ? (
-          /* ── Tab-specific empty states ── */
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIcon}>
               <Feather name={activeTab === "Done" ? "check-circle" : "inbox"} size={28} color={colors.accent} />
@@ -532,14 +561,13 @@ const DashboardScreen = ({ navigation }) => {
               {activeTab === "Done" ? "Nothing completed yet" : activeTab === "Today" ? `Nothing due ${getDayLabel(selectedDay).toLowerCase()}` : "All clear!"}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {activeTab === "Done" ? "Check off tasks and they'll appear here." :
-               activeTab === "Today" ? "Enjoy the breather — or get ahead on upcoming work." :
+              {activeTab === "Done"    ? "Check off tasks and they'll appear here." :
+               activeTab === "Today"  ? "Enjoy the breather — or get ahead on upcoming work." :
                "No pending tasks. Tap + to add one."}
             </Text>
           </View>
 
         ) : (
-          /* ── Flat list for Today / Pending / Done tabs ── */
           displayedTasks.map((task) =>
             task ? (
               <TaskCard
@@ -547,40 +575,23 @@ const DashboardScreen = ({ navigation }) => {
                 task={task}
                 onToggle={handleToggle}
                 onEdit={handleEditTask}
-                onDelete={handleDeleteTask}
-                highlighted={task.id === highlightedTaskId}
+              onDelete={handleDeleteTask}
+              onFocus={handleFocusTask}
+              highlighted={task.id === highlightedTaskId}
               />
             ) : null
           )
         )}
-
-        {/* AI Summary — collapsible, below task list */}
-        {tasks.length > 0 && (
-          <>
-            <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.md, marginBottom: spacing.xs }}
-              onPress={() => setShowAISummary((v) => !v)}
-            >
-              <Feather name="cpu" size={13} color={colors.accent} />
-              <Text style={[styles.sectionLabel, { color: colors.accent, marginBottom: 0, marginTop: 0 }]}>AI Smart Insights</Text>
-              <Feather name={showAISummary ? "chevron-up" : "chevron-down"} size={13} color={colors.accent} />
-            </TouchableOpacity>
-            {showAISummary && (
-              <AISummaryCard tasks={tasks} patterns={patterns} onPrioritiesUpdated={setAiAnnotatedTasks} />
-            )}
-          </>
-        )}
       </ScrollView>
 
-      {/* FABs */}
-      <View style={styles.fabRow}>
-        <TouchableOpacity onPress={() => navigation.navigate("SyllabusParser")} style={styles.fabSecondary} activeOpacity={0.85}>
-          <Feather name="file-text" size={22} color={colors.accent} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleAddTask} style={styles.fab} activeOpacity={0.85}>
-          <Feather name="plus" size={26} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      {/* Single FAB — add task only */}
+      <TouchableOpacity
+        onPress={handleAddTask}
+        style={[styles.fab, { bottom: fabBottom }]}
+        activeOpacity={0.85}
+      >
+        <Feather name="plus" size={26} color="#fff" />
+      </TouchableOpacity>
 
       <TaskModal
         visible={modalVisible}

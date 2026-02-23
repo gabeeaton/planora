@@ -10,11 +10,13 @@ import { cacheUserProfile, loadCachedProfile } from "../services/offlineStorage"
 
 export const useUserProfile = () => {
   const { user } = useAuth();
-  const [profile, setProfile]   = useState(null);
-  const [loading, setLoading]   = useState(true);
+  const [profile, setProfile]             = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [firestoreReady, setFirestoreReady] = useState(false);
 
   useEffect(() => {
-    if (!user) { setProfile(null); setLoading(false); return; }
+    if (!user) { setProfile(null); setLoading(false); setFirestoreReady(false); return; }
+    setFirestoreReady(false);
 
     // Load cache immediately for snappy UI
     loadCachedProfile().then((cached) => {
@@ -23,8 +25,9 @@ export const useUserProfile = () => {
 
     const unsubscribe = subscribeUserProfile(user.uid, (freshProfile) => {
       setProfile(freshProfile);
-      cacheUserProfile(freshProfile);
+      if (freshProfile) cacheUserProfile(freshProfile);
       setLoading(false);
+      setFirestoreReady(true);
     });
 
     return unsubscribe;
@@ -41,5 +44,5 @@ export const useUserProfile = () => {
   // True if user is on Pro plan
   const isPro = !!profile?.isPro;
 
-  return { profile, loading, updateProfile, hasCompletedOnboarding, isPro };
+  return { profile, loading, firestoreReady, updateProfile, hasCompletedOnboarding, isPro };
 };

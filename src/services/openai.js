@@ -32,16 +32,20 @@ const today = () => new Date().toLocaleDateString("en-US", {
 
 // Safe JSON parse — handles minor model formatting issues
 const safeParseJSON = (raw, type = "object") => {
-  const pattern = type === "array" ? /\[.*\]/s : /\{.*\}/s;
-  const match   = raw.match(pattern);
-  if (!match) throw new Error(`No JSON ${type} in response`);
-  try {
-    return JSON.parse(match[0]);
-  } catch {
-    // Attempt to clean common issues (trailing commas, unquoted keys)
-    const cleaned = match[0].replace(/,\s*([}\]])/g, "$1");
-    return JSON.parse(cleaned);
+  let text = raw.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
+  const open = type === "array" ? "[" : "{";
+  const close = type === "array" ? "]" : "}";
+  const start = text.indexOf(open);
+  if (start === -1) throw new Error(`No JSON ${type} in response`);
+  let depth = 0, end = -1;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === open) depth++;
+    else if (text[i] === close) { depth--; if (depth === 0) { end = i; break; } }
   }
+  if (end === -1) throw new Error(`Unterminated JSON ${type} in response`);
+  const chunk = text.slice(start, end + 1);
+  try { return JSON.parse(chunk); }
+  catch { return JSON.parse(chunk.replace(/,\s*([}\]])/g, "$1")); }
 };
 
 // ── 1. What Do I Do Right Now? ───────────────────────────────
@@ -60,7 +64,7 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
     (c) => `${c.name} (${c.creditHours} credits, current grade: ${c.grade ?? "unknown"})`
   ).join(", ") ?? "Not specified";
 
-  const prompt = `You are a smart academic coach. Based on everything you know about this student, tell them exactly ONE task to work on right now and why.
+  const prompt = `You are a proactive personal productivity coach. Based on everything you know, tell them exactly ONE task to work on right now. Tasks may be academic, fitness, work, or personal — treat all equally based on urgency and importance.
 
 Today: ${today()}
 Student's classes: ${classes}
@@ -268,7 +272,7 @@ Rules:
 - MEDIUM: Due within a week, or moderate importance
 - LOW: No deadline, or low stakes
 
-Return ONLY a JSON array, no markdown:
+CRITICAL: Output ONLY a raw JSON array. Start with [ end with ]. No markdown, no text.
 [{"id":"task_id","aiPriority":"HIGH","aiReason":"Max 12 words explaining why"}]`;
 
   try {
@@ -276,7 +280,7 @@ Return ONLY a JSON array, no markdown:
       model:       APP_CONFIG.gptModel,
       messages:    [{ role: "user", content: prompt }],
       temperature: 0.3,
-      max_tokens:  800,
+      max_tokens:  1400,
     });
 
     const data = safeParseJSON(response.choices[0].message.content.trim(), "array");

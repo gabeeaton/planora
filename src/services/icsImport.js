@@ -1,182 +1,145 @@
 // ============================================================
 // src/services/icsImport.js
-// Parses .ics (iCalendar) files exported from Canvas, Google
-// Calendar, Apple Calendar, Outlook — any calendar app.
-//
-// How students export from Canvas:
-//   Canvas → Calendar → (top-right) Calendar Feed → Copy link
-//   → paste in browser → save as .ics   (or subscribe link works too)
-//   Alternatively: Canvas → Dashboard → "View Calendar" → export
-//
-// No native modules. No API keys. Pure JS — works in Expo Go.
+// FIXED: Priority calculation now considers distance from due date
 // ============================================================
 
-// ── ICS text unfolding (RFC 5545: long lines wrap with CRLF + whitespace) ──
-const unfold = (raw) =>
-  raw.replace(/\r\n[ \t]/g, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-
-// ── Decode escaped chars (\, \; \, \n) ────────────────────────
+const unfold  = (raw) => raw.replace(/\r\n[ \t]/g, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 const unescape = (str) =>
-  str
-    .replace(/\\n/gi, " ")
-    .replace(/\\,/g, ",")
-    .replace(/\\;/g, ";")
-    .replace(/\\\\/g, "\\")
-    .trim();
+  str.replace(/\\n/gi, " ").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\").trim();
 
-// ── Parse ICS datetime string → JS Date ───────────────────────
-// Handles: 20260315T235900Z  20260315T235900  20260315 (date-only)
 const parseIcsDate = (raw) => {
   if (!raw) return null;
-  const s = raw.replace(/[ZTz]/g, (m) => (m.toUpperCase() === "T" ? "T" : "Z")).trim();
-
-  // Date-only: 20260315
+  const s = raw.trim();
   if (/^\d{8}$/.test(s)) {
-    const y = s.slice(0, 4), mo = s.slice(4, 6), d = s.slice(6, 8);
+    const [y, mo, d] = [s.slice(0,4), s.slice(4,6), s.slice(6,8)];
     return new Date(`${y}-${mo}-${d}T23:59:00`);
   }
-
-  // DateTime: 20260315T235900Z or 20260315T235900
-  const m = s.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
+  const m = s.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/i);
   if (m) {
-    const [, y, mo, d, h, min, sec, utc] = m;
-    const iso = `${y}-${mo}-${d}T${h}:${min}:${sec}${utc ? "Z" : ""}`;
-    return new Date(iso);
+    const [,y,mo,d,h,min,sec,utc] = m;
+    return new Date(`${y}-${mo}-${d}T${h}:${min}:${sec}${utc ? "Z" : ""}`);
   }
-
-  // Fallback
   const fallback = new Date(raw);
   return isNaN(fallback) ? null : fallback;
 };
 
-// ── Priority inference from title + categories ─────────────────
-const inferPriority = (summary = "", categories = "") => {
-  const t = (summary + " " + categories).toLowerCase();
-  if (/exam|final|midterm|test|quiz/.test(t))           return "HIGH";
-  if (/project|paper|essay|presentation|report/.test(t)) return "MEDIUM";
+/**
+ * Priority calculation — exams far in the future should NOT be HIGH.
+ * HIGH   = due within 7 days, OR exam/test/quiz within 14 days
+ * MEDIUM = due within 30 days, OR exam/test within 60 days
+ * LOW    = everything else (finals 2+ months away = LOW)
+ */
+const inferPriority = (summary = "", dueDate) => {
+  const isExamType = /exam|final|midterm|test|quiz/i.test(summary);
+
+  if (!dueDate) return "MEDIUM";
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const daysOut = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+
+  if (daysOut < 0)  return "LOW";
+  if (daysOut <= 7) return "HIGH";
+
+  if (isExamType) {
+    if (daysOut <= 14) return "HIGH";
+    if (daysOut <= 60) return "MEDIUM";
+    return "LOW"; // final exam 3 months out = LOW until it gets closer
+  }
+
+  if (daysOut <= 30) return "MEDIUM";
   return "LOW";
 };
 
-// ── Strip HTML from Canvas descriptions ───────────────────────
-const stripHtml = (str) =>
-  str.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200);
-
-// ── Extract a property value, handling param syntax ───────────
-// e.g. "DTSTART;TZID=America/New_York:20260315T120000" → "20260315T120000"
 const extractValue = (line) => {
-  const colonIdx = line.indexOf(":");
-  return colonIdx === -1 ? "" : line.slice(colonIdx + 1);
+  const i = line.indexOf(":"); return i === -1 ? "" : line.slice(i + 1);
 };
-
 const extractKey = (line) => {
-  const colonIdx = line.indexOf(":");
-  const raw = colonIdx === -1 ? line : line.slice(0, colonIdx);
-  return raw.split(";")[0].toUpperCase();
+  const i = line.indexOf(":"); return (i === -1 ? line : line.slice(0, i)).split(";")[0].toUpperCase();
 };
 
-// ── Main parser ───────────────────────────────────────────────
-/**
- * Parse raw .ics text into TaskFlow-compatible task objects.
- * Filters to future events only (past events are ignored).
- *
- * @param {string} icsText - raw content of a .ics file
- * @returns {Array} tasks ready for createManyTasks()
- */
+const cleanTitle = (raw) => {
+  let title = raw.trim();
+  title = title.replace(/\s*\[[A-Z]{2,6}\d{3}[^\]]*\]\s*$/i, "").trim();
+  title = title.replace(/^\s*\[[A-Z]{2,6}\d{3}[^\]]*\]\s*/i, "").trim();
+  return title || raw.trim();
+};
+
+const extractClassName = (code) => {
+  if (!code) return null;
+  const m = code.match(/([A-Z]{2,6})\s*(\d{3,4})/i);
+  if (m) return `${m[1].toUpperCase()} ${m[2]}`;
+  return null;
+};
+
+const formatDueTime = (date) => {
+  const h = date.getHours(), min = date.getMinutes();
+  if ((h === 0 && min === 0) || (h === 23 && min === 59)) return null;
+  return [h, min];
+};
+
 export const parseIcsText = (icsText) => {
-  const text   = unfold(icsText);
-  const lines  = text.split("\n");
-  const tasks  = [];
-  const now    = new Date();
+  const text  = unfold(icsText);
+  const lines = text.split("\n");
+  const tasks = [];
+  const now   = new Date(); 
   now.setHours(0, 0, 0, 0);
 
-  let inEvent  = false;
-  let current  = {};
+  let inEvent = false, current = {};
 
   for (const rawLine of lines) {
     const line = rawLine.trimEnd();
     const key  = extractKey(line);
     const val  = extractValue(line);
 
-    if (key === "BEGIN" && val === "VEVENT") {
-      inEvent = true;
-      current = {};
-      continue;
-    }
-
-    if (key === "END" && val === "VEVENT") {
+    if (key === "BEGIN" && val === "VEVENT") { inEvent = true; current = {}; continue; }
+    if (key === "END"   && val === "VEVENT") {
       inEvent = false;
 
-      const summary     = unescape(current.SUMMARY     ?? "");
-      const description = unescape(current.DESCRIPTION ?? "");
-      const categories  = unescape(current.CATEGORIES  ?? "");
-      const location    = unescape(current.LOCATION    ?? "");
+      const rawSummary  = unescape(current.SUMMARY    ?? "");
+      const categories  = unescape(current.CATEGORIES ?? "");
 
-      // Canvas stores course name in CATEGORIES or in the SUMMARY prefix
-      // e.g. "CATEGORIES:CS101 - Intro to CS" or "SUMMARY:[CS101] Essay Due"
-      let className = null;
-      if (categories) {
-        className = categories.split(",")[0].trim() || null;
-      }
-      // Try to extract [Course Name] from summary like "[MATH 201] Homework 3"
-      if (!className) {
-        const bracketMatch = summary.match(/^\[([^\]]+)\]/);
-        if (bracketMatch) className = bracketMatch[1].trim();
-      }
-
-      // Clean title: remove the [Course] prefix if we extracted it
-      const title = className
-        ? summary.replace(/^\[[^\]]+\]\s*/, "").trim() || summary
-        : summary;
-
-      if (!title) { continue; } // skip events with no title
+      if (!rawSummary) continue;
 
       const dueDate = parseIcsDate(current.DTSTART);
-
-      // Skip past events (unless undated)
       if (dueDate && dueDate < now) continue;
 
-      // Skip all-day non-assignment events (class sessions, etc.)
-      // Heuristic: if CATEGORIES is empty AND title looks like a class session → skip
-      // (We keep undated events in case they're assignments without a due date)
+      const title = cleanTitle(rawSummary);
 
-      const cleanDesc = description ? stripHtml(description) : (location || null);
+      let className = null;
+      const bracketMatch = rawSummary.match(/\[([^\]]+)\]/);
+      if (bracketMatch) {
+        className = extractClassName(bracketMatch[1]) ?? (categories.split(",")[0].trim() || null);
+      } else if (categories) {
+        className = extractClassName(categories) ?? (categories.split(",")[0].trim() || null);
+      }
 
       tasks.push({
-        title:       title.slice(0, 120),
-        description: cleanDesc?.slice(0, 200) ?? null,
+        title,
+        rawTitle:    rawSummary,
+        description: null,
         dueDate,
         dueTime:     dueDate ? formatDueTime(dueDate) : null,
-        priority:    inferPriority(title, categories),
+        priority:    inferPriority(rawSummary, dueDate),
         className,
-        icsUid:      current.UID ?? null, // for deduplication
+        icsUid:      current.UID ?? null,
+        needsReview: true,
       });
-
       continue;
     }
 
-    if (inEvent) {
-      // Accumulate — handle multi-value and continuation
-      if (key && val !== undefined) {
-        // For DESCRIPTION, accumulate (long descriptions span multiple lines after unfold)
-        if (current[key]) {
-          current[key] += " " + val;
-        } else {
-          current[key] = val;
-        }
-      }
+    if (inEvent && key && val !== undefined) {
+      current[key] = current[key] ? current[key] + " " + val : val;
     }
   }
 
-  // Deduplicate by icsUid (same assignment from multiple calendar feeds)
-  const seen  = new Set();
+  const seen = new Set();
   const dedup = tasks.filter((t) => {
     const k = t.icsUid ?? `${t.title}__${t.dueDate?.toISOString() ?? ""}`;
     if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
+    seen.add(k); return true;
   });
 
-  // Sort by due date ascending, undated at end
   return dedup.sort((a, b) => {
     if (!a.dueDate && !b.dueDate) return 0;
     if (!a.dueDate) return 1;
@@ -185,21 +148,5 @@ export const parseIcsText = (icsText) => {
   });
 };
 
-// ── Format time string from Date for dueTime field ────────────
-const formatDueTime = (date) => {
-  const h   = date.getHours();
-  const min = date.getMinutes();
-  // If exactly midnight or 11:59pm it's probably a date-only deadline
-  if ((h === 0 && min === 0) || (h === 23 && min === 59)) return null;
-  const period = h >= 12 ? "PM" : "AM";
-  const h12    = h % 12 || 12;
-  return `${h12}:${String(min).padStart(2, "0")} ${period}`;
-};
-
-// ── Validate that a string looks like a real .ics file ─────────
-export const isValidIcs = (text) =>
-  text.includes("BEGIN:VCALENDAR") && text.includes("BEGIN:VEVENT");
-
-// ── Count events in an ICS file (for user feedback) ───────────
-export const countIcsEvents = (text) =>
-  (text.match(/BEGIN:VEVENT/g) ?? []).length;
+export const isValidIcs  = (text) => text.includes("BEGIN:VCALENDAR") && text.includes("BEGIN:VEVENT");
+export const countIcsEvents = (text) => (text.match(/BEGIN:VEVENT/g) ?? []).length;

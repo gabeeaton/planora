@@ -1,61 +1,38 @@
 // ============================================================
 // src/components/SubscriptionGate.js
-// Freemium model — shows locked state with upgrade CTA for non-Pro users.
-// No trial logic — free forever, Pro unlocks AI features.
+// Subtle dashed hint row — not a big locked billboard.
 // ============================================================
-
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSubscription } from "../hooks/useSubscription";
-import { spacing, radius, shadows } from "../utils/theme";
+import { spacing, radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 
 const makeStyles = (colors) => StyleSheet.create({
-  lockedCard: {
-    backgroundColor: colors.bgCard, borderRadius: radius.lg,
-    padding: spacing.lg, alignItems: "center",
-    borderWidth: 1, borderColor: colors.accentGlow,
-    marginBottom: spacing.md, ...shadows.accent,
+  row: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: colors.bgCard, borderRadius: radius.md,
+    paddingVertical: 11, paddingHorizontal: 14, marginBottom: spacing.md,
+    borderWidth: 1, borderColor: colors.border, borderStyle: "dashed",
   },
-  lockIconWrap: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: colors.accentGlow, alignItems: "center", justifyContent: "center",
-    marginBottom: spacing.md, borderWidth: 1, borderColor: colors.accent,
-  },
-  lockedTitle:    { fontSize: 17, fontWeight: "700", color: colors.textPrimary, marginBottom: 6, textAlign: "center" },
-  lockedSubtitle: { fontSize: 13, color: colors.textSecondary, textAlign: "center", lineHeight: 19, marginBottom: spacing.md, paddingHorizontal: spacing.sm },
-  upgradeBtn: {
-    backgroundColor: colors.accent, borderRadius: radius.md,
-    paddingVertical: 12, paddingHorizontal: spacing.lg,
-    flexDirection: "row", alignItems: "center", gap: 8, ...shadows.accent,
-  },
-  upgradeBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  price:          { fontSize: 11, color: colors.textMuted, marginTop: spacing.sm },
+  icon: { width: 28, height: 28, borderRadius: 8, backgroundColor: colors.accentGlow, alignItems: "center", justifyContent: "center" },
+  label: { flex: 1, fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
+  badge: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.accentGlow, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: colors.accent },
+  badgeText: { fontSize: 10, color: colors.accent, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
 });
 
 const SubscriptionGate = ({ children, featureName = "This feature", onUpgrade }) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const { hasProAccess } = useSubscription();
-
   if (hasProAccess) return <>{children}</>;
-
   return (
-    <View style={styles.lockedCard}>
-      <View style={styles.lockIconWrap}>
-        <Feather name="lock" size={22} color={colors.accent} />
-      </View>
-      <Text style={styles.lockedTitle}>{featureName}</Text>
-      <Text style={styles.lockedSubtitle}>
-        Upgrade to Pro to unlock AI coaching, weekly plans, and behavioral insights.
-      </Text>
-      <TouchableOpacity style={styles.upgradeBtn} onPress={onUpgrade} activeOpacity={0.85}>
-        <Feather name="zap" size={15} color="#fff" />
-        <Text style={styles.upgradeBtnText}>Upgrade to Pro</Text>
-      </TouchableOpacity>
-      <Text style={styles.price}>$4.99/month or $29.99/year</Text>
-    </View>
+    <TouchableOpacity style={styles.row} onPress={onUpgrade} activeOpacity={0.7}>
+      <View style={styles.icon}><Feather name="zap" size={14} color={colors.accent} /></View>
+      <Text style={styles.label} numberOfLines={1}>{featureName}</Text>
+      <View style={styles.badge}><Feather name="lock" size={9} color={colors.accent} /><Text style={styles.badgeText}>Pro</Text></View>
+    </TouchableOpacity>
   );
 };
 

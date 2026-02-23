@@ -3,7 +3,7 @@
 // Updated with recurring task badge
 // ============================================================
 
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { typography, spacing, radius, priorityColors, priorityGlow } from "../utils/theme";
@@ -23,6 +23,10 @@ const makeStyles = (colors) => StyleSheet.create({
   cardHighlighted: { borderColor: colors.accent, borderWidth: 1.5 },
   glowOverlay: {
     position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: 14,
+  },
+  completionFlash: {
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(92,255,143,0.2)", borderRadius: 14, pointerEvents: "none",
   },
   highlightOverlay: {
     position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
@@ -75,10 +79,27 @@ const makeStyles = (colors) => StyleSheet.create({
   actionBtn:  { padding: 4 },
 });
 
-const TaskCard = ({ task, onToggle, onEdit, onDelete, highlighted = false }) => {
+const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = false }) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim    = useRef(new Animated.Value(1)).current;
+  const checkScale   = useRef(new Animated.Value(1)).current;
+  const flashOpacity = useRef(new Animated.Value(0)).current;
+  const prevDone     = useRef(task.completed);
+
+  useEffect(() => {
+    if (!prevDone.current && task.completed) {
+      Animated.sequence([
+        Animated.spring(checkScale, { toValue: 1.5, useNativeDriver: true, speed: 50 }),
+        Animated.spring(checkScale, { toValue: 1.0, useNativeDriver: true, speed: 20 }),
+      ]).start();
+      Animated.sequence([
+        Animated.timing(flashOpacity, { toValue: 1, duration: 100, useNativeDriver: true }),
+        Animated.timing(flashOpacity, { toValue: 0, duration: 600, useNativeDriver: true }),
+      ]).start();
+    }
+    prevDone.current = task.completed;
+  }, [task.completed]);
 
   const handlePressIn  = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true }).start();
   const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true }).start();
@@ -103,6 +124,8 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, highlighted = false }) => 
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onPress={() => onEdit(task)}
+        onLongPress={onFocus ? () => onFocus(task) : undefined}
+        delayLongPress={400}
         activeOpacity={1}
         style={[
           styles.card,
@@ -115,15 +138,14 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, highlighted = false }) => 
           <View style={[styles.glowOverlay, { backgroundColor: glowColor }]} />
         )}
         {highlighted && <View style={styles.highlightOverlay} />}
+        <Animated.View style={[styles.completionFlash, { opacity: flashOpacity }]} />
 
         <View style={styles.row}>
           {/* Checkbox */}
-          <TouchableOpacity
-            onPress={() => onToggle(task)}
-            style={[styles.checkbox, task.completed && styles.checkboxDone]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            {task.completed && <Feather name="check" size={12} color={colors.bg} />}
+          <TouchableOpacity onPress={() => onToggle(task)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Animated.View style={[styles.checkbox, task.completed && styles.checkboxDone, { transform: [{ scale: checkScale }] }]}>
+              {task.completed && <Feather name="check" size={12} color={colors.bg} />}
+            </Animated.View>
           </TouchableOpacity>
 
           <View style={styles.content}>

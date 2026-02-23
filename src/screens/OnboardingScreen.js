@@ -48,7 +48,7 @@ const makeStyles = (colors) =>
       paddingVertical: spacing.md,
     },
     brandName: { fontSize: 16, fontWeight: "800", color: colors.textPrimary },
-    trialBadge: {
+    _trialBadgeOld: {
       backgroundColor: colors.accentGlow,
       borderRadius: radius.full,
       paddingHorizontal: 10,
@@ -57,7 +57,7 @@ const makeStyles = (colors) =>
       borderColor: colors.accent,
       marginLeft: "auto",
     },
-    trialBadgeText: { fontSize: 11, color: colors.accent, fontWeight: "700" },
+
     scroll: { paddingHorizontal: spacing.lg, paddingBottom: 40 },
     stepContainer: { paddingTop: spacing.md },
     stepTitle: {
@@ -237,8 +237,17 @@ const WORK_TIMES = [
 ];
 const GRADES = ["A", "B", "C", "D", "Not sure"];
 const CREDIT_OPTS = ["1", "2", "3", "4", "5+"];
-const STEP_COUNT = 3;
+const STEP_COUNT = 4;
 
+
+const LIFESTYLE_OPTIONS = [
+  { id: "student",  label: "📚 Academics",      desc: "Classes, assignments, exams" },
+  { id: "fitness",  label: "💪 Fitness & Health", desc: "Gym, workouts, nutrition" },
+  { id: "work",     label: "💼 Work / Career",    desc: "Job, freelance, internship" },
+  { id: "personal", label: "🌱 Personal Growth",  desc: "Hobbies, reading, side projects" },
+  { id: "social",   label: "🤝 Social",           desc: "Friends, family, events" },
+  { id: "finance",  label: "💰 Finance",          desc: "Budgeting, bills, savings" },
+];
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const OnboardingScreen = ({ navigation }) => {
@@ -264,6 +273,7 @@ const OnboardingScreen = ({ navigation }) => {
   // Step 2 — preferences
   const [workTime, setWorkTime] = useState(null);
   const [hardestClass, setHardestClass] = useState(null);
+  const [lifestyleGoals, setLifestyleGoals] = useState([]);
 
   // Pre-fill when editing
   useEffect(() => {
@@ -303,6 +313,7 @@ const OnboardingScreen = ({ navigation }) => {
         classes.length > 0 && classes.every((c) => c.name.trim().length > 0)
       );
     if (step === 2) return !!workTime;
+    if (step === 3) return true;
     return false;
   };
 
@@ -325,10 +336,10 @@ const OnboardingScreen = ({ navigation }) => {
         })),
         preferredWorkTime: workTime,
         hardestClass: hardestClass ?? null,
+        lifestyleGoals: lifestyleGoals.length > 0 ? lifestyleGoals : ["student"],
         onboardingComplete: true,
       };
       if (!isEditing) {
-        data.trialStart = new Date().toISOString();
         data.isPro = false;
         data.createdAt = new Date().toISOString();
       }
@@ -530,7 +541,38 @@ const OnboardingScreen = ({ navigation }) => {
     </View>
   );
 
-  const steps = [renderStep0, renderStep1, renderStep2];
+
+  const renderStep3 = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>What do you want to track?</Text>
+      <Text style={styles.stepSubtitle}>
+        Pick everything that applies. The AI will balance all of these together — not just school.
+      </Text>
+      {LIFESTYLE_OPTIONS.map((opt) => {
+        const selected = lifestyleGoals.includes(opt.id);
+        return (
+          <TouchableOpacity
+            key={opt.id}
+            style={[styles.optionBtn, selected && styles.optionBtnSelected]}
+            onPress={() => setLifestyleGoals((prev) =>
+              prev.includes(opt.id) ? prev.filter((x) => x !== opt.id) : [...prev, opt.id]
+            )}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{opt.label}</Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{opt.desc}</Text>
+            </View>
+            {selected && <Feather name="check" size={16} color={colors.accent} />}
+          </TouchableOpacity>
+        );
+      })}
+      <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: spacing.md, fontStyle: "italic" }}>
+        You can change this any time in your profile.
+      </Text>
+    </View>
+  );
+
+  const steps = [renderStep0, renderStep1, renderStep2, renderStep3];
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -566,9 +608,7 @@ const OnboardingScreen = ({ navigation }) => {
               <Feather name="x" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           ) : (
-            <View style={styles.trialBadge}>
-              <Text style={styles.trialBadgeText}>14-day free trial</Text>
-            </View>
+            <View style={{ width: 40 }} />
           )}
         </View>
 

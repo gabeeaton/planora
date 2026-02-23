@@ -13,9 +13,11 @@
  * @returns {Object} patterns
  */
 export const analyzePatterns = (tasks, history, userProfile) => {
+  const gradeMap = {};
+  (userProfile?.classes ?? []).forEach((cls) => { if (cls.name) gradeMap[cls.name] = cls.grade ?? null; });
   return {
     avoidanceScores:     getAvoidanceScores(tasks),
-    completionByClass:   getCompletionPatternsByClass(history),
+    completionByClass:   getCompletionPatternsByClass(history, gradeMap),
     latenessProfile:     getLatenessProfile(history),
     productiveTimeOfDay: getProductiveTimeOfDay(history),
     staleTasks:          getStaleTasks(tasks),
@@ -68,7 +70,7 @@ export const getAvoidanceScores = (tasks) => {
  * Per-class completion patterns from history.
  * Returns object keyed by classId with stats.
  */
-export const getCompletionPatternsByClass = (history) => {
+export const getCompletionPatternsByClass = (history, gradeMap = {}) => {
   const byClass = {};
 
   history.forEach((record) => {
@@ -77,6 +79,7 @@ export const getCompletionPatternsByClass = (history) => {
       byClass[key] = {
         classId:           key,
         className:         record.className ?? "Untagged",
+        grade:             gradeMap[record.className] ?? null,
         completedCount:    0,
         lateCount:         0,
         totalDaysEarly:    0,
@@ -229,7 +232,9 @@ export const buildPatternContext = (patterns) => {
   if (classPatterns.length > 0) {
     lines.push("Per-class patterns:");
     classPatterns.forEach((c) => {
-      lines.push(`  - ${c.className}: ${c.tendencyLabel}, ${c.lateRate}% late rate`);
+      const gNote = c.grade ? ` | grade: ${c.grade}` : "";
+      const gWarn = c.grade && ["D","D+","D-","F","C","C-"].some(x => c.grade === x) ? " ⚠️ PRIORITIZE — low grade" : "";
+      lines.push(`  - ${c.className}: ${c.tendencyLabel}, ${c.lateRate}% late rate${gNote}${gWarn}`);
     });
   }
 
