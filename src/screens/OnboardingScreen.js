@@ -11,8 +11,15 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, Alert,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,210 +33,401 @@ import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
 import { parseSyllabusText } from "../services/syllabusParser";
-import { parseIcsText, isValidIcs, countIcsEvents } from "../services/icsImport";
+import {
+  parseIcsText,
+  isValidIcs,
+  countIcsEvents,
+} from "../services/icsImport";
 
 const makeStyles = (colors) =>
   StyleSheet.create({
-    safe:    { flex: 1, backgroundColor: colors.bg },
+    safe: { flex: 1, backgroundColor: colors.bg },
     progressBar: {
-      flexDirection: "row", gap: 4,
-      paddingHorizontal: spacing.lg, paddingTop: spacing.sm,
+      flexDirection: "row",
+      gap: 4,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
     },
     progressSegment: {
-      flex: 1, height: 3, borderRadius: 2, backgroundColor: colors.border,
+      flex: 1,
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: colors.border,
     },
     progressSegmentActive: { backgroundColor: colors.accent },
     brandRow: {
-      flexDirection: "row", alignItems: "center", gap: 8,
-      paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
     },
     brandName: { fontSize: 16, fontWeight: "800", color: colors.textPrimary },
 
-    scroll:        { paddingHorizontal: spacing.lg, paddingBottom: 40 },
+    scroll: { paddingHorizontal: spacing.lg, paddingBottom: 40 },
     stepContainer: { paddingTop: spacing.md },
     stepTitle: {
-      fontSize: 26, fontWeight: "800", color: colors.textPrimary,
-      marginBottom: 8, letterSpacing: -0.5,
+      fontSize: 26,
+      fontWeight: "800",
+      color: colors.textPrimary,
+      marginBottom: 8,
+      letterSpacing: -0.5,
     },
     stepSubtitle: {
-      ...typography.body, color: colors.textSecondary, marginBottom: spacing.lg,
+      ...typography.body,
+      color: colors.textSecondary,
+      marginBottom: spacing.lg,
     },
     fieldLabel: {
-      fontSize: 11, fontWeight: "700", color: colors.textMuted,
-      letterSpacing: 0.8, marginBottom: 8, textTransform: "uppercase",
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.textMuted,
+      letterSpacing: 0.8,
+      marginBottom: 8,
+      textTransform: "uppercase",
     },
     input: {
-      backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.border,
-      borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10,
-      color: colors.textPrimary, fontSize: 14, marginBottom: 4,
+      backgroundColor: colors.bgInput,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.sm,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      color: colors.textPrimary,
+      fontSize: 14,
+      marginBottom: 4,
     },
     optionBtn: {
-      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-      backgroundColor: colors.bgCard, borderRadius: radius.md,
-      padding: spacing.md, marginBottom: spacing.sm,
-      borderWidth: 1, borderColor: colors.border,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.bgCard,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    optionBtnSelected: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
-    optionText:         { fontSize: 15, color: colors.textSecondary, fontWeight: "500" },
+    optionBtnSelected: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentGlow,
+    },
+    optionText: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      fontWeight: "500",
+    },
     optionTextSelected: { color: colors.accent, fontWeight: "700" },
     classCard: {
-      backgroundColor: colors.bgCard, borderRadius: radius.md,
-      padding: spacing.md, marginBottom: spacing.md,
-      borderWidth: 1, borderColor: colors.border,
+      backgroundColor: colors.bgCard,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     classCardHeader: {
-      flexDirection: "row", justifyContent: "space-between",
-      alignItems: "center", marginBottom: spacing.sm,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: spacing.sm,
     },
     classCardLabel: {
-      fontSize: 12, color: colors.textMuted, fontWeight: "700", textTransform: "uppercase",
+      fontSize: 12,
+      color: colors.textMuted,
+      fontWeight: "700",
+      textTransform: "uppercase",
     },
     subLabel: {
-      fontSize: 11, color: colors.textMuted, fontWeight: "600", marginTop: 10, marginBottom: 6,
+      fontSize: 11,
+      color: colors.textMuted,
+      fontWeight: "600",
+      marginTop: 10,
+      marginBottom: 6,
     },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     chipSm: {
-      paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full,
-      borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgInput,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.bgInput,
     },
-    chipSmSelected:     { borderColor: colors.accent, backgroundColor: colors.accentGlow },
-    chipSmText:         { fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
+    chipSmSelected: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentGlow,
+    },
+    chipSmText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: "600",
+    },
     chipSmTextSelected: { color: colors.accent },
     addClassBtn: {
-      flexDirection: "row", alignItems: "center", gap: 6,
-      paddingVertical: 12, justifyContent: "center",
-      borderWidth: 1, borderStyle: "dashed", borderColor: colors.accent,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 12,
+      justifyContent: "center",
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.accent,
       borderRadius: radius.md,
     },
     addClassText: { color: colors.accent, fontWeight: "600", fontSize: 14 },
 
     bottomNav: {
-      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-      paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-      borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      backgroundColor: colors.bg,
     },
-    backBtn:        { flexDirection: "row", alignItems: "center", gap: 6, padding: 4 },
-    backBtnText:    { color: colors.textSecondary, fontSize: 15 },
+    backBtn: { flexDirection: "row", alignItems: "center", gap: 6, padding: 4 },
+    backBtnText: { color: colors.textSecondary, fontSize: 15 },
     nextBtn: {
-      flexDirection: "row", alignItems: "center", gap: 8,
-      backgroundColor: colors.accent, borderRadius: radius.md,
-      paddingVertical: 13, paddingHorizontal: spacing.lg, ...shadows.accent,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: colors.accent,
+      borderRadius: radius.md,
+      paddingVertical: 13,
+      paddingHorizontal: spacing.lg,
+      ...shadows.accent,
     },
     nextBtnDisabled: { opacity: 0.4 },
-    nextBtnText:     { color: "#fff", fontSize: 15, fontWeight: "700" },
+    nextBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 
     // ── Import step styles ─────────────────────────────────
     importHero: {
-      alignItems: "center", paddingVertical: spacing.lg,
+      alignItems: "center",
+      paddingVertical: spacing.lg,
     },
     importHeroIcon: {
-      width: 72, height: 72, borderRadius: 36,
-      backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
-      alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.accentGlow,
+      borderWidth: 2,
+      borderColor: colors.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: spacing.md,
       ...shadows.accent,
     },
     importTabRow: {
-      flexDirection: "row", backgroundColor: colors.bgCard,
-      borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
-      marginBottom: spacing.md, overflow: "hidden",
+      flexDirection: "row",
+      backgroundColor: colors.bgCard,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: spacing.md,
+      overflow: "hidden",
     },
     importTab: {
-      flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-      gap: 6, paddingVertical: 11,
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 11,
     },
-    importTabActive:  { backgroundColor: colors.accent },
-    importTabText:    { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+    importTabActive: { backgroundColor: colors.accent },
+    importTabText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
     importTabTextActive: { color: "#fff" },
 
     syllabusInput: {
-      backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.border,
-      borderRadius: radius.md, padding: 14, color: colors.textPrimary,
-      fontSize: 14, minHeight: 140, textAlignVertical: "top",
+      backgroundColor: colors.bgInput,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      padding: 14,
+      color: colors.textPrimary,
+      fontSize: 14,
+      minHeight: 140,
+      textAlignVertical: "top",
       marginBottom: spacing.sm,
     },
     parseBtn: {
-      backgroundColor: colors.accent, borderRadius: radius.md,
-      paddingVertical: 13, flexDirection: "row", alignItems: "center",
-      justifyContent: "center", gap: 8, ...shadows.accent,
+      backgroundColor: colors.accent,
+      borderRadius: radius.md,
+      paddingVertical: 13,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      ...shadows.accent,
       marginBottom: spacing.sm,
     },
     parseBtnDisabled: { opacity: 0.45 },
-    parseBtnText:     { color: "#fff", fontSize: 14, fontWeight: "700" },
+    parseBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 
     infoCard: {
-      flexDirection: "row", gap: 10, alignItems: "flex-start",
-      backgroundColor: colors.accentGlow, borderRadius: radius.md,
-      padding: spacing.md, borderWidth: 1, borderColor: colors.accent,
+      flexDirection: "row",
+      gap: 10,
+      alignItems: "flex-start",
+      backgroundColor: colors.accentGlow,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.accent,
       marginBottom: spacing.md,
     },
-    infoText:    { fontSize: 13, color: colors.textSecondary, flex: 1, lineHeight: 18 },
-    infoLink:    { color: colors.accent, fontWeight: "700" },
+    infoText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 18,
+    },
+    infoLink: { color: colors.accent, fontWeight: "700" },
     urlInputWrap: {
-      flexDirection: "row", alignItems: "center",
-      backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.border,
-      borderRadius: radius.md, paddingLeft: 14, marginBottom: spacing.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.bgInput,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingLeft: 14,
+      marginBottom: spacing.sm,
     },
     urlInput: {
-      flex: 1, color: colors.textPrimary, fontSize: 14,
-      paddingVertical: 12, paddingRight: 12,
+      flex: 1,
+      color: colors.textPrimary,
+      fontSize: 14,
+      paddingVertical: 12,
+      paddingRight: 12,
     },
     fetchBtn: {
-      paddingHorizontal: 14, paddingVertical: 12,
-      backgroundColor: colors.accent, borderRadius: radius.md,
-      flexDirection: "row", alignItems: "center", gap: 5,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      backgroundColor: colors.accent,
+      borderRadius: radius.md,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
     },
-    fetchBtnText:  { color: "#fff", fontWeight: "700", fontSize: 13 },
-    orRow:         { flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 10 },
-    orLine:        { flex: 1, height: 1, backgroundColor: colors.border },
-    orText:        { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+    fetchBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+    orRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginVertical: 10,
+    },
+    orLine: { flex: 1, height: 1, backgroundColor: colors.border },
+    orText: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
     pickFileBtn: {
-      flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-      borderWidth: 1, borderStyle: "dashed", borderColor: colors.border,
-      borderRadius: radius.md, paddingVertical: 14, marginBottom: spacing.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingVertical: 14,
+      marginBottom: spacing.sm,
     },
-    pickFileBtnText: { fontSize: 14, color: colors.textMuted, fontWeight: "600" },
+    pickFileBtnText: {
+      fontSize: 14,
+      color: colors.textMuted,
+      fontWeight: "600",
+    },
     stepsCard: {
-      backgroundColor: colors.bgCard, borderRadius: radius.md,
-      borderWidth: 1, borderColor: colors.border,
-      padding: spacing.md, marginBottom: spacing.md,
+      backgroundColor: colors.bgCard,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.md,
+      marginBottom: spacing.md,
     },
-    stepsTitle: { fontSize: 12, fontWeight: "700", color: colors.textPrimary, marginBottom: 8 },
-    stepRow:    { flexDirection: "row", gap: 8, marginBottom: 6, alignItems: "flex-start" },
+    stepsTitle: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.textPrimary,
+      marginBottom: 8,
+    },
+    stepRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 6,
+      alignItems: "flex-start",
+    },
     stepNum: {
-      width: 18, height: 18, borderRadius: 9, borderWidth: 1,
-      borderColor: colors.accent, backgroundColor: colors.accentGlow,
-      alignItems: "center", justifyContent: "center",
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      backgroundColor: colors.accentGlow,
+      alignItems: "center",
+      justifyContent: "center",
     },
     stepNumText: { fontSize: 9, fontWeight: "800", color: colors.accent },
-    stepText:    { fontSize: 12, color: colors.textSecondary, flex: 1, lineHeight: 17 },
+    stepText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 17,
+    },
 
     // Parsed tasks preview
     parsedPreview: {
-      backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md,
-      borderWidth: 1, borderColor: colors.low, marginBottom: spacing.sm,
+      backgroundColor: colors.bgCard,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.low,
+      marginBottom: spacing.sm,
     },
     parsedHeader: {
-      flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: spacing.sm,
     },
-    parsedTitle: { fontSize: 14, fontWeight: "700", color: colors.textPrimary, flex: 1 },
+    parsedTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.textPrimary,
+      flex: 1,
+    },
     parsedItem: {
-      flexDirection: "row", alignItems: "center", gap: 8,
-      paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 6,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
     },
-    parsedDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
+    parsedDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.accent,
+    },
     parsedText: { fontSize: 13, color: colors.textPrimary, flex: 1 },
 
     // Error
     errorRow: {
-      flexDirection: "row", gap: 6, alignItems: "flex-start",
-      backgroundColor: "rgba(255,92,92,0.08)", padding: spacing.sm,
-      borderRadius: radius.sm, borderWidth: 1, borderColor: colors.high,
+      flexDirection: "row",
+      gap: 6,
+      alignItems: "flex-start",
+      backgroundColor: "rgba(255,92,92,0.08)",
+      padding: spacing.sm,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.high,
       marginBottom: spacing.sm,
     },
     errorText: { color: colors.high, fontSize: 12, flex: 1, lineHeight: 17 },
 
     skipBtn: {
-      alignItems: "center", paddingVertical: spacing.sm,
+      alignItems: "center",
+      paddingVertical: spacing.sm,
     },
     skipBtnText: { color: colors.textMuted, fontSize: 14 },
   });
@@ -243,29 +441,43 @@ const generateSemesters = () => {
     const seasons = [
       { name: `Spring ${y}`, startMonth: 0 },
       { name: `Summer ${y}`, startMonth: 4 },
-      { name: `Fall ${y}`,   startMonth: 7 },
+      { name: `Fall ${y}`, startMonth: 7 },
     ];
     seasons.forEach(({ name, startMonth }) => {
-      const monthsAgo = (now.getFullYear() - y) * 12 + (now.getMonth() - startMonth);
+      const monthsAgo =
+        (now.getFullYear() - y) * 12 + (now.getMonth() - startMonth);
       if (monthsAgo <= 3) results.push(name);
     });
   }
   return [...new Set(results)].slice(0, 8);
 };
 
-const SEMESTERS   = generateSemesters();
-const WORK_TIMES  = ["Morning (6am–12pm)", "Afternoon (12pm–5pm)", "Evening (5pm–9pm)", "Night (9pm+)"];
-const GRADES      = ["A", "B", "C", "D", "Not sure"];
+const SEMESTERS = generateSemesters();
+const WORK_TIMES = [
+  "Morning (6am–12pm)",
+  "Afternoon (12pm–5pm)",
+  "Evening (5pm–9pm)",
+  "Night (9pm+)",
+];
+const GRADES = ["A", "B", "C", "D", "Not sure"];
 const CREDIT_OPTS = ["1", "2", "3", "4", "5+"];
-const STEP_COUNT  = 5; // was 4, added import step
+const STEP_COUNT = 5; // was 4, added import step
 
 const LIFESTYLE_OPTIONS = [
-  { id: "student",  label: "📚 Academics",      desc: "Classes, assignments, exams" },
-  { id: "fitness",  label: "💪 Fitness & Health", desc: "Gym, workouts, nutrition" },
-  { id: "work",     label: "💼 Work / Career",    desc: "Job, freelance, internship" },
-  { id: "personal", label: "🌱 Personal Growth",  desc: "Hobbies, reading, side projects" },
-  { id: "social",   label: "🤝 Social",           desc: "Friends, family, events" },
-  { id: "finance",  label: "💰 Finance",          desc: "Budgeting, bills, savings" },
+  { id: "student", label: "📚 Academics", desc: "Classes, assignments, exams" },
+  {
+    id: "fitness",
+    label: "💪 Fitness & Health",
+    desc: "Gym, workouts, nutrition",
+  },
+  { id: "work", label: "💼 Work / Career", desc: "Job, freelance, internship" },
+  {
+    id: "personal",
+    label: "🌱 Personal Growth",
+    desc: "Hobbies, reading, side projects",
+  },
+  { id: "social", label: "🤝 Social", desc: "Friends, family, events" },
+  { id: "finance", label: "💰 Finance", desc: "Budgeting, bills, savings" },
 ];
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -273,27 +485,33 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 // ── Import Step Sub-component ─────────────────────────────────
 const ImportStep = ({ classes, onImported, styles, colors }) => {
   const { createManyTasks } = useTasks();
-  const [activeTab, setActiveTab]       = useState("syllabus");
+  const [activeTab, setActiveTab] = useState("syllabus");
   const [syllabusText, setSyllabusText] = useState("");
   const [selectedClass, setSelectedClass] = useState(null);
-  const [parsing, setParsing]           = useState(false);
-  const [icsUrl, setIcsUrl]             = useState("");
-  const [icsLoading, setIcsLoading]     = useState(false);
-  const [icsText, setIcsText]           = useState(null);
+  const [parsing, setParsing] = useState(false);
+  const [icsUrl, setIcsUrl] = useState("");
+  const [icsLoading, setIcsLoading] = useState(false);
+  const [icsText, setIcsText] = useState(null);
   const [icsEventCount, setIcsEventCount] = useState(0);
-  const [parsedTasks, setParsedTasks]   = useState(null);
-  const [importing, setImporting]       = useState(false);
-  const [error, setError]               = useState(null);
-  const [importDone, setImportDone]     = useState(false);
-  const [importCount, setImportCount]   = useState(0);
+  const [parsedTasks, setParsedTasks] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [error, setError] = useState(null);
+  const [importDone, setImportDone] = useState(false);
+  const [importCount, setImportCount] = useState(0);
 
   const handleParseSyllabus = async () => {
     if (!syllabusText.trim()) return;
-    setError(null); setParsing(true);
+    setError(null);
+    setParsing(true);
     try {
       const className = selectedClass?.name ?? null;
       const tasks = await parseSyllabusText(syllabusText, className);
-      if (tasks.length === 0) { setError("No assignments found. Try pasting just the schedule section."); return; }
+      if (tasks.length === 0) {
+        setError(
+          "No assignments found. Try pasting just the schedule section."
+        );
+        return;
+      }
       setParsedTasks(tasks);
     } catch (err) {
       setError(err.message ?? "Parsing failed. Try again.");
@@ -305,29 +523,58 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
   const handleFetchUrl = async () => {
     const url = icsUrl.trim();
     if (!url) return;
-    setIcsLoading(true); setError(null);
+    setIcsLoading(true);
+    setError(null);
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
-      if (!isValidIcs(text)) { setError("That URL didn't return a valid calendar. Make sure you copied the full feed URL from Canvas."); setIcsLoading(false); return; }
+      if (!isValidIcs(text)) {
+        setError(
+          "That URL didn't return a valid calendar. Make sure you copied the full feed URL from Canvas."
+        );
+        setIcsLoading(false);
+        return;
+      }
       const count = countIcsEvents(text);
-      setIcsText(text); setIcsEventCount(count);
+      setIcsText(text);
+      setIcsEventCount(count);
     } catch {
-      setError("Couldn't load that URL. Make sure it starts with https:// — replace webcal:// if needed.");
-    } finally { setIcsLoading(false); }
+      setError(
+        "Couldn't load that URL. Make sure it starts with https:// — replace webcal:// if needed."
+      );
+    } finally {
+      setIcsLoading(false);
+    }
   };
 
   const handlePickFile = async () => {
-    setIcsLoading(true); setError(null);
+    setIcsLoading(true);
+    setError(null);
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: ["text/calendar", "application/octet-stream", "*/*"], copyToCacheDirectory: true });
-      if (result.canceled || !result.assets?.length) { setIcsLoading(false); return; }
-      const text = await FileSystem.readAsStringAsync(result.assets[0].uri, { encoding: FileSystem.EncodingType.UTF8 });
-      if (!isValidIcs(text)) { setError("This doesn't look like a valid .ics file."); setIcsLoading(false); return; }
-      setIcsText(text); setIcsEventCount(countIcsEvents(text));
-    } catch { setError("Couldn't read that file."); }
-    finally { setIcsLoading(false); }
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["text/calendar", "application/octet-stream", "*/*"],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.length) {
+        setIcsLoading(false);
+        return;
+      }
+      const text = await FileSystem.readAsStringAsync(result.assets[0].uri, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      if (!isValidIcs(text)) {
+        setError("This doesn't look like a valid .ics file.");
+        setIcsLoading(false);
+        return;
+      }
+      setIcsText(text);
+      setIcsEventCount(countIcsEvents(text));
+    } catch {
+      setError("Couldn't read that file.");
+    } finally {
+      setIcsLoading(false);
+    }
   };
 
   const handleParseIcs = () => {
@@ -335,28 +582,53 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
     setError(null);
     try {
       const tasks = parseIcsText(icsText);
-      if (tasks.length === 0) { setError("No upcoming assignments found in this calendar."); return; }
+      if (tasks.length === 0) {
+        setError("No upcoming assignments found in this calendar.");
+        return;
+      }
       setParsedTasks(tasks);
-    } catch { setError("Couldn't parse this file. Try exporting again."); }
+    } catch {
+      setError("Couldn't parse this file. Try exporting again.");
+    }
   };
 
   const handleImport = async () => {
     if (!parsedTasks?.length) return;
-    setImporting(true); setError(null);
+    setImporting(true);
+    setError(null);
     try {
-      const toImport = parsedTasks.map((t) => ({ ...t, dueDate: t.dueDate instanceof Date ? t.dueDate : (t.dueDate ? new Date(t.dueDate) : null) }));
+      const toImport = parsedTasks.map((t) => ({
+        ...t,
+        dueDate:
+          t.dueDate instanceof Date
+            ? t.dueDate
+            : t.dueDate
+            ? new Date(t.dueDate)
+            : null,
+      }));
       await createManyTasks(toImport);
       setImportCount(toImport.length);
       setImportDone(true);
       onImported(toImport.length);
-    } catch { setError("Import failed. You can try again from the dashboard."); }
-    finally { setImporting(false); }
+    } catch {
+      setError("Import failed. You can try again from the dashboard.");
+    } finally {
+      setImporting(false);
+    }
   };
 
   if (importDone) {
     return (
       <View style={[styles.importHero, { paddingVertical: spacing.xl }]}>
-        <View style={[styles.importHeroIcon, { borderColor: "#5CFF8F", backgroundColor: "rgba(92,255,143,0.12)" }]}>
+        <View
+          style={[
+            styles.importHeroIcon,
+            {
+              borderColor: "#5CFF8F",
+              backgroundColor: "rgba(92,255,143,0.12)",
+            },
+          ]}
+        >
           <Feather name="check" size={32} color="#5CFF8F" />
         </View>
         <Text style={[styles.stepTitle, { textAlign: "center" }]}>
@@ -375,16 +647,25 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
         <View style={styles.parsedPreview}>
           <View style={styles.parsedHeader}>
             <Feather name="check-circle" size={16} color="#5CFF8F" />
-            <Text style={styles.parsedTitle}>{parsedTasks.length} assignments found</Text>
+            <Text style={styles.parsedTitle}>
+              {parsedTasks.length} assignments found
+            </Text>
           </View>
           {parsedTasks.slice(0, 5).map((t, i) => (
             <View key={i} style={styles.parsedItem}>
               <View style={styles.parsedDot} />
-              <Text style={styles.parsedText} numberOfLines={1}>{t.title}</Text>
+              <Text style={styles.parsedText} numberOfLines={1}>
+                {t.title}
+              </Text>
             </View>
           ))}
           {parsedTasks.length > 5 && (
-            <Text style={[styles.stepText, { color: colors.textMuted, marginTop: 6 }]}>
+            <Text
+              style={[
+                styles.stepText,
+                { color: colors.textMuted, marginTop: 6 },
+              ]}
+            >
               + {parsedTasks.length - 5} more
             </Text>
           )}
@@ -395,16 +676,20 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
           onPress={handleImport}
           disabled={importing}
         >
-          {importing
-            ? <ActivityIndicator size={15} color="#fff" />
-            : <Feather name="download" size={15} color="#fff" />
-          }
+          {importing ? (
+            <ActivityIndicator size={15} color="#fff" />
+          ) : (
+            <Feather name="download" size={15} color="#fff" />
+          )}
           <Text style={styles.parseBtnText}>
             {importing ? "Importing..." : `Add all ${parsedTasks.length} tasks`}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setParsedTasks(null)} style={styles.skipBtn}>
+        <TouchableOpacity
+          onPress={() => setParsedTasks(null)}
+          style={styles.skipBtn}
+        >
           <Text style={styles.skipBtnText}>← Try a different method</Text>
         </TouchableOpacity>
       </View>
@@ -417,15 +702,30 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
       <View style={styles.importTabRow}>
         {[
           { key: "syllabus", icon: "file-text", label: "Syllabus" },
-          { key: "ics",      icon: "calendar",  label: "Calendar" },
+          { key: "ics", icon: "calendar", label: "Calendar" },
         ].map((t) => (
           <TouchableOpacity
             key={t.key}
-            style={[styles.importTab, activeTab === t.key && styles.importTabActive]}
-            onPress={() => { setActiveTab(t.key); setError(null); }}
+            style={[
+              styles.importTab,
+              activeTab === t.key && styles.importTabActive,
+            ]}
+            onPress={() => {
+              setActiveTab(t.key);
+              setError(null);
+            }}
           >
-            <Feather name={t.icon} size={14} color={activeTab === t.key ? "#fff" : colors.textMuted} />
-            <Text style={[styles.importTabText, activeTab === t.key && styles.importTabTextActive]}>
+            <Feather
+              name={t.icon}
+              size={14}
+              color={activeTab === t.key ? "#fff" : colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.importTabText,
+                activeTab === t.key && styles.importTabTextActive,
+              ]}
+            >
               {t.label}
             </Text>
           </TouchableOpacity>
@@ -438,7 +738,8 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
           <View style={styles.infoCard}>
             <Feather name="info" size={13} color={colors.accent} />
             <Text style={styles.infoText}>
-              Paste your syllabus below — or just the assignments section. The AI extracts every deadline automatically.
+              Paste your syllabus below — or just the assignments section. The
+              AI extracts every deadline automatically.
             </Text>
           </View>
 
@@ -447,18 +748,27 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
               <Text style={styles.fieldLabel}>Which class? (optional)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipRow}>
-                  {classes.filter((c) => c.name?.trim()).map((cls) => {
-                    const sel = selectedClass?.id === cls.id;
-                    return (
-                      <TouchableOpacity
-                        key={cls.id}
-                        style={[styles.chipSm, sel && styles.chipSmSelected]}
-                        onPress={() => setSelectedClass(sel ? null : cls)}
-                      >
-                        <Text style={[styles.chipSmText, sel && styles.chipSmTextSelected]}>{cls.name}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  {classes
+                    .filter((c) => c.name?.trim())
+                    .map((cls) => {
+                      const sel = selectedClass?.id === cls.id;
+                      return (
+                        <TouchableOpacity
+                          key={cls.id}
+                          style={[styles.chipSm, sel && styles.chipSmSelected]}
+                          onPress={() => setSelectedClass(sel ? null : cls)}
+                        >
+                          <Text
+                            style={[
+                              styles.chipSmText,
+                              sel && styles.chipSmTextSelected,
+                            ]}
+                          >
+                            {cls.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                 </View>
               </ScrollView>
             </View>
@@ -466,10 +776,15 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
 
           <TextInput
             style={styles.syllabusInput}
-            placeholder={"Paste your syllabus here…\n\nEven just the assignments section works."}
+            placeholder={
+              "Paste your syllabus here…\n\nEven just the assignments section works."
+            }
             placeholderTextColor={colors.textMuted}
             value={syllabusText}
-            onChangeText={(v) => { setSyllabusText(v); setError(null); }}
+            onChangeText={(v) => {
+              setSyllabusText(v);
+              setError(null);
+            }}
             multiline
             textAlignVertical="top"
           />
@@ -482,15 +797,21 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
           )}
 
           <TouchableOpacity
-            style={[styles.parseBtn, (parsing || !syllabusText.trim()) && styles.parseBtnDisabled]}
+            style={[
+              styles.parseBtn,
+              (parsing || !syllabusText.trim()) && styles.parseBtnDisabled,
+            ]}
             onPress={handleParseSyllabus}
             disabled={parsing || !syllabusText.trim()}
           >
-            {parsing
-              ? <ActivityIndicator size={15} color="#fff" />
-              : <Feather name="cpu" size={15} color="#fff" />
-            }
-            <Text style={styles.parseBtnText}>{parsing ? "Analyzing..." : "Extract Tasks with AI"}</Text>
+            {parsing ? (
+              <ActivityIndicator size={15} color="#fff" />
+            ) : (
+              <Feather name="cpu" size={15} color="#fff" />
+            )}
+            <Text style={styles.parseBtnText}>
+              {parsing ? "Analyzing..." : "Extract Tasks with AI"}
+            </Text>
           </TouchableOpacity>
         </>
       )}
@@ -512,21 +833,30 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
               placeholder="https://canvas.instructure.com/feeds/calendars/..."
               placeholderTextColor={colors.textMuted}
               value={icsUrl}
-              onChangeText={(v) => { setIcsUrl(v); setError(null); }}
+              onChangeText={(v) => {
+                setIcsUrl(v);
+                setError(null);
+              }}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
             />
             <TouchableOpacity
-              style={[styles.fetchBtn, (icsLoading || !icsUrl.trim()) && { opacity: 0.5 }]}
+              style={[
+                styles.fetchBtn,
+                (icsLoading || !icsUrl.trim()) && { opacity: 0.5 },
+              ]}
               onPress={handleFetchUrl}
               disabled={icsLoading || !icsUrl.trim()}
             >
-              {icsLoading
-                ? <ActivityIndicator size={13} color="#fff" />
-                : <Feather name="download-cloud" size={13} color="#fff" />
-              }
-              <Text style={styles.fetchBtnText}>{icsLoading ? "Loading..." : "Import"}</Text>
+              {icsLoading ? (
+                <ActivityIndicator size={13} color="#fff" />
+              ) : (
+                <Feather name="download-cloud" size={13} color="#fff" />
+              )}
+              <Text style={styles.fetchBtnText}>
+                {icsLoading ? "Loading..." : "Import"}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -535,11 +865,13 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
             {[
               "Open the Canvas Student app on your phone",
               "Tap ☰ menu → Settings",
-              "Tap \"Subscribe to Calendar Feed\" — copy that URL",
+              'Tap "Subscribe to Calendar Feed" — copy that URL',
               "Paste it in the box above",
             ].map((text, i) => (
               <View key={i} style={styles.stepRow}>
-                <View style={styles.stepNum}><Text style={styles.stepNumText}>{i + 1}</Text></View>
+                <View style={styles.stepNum}>
+                  <Text style={styles.stepNumText}>{i + 1}</Text>
+                </View>
                 <Text style={styles.stepText}>{text}</Text>
               </View>
             ))}
@@ -558,7 +890,9 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
           >
             <Feather name="upload" size={15} color={colors.textMuted} />
             <Text style={styles.pickFileBtnText}>
-              {icsText ? `✓ ${icsEventCount} events loaded` : "Pick a .ics file from Files"}
+              {icsText
+                ? `✓ ${icsEventCount} events loaded`
+                : "Pick a .ics file from Files"}
             </Text>
           </TouchableOpacity>
 
@@ -576,7 +910,9 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
               disabled={icsLoading}
             >
               <Feather name="calendar" size={15} color="#fff" />
-              <Text style={styles.parseBtnText}>Parse {icsEventCount} Events</Text>
+              <Text style={styles.parseBtnText}>
+                Parse {icsEventCount} Events
+              </Text>
             </TouchableOpacity>
           )}
         </>
@@ -594,7 +930,7 @@ const OnboardingScreen = ({ navigation }) => {
 
   const isEditing = !!profile?.onboardingComplete;
 
-  const [step, setStepp]   = useState(0);
+  const [step, setStepp] = useState(0);
   const [saving, setSaving] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
 
@@ -603,7 +939,7 @@ const OnboardingScreen = ({ navigation }) => {
   const setStep = setStepp;
 
   // Step 0 — identity
-  const [name, setName]         = useState("");
+  const [name, setName] = useState("");
   const [semester, setSemester] = useState(null);
 
   // Step 1 — classes
@@ -612,7 +948,7 @@ const OnboardingScreen = ({ navigation }) => {
   ]);
 
   // Step 2 — work time preferences
-  const [workTime, setWorkTime]       = useState(null);
+  const [workTime, setWorkTime] = useState(null);
   const [hardestClass, setHardestClass] = useState(null);
 
   // Step 3 — lifestyle goals
@@ -625,7 +961,10 @@ const OnboardingScreen = ({ navigation }) => {
       setSemester(profile.semester ?? null);
       setClasses(
         profile.classes?.length
-          ? profile.classes.map((c) => ({ ...c, creditHours: String(c.creditHours ?? 3) }))
+          ? profile.classes.map((c) => ({
+              ...c,
+              creditHours: String(c.creditHours ?? 3),
+            }))
           : [{ id: generateId(), name: "", creditHours: "3", grade: "B" }]
       );
       setWorkTime(profile.preferredWorkTime ?? null);
@@ -633,13 +972,23 @@ const OnboardingScreen = ({ navigation }) => {
     }
   }, []);
 
-  const addClass    = () => setClasses((p) => [...p, { id: generateId(), name: "", creditHours: "3", grade: "B" }]);
+  const addClass = () =>
+    setClasses((p) => [
+      ...p,
+      { id: generateId(), name: "", creditHours: "3", grade: "B" },
+    ]);
   const removeClass = (id) => setClasses((p) => p.filter((c) => c.id !== id));
-  const updateClass = (id, field, value) => setClasses((p) => p.map((c) => c.id === id ? { ...c, [field]: value } : c));
+  const updateClass = (id, field, value) =>
+    setClasses((p) =>
+      p.map((c) => (c.id === id ? { ...c, [field]: value } : c))
+    );
 
   const canAdvance = () => {
     if (step_n === 0) return !!semester;
-    if (step_n === 1) return classes.length > 0 && classes.every((c) => c.name.trim().length > 0);
+    if (step_n === 1)
+      return (
+        classes.length > 0 && classes.every((c) => c.name.trim().length > 0)
+      );
     if (step_n === 2) return !!workTime;
     if (step_n === 3) return true; // lifestyle goals optional
     if (step_n === 4) return true; // import step always skippable
@@ -665,7 +1014,8 @@ const OnboardingScreen = ({ navigation }) => {
         })),
         preferredWorkTime: workTime,
         hardestClass: hardestClass ?? null,
-        lifestyleGoals: lifestyleGoals.length > 0 ? lifestyleGoals : ["student"],
+        lifestyleGoals:
+          lifestyleGoals.length > 0 ? lifestyleGoals : ["student"],
         onboardingComplete: true,
       };
       if (!isEditing) {
@@ -703,15 +1053,26 @@ const OnboardingScreen = ({ navigation }) => {
         autoCapitalize="words"
       />
 
-      <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>CURRENT SEMESTER</Text>
+      <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>
+        CURRENT SEMESTER
+      </Text>
       {SEMESTERS.map((s) => (
         <TouchableOpacity
           key={s}
           style={[styles.optionBtn, semester === s && styles.optionBtnSelected]}
           onPress={() => setSemester(s)}
         >
-          <Text style={[styles.optionText, semester === s && styles.optionTextSelected]}>{s}</Text>
-          {semester === s && <Feather name="check" size={16} color={colors.accent} />}
+          <Text
+            style={[
+              styles.optionText,
+              semester === s && styles.optionTextSelected,
+            ]}
+          >
+            {s}
+          </Text>
+          {semester === s && (
+            <Feather name="check" size={16} color={colors.accent} />
+          )}
         </TouchableOpacity>
       ))}
     </View>
@@ -746,10 +1107,20 @@ const OnboardingScreen = ({ navigation }) => {
             {CREDIT_OPTS.map((c) => (
               <TouchableOpacity
                 key={c}
-                style={[styles.chipSm, cls.creditHours === c && styles.chipSmSelected]}
+                style={[
+                  styles.chipSm,
+                  cls.creditHours === c && styles.chipSmSelected,
+                ]}
                 onPress={() => updateClass(cls.id, "creditHours", c)}
               >
-                <Text style={[styles.chipSmText, cls.creditHours === c && styles.chipSmTextSelected]}>{c}</Text>
+                <Text
+                  style={[
+                    styles.chipSmText,
+                    cls.creditHours === c && styles.chipSmTextSelected,
+                  ]}
+                >
+                  {c}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -758,10 +1129,20 @@ const OnboardingScreen = ({ navigation }) => {
             {GRADES.map((g) => (
               <TouchableOpacity
                 key={g}
-                style={[styles.chipSm, cls.grade === g && styles.chipSmSelected]}
+                style={[
+                  styles.chipSm,
+                  cls.grade === g && styles.chipSmSelected,
+                ]}
                 onPress={() => updateClass(cls.id, "grade", g)}
               >
-                <Text style={[styles.chipSmText, cls.grade === g && styles.chipSmTextSelected]}>{g}</Text>
+                <Text
+                  style={[
+                    styles.chipSmText,
+                    cls.grade === g && styles.chipSmTextSelected,
+                  ]}
+                >
+                  {g}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -788,8 +1169,17 @@ const OnboardingScreen = ({ navigation }) => {
           style={[styles.optionBtn, workTime === t && styles.optionBtnSelected]}
           onPress={() => setWorkTime(t)}
         >
-          <Text style={[styles.optionText, workTime === t && styles.optionTextSelected]}>{t}</Text>
-          {workTime === t && <Feather name="check" size={16} color={colors.accent} />}
+          <Text
+            style={[
+              styles.optionText,
+              workTime === t && styles.optionTextSelected,
+            ]}
+          >
+            {t}
+          </Text>
+          {workTime === t && (
+            <Feather name="check" size={16} color={colors.accent} />
+          )}
         </TouchableOpacity>
       ))}
 
@@ -799,17 +1189,29 @@ const OnboardingScreen = ({ navigation }) => {
             Which class do you struggle with most? (optional)
           </Text>
           <View style={styles.chipRow}>
-            {classes.filter((c) => c.name.trim()).map((cls) => (
-              <TouchableOpacity
-                key={cls.id}
-                style={[styles.chipSm, hardestClass === cls.id && styles.chipSmSelected]}
-                onPress={() => setHardestClass(hardestClass === cls.id ? null : cls.id)}
-              >
-                <Text style={[styles.chipSmText, hardestClass === cls.id && styles.chipSmTextSelected]}>
-                  {cls.name.trim()}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {classes
+              .filter((c) => c.name.trim())
+              .map((cls) => (
+                <TouchableOpacity
+                  key={cls.id}
+                  style={[
+                    styles.chipSm,
+                    hardestClass === cls.id && styles.chipSmSelected,
+                  ]}
+                  onPress={() =>
+                    setHardestClass(hardestClass === cls.id ? null : cls.id)
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.chipSmText,
+                      hardestClass === cls.id && styles.chipSmTextSelected,
+                    ]}
+                  >
+                    {cls.name.trim()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
           </View>
         </>
       )}
@@ -820,7 +1222,8 @@ const OnboardingScreen = ({ navigation }) => {
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>What do you want to track?</Text>
       <Text style={styles.stepSubtitle}>
-        Pick everything that applies. The AI will balance all of these, not just school.
+        Pick everything that applies. The AI will balance all of these, not just
+        school.
       </Text>
       {LIFESTYLE_OPTIONS.map((opt) => {
         const selected = lifestyleGoals.includes(opt.id);
@@ -828,19 +1231,43 @@ const OnboardingScreen = ({ navigation }) => {
           <TouchableOpacity
             key={opt.id}
             style={[styles.optionBtn, selected && styles.optionBtnSelected]}
-            onPress={() => setLifestyleGoals((prev) =>
-              prev.includes(opt.id) ? prev.filter((x) => x !== opt.id) : [...prev, opt.id]
-            )}
+            onPress={() =>
+              setLifestyleGoals((prev) =>
+                prev.includes(opt.id)
+                  ? prev.filter((x) => x !== opt.id)
+                  : [...prev, opt.id]
+              )
+            }
           >
             <View style={{ flex: 1 }}>
-              <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{opt.label}</Text>
-              <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{opt.desc}</Text>
+              <Text
+                style={[
+                  styles.optionText,
+                  selected && styles.optionTextSelected,
+                ]}
+              >
+                {opt.label}
+              </Text>
+              <Text
+                style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}
+              >
+                {opt.desc}
+              </Text>
             </View>
-            {selected && <Feather name="check" size={16} color={colors.accent} />}
+            {selected && (
+              <Feather name="check" size={16} color={colors.accent} />
+            )}
           </TouchableOpacity>
         );
       })}
-      <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: spacing.md, fontStyle: "italic" }}>
+      <Text
+        style={{
+          fontSize: 11,
+          color: colors.textMuted,
+          marginTop: spacing.md,
+          fontStyle: "italic",
+        }}
+      >
         You can change this any time in your profile.
       </Text>
     </View>
@@ -873,12 +1300,19 @@ const OnboardingScreen = ({ navigation }) => {
     </View>
   );
 
-  const steps = [renderStep0, renderStep1, renderStep2, renderStep3, renderStep4];
+  const steps = [
+    renderStep0,
+    renderStep1,
+    renderStep2,
+    renderStep3,
+    renderStep4,
+  ];
 
   const getNextLabel = () => {
     if (saving) return "Saving...";
     if (isEditing && step_n === STEP_COUNT - 1) return "Save Changes";
-    if (step_n === STEP_COUNT - 1) return importedCount > 0 ? "Get Started →" : "Get Started";
+    if (step_n === STEP_COUNT - 1)
+      return importedCount > 0 ? "Get Started →" : "Get Started";
     return "Next";
   };
 
@@ -899,7 +1333,10 @@ const OnboardingScreen = ({ navigation }) => {
           {Array.from({ length: STEP_COUNT }).map((_, i) => (
             <View
               key={i}
-              style={[styles.progressSegment, i <= step_n && styles.progressSegmentActive]}
+              style={[
+                styles.progressSegment,
+                i <= step_n && styles.progressSegmentActive,
+              ]}
             />
           ))}
         </View>
@@ -910,7 +1347,10 @@ const OnboardingScreen = ({ navigation }) => {
           <Text style={styles.brandName}>TaskFlow</Text>
           {isEditing ? (
             <TouchableOpacity
-              onPress={() => { if (navigation.canGoBack()) navigation.goBack(); else navigation.navigate("Main"); }}
+              onPress={() => {
+                if (navigation.canGoBack()) navigation.goBack();
+                else navigation.navigate("Main");
+              }}
               style={{ marginLeft: "auto" }}
             >
               <Feather name="x" size={20} color={colors.textMuted} />
@@ -931,8 +1371,15 @@ const OnboardingScreen = ({ navigation }) => {
         {/* Bottom nav */}
         <View style={styles.bottomNav}>
           {step_n > 0 && (
-            <TouchableOpacity style={styles.backBtn} onPress={() => setStep(step_n - 1)}>
-              <Feather name="arrow-left" size={18} color={colors.textSecondary} />
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => setStep(step_n - 1)}
+            >
+              <Feather
+                name="arrow-left"
+                size={18}
+                color={colors.textSecondary}
+              />
               <Text style={styles.backBtnText}>Back</Text>
             </TouchableOpacity>
           )}
