@@ -118,13 +118,6 @@ export default function FocusModeScreen({ route, navigation }) {
     setSecs(brk ? BREAK_S : WORK);
   };
 
-  const startBreak = () => {
-    setDone(false);
-    setBrk(true);
-    setSecs(BREAK_S);
-    setOn(true);
-  };
-
   const startAnother = () => {
     setDone(false);
     setBrk(false);
@@ -315,23 +308,25 @@ export default function FocusModeScreen({ route, navigation }) {
             </View>
             <Text style={s.overH}>Session complete!</Text>
             <Text style={s.overSub}>
-              {n} Pomodoro{n !== 1 ? "s" : ""} done.{"\n"}Time to recharge.
+              {n} Pomodoro{n !== 1 ? "s" : ""} done.{"\n"}Time to take a break.
             </Text>
 
-            {task && (
+            {/* One clear action — mark done and leave */}
+            {task ? (
               <TouchableOpacity style={s.bigBtn} onPress={markDone}>
                 <Feather name="check" size={18} color="#fff" />
-                <Text style={s.bigBtnT}>Mark Task Done & Leave</Text>
+                <Text style={s.bigBtnT}>Mark Done & Finish</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={s.bigBtn} onPress={() => navigation.goBack()}>
+                <Feather name="check" size={18} color="#fff" />
+                <Text style={s.bigBtnT}>Finish Session</Text>
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity style={s.bigBtn} onPress={startBreak}>
-              <Feather name="coffee" size={18} color="#fff" />
-              <Text style={s.bigBtnT}>Take a 5-Minute Break</Text>
-            </TouchableOpacity>
-
+            {/* Secondary: keep going */}
             <TouchableOpacity style={s.skipBtn} onPress={startAnother}>
-              <Text style={s.skipT}>Skip break — start another session</Text>
+              <Text style={s.skipT}>Keep going — start another session</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>

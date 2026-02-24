@@ -1,16 +1,18 @@
 // ============================================================
 // src/screens/AuthScreen.js
-// Fixed:
-//   - ForgotPasswordScreen had stray login/register code removed
-//   - Registration -> "Check your email" screen works correctly
-//   - Login with unverified email -> goes to verify screen
-//   - Resend verification email uses stored email + password
+// Changes:
+//   - On first registration: shows a proper modal overlay over
+//     the form (not a new screen) to tell them to verify email
+//   - On login attempt with unverified email: inline warning
+//     with clear "Resend email" CTA instead of generic error
+//   - Forgot password flow unchanged
 // ============================================================
 
 import React, { useState, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, Alert,
+  KeyboardAvoidingView, Platform, ActivityIndicator,
+  ScrollView, Alert, Modal, Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -44,15 +46,28 @@ const makeStyles = (colors) => StyleSheet.create({
     borderRadius: radius.md, paddingHorizontal: spacing.md, paddingLeft: 42,
     paddingVertical: 13, color: colors.textPrimary, fontSize: 15,
   },
+  inputError: { borderColor: colors.high },
   inputIcon:  { position: "absolute", left: 14, top: 15, zIndex: 1 },
   eyeBtn:     { position: "absolute", right: 14, top: 15, zIndex: 1 },
   fieldError: { fontSize: 12, color: colors.high, marginTop: 4, marginLeft: 2 },
+
+  // Global error row
   errorRow: {
     flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: spacing.md,
     backgroundColor: "rgba(255,92,92,0.1)", padding: spacing.sm, borderRadius: radius.sm,
     borderWidth: 1, borderColor: "rgba(255,92,92,0.3)",
   },
-  errorText:   { color: colors.high, fontSize: 13, flex: 1, lineHeight: 18 },
+  errorText: { color: colors.high, fontSize: 13, flex: 1, lineHeight: 18 },
+
+  // Unverified warning (inline, orange-tinted)
+  unverifiedRow: {
+    flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: spacing.md,
+    backgroundColor: "rgba(255,179,71,0.12)", padding: spacing.sm, borderRadius: radius.sm,
+    borderWidth: 1, borderColor: "rgba(255,179,71,0.5)",
+  },
+  unverifiedText:   { color: colors.medium, fontSize: 13, flex: 1, lineHeight: 18 },
+  unverifiedResend: { color: colors.accent, fontWeight: "700", fontSize: 13, marginTop: 6 },
+
   submitBtn: {
     backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 15,
     flexDirection: "row", alignItems: "center", justifyContent: "center",
@@ -65,28 +80,8 @@ const makeStyles = (colors) => StyleSheet.create({
   toggleBtn:  { alignItems: "center", marginTop: spacing.md, padding: spacing.xs },
   toggleText: { ...typography.body, color: colors.textSecondary },
   toggleLink: { color: colors.accent, fontWeight: "600" },
-  verifyCard: {
-    backgroundColor: colors.bgCard, borderRadius: radius.xl,
-    padding: spacing.lg, borderWidth: 1, borderColor: colors.border,
-    alignItems: "center", ...shadows.card,
-  },
-  verifyIcon: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
-  },
-  verifyTitle:    { ...typography.h1, color: colors.textPrimary, textAlign: "center", marginBottom: spacing.sm },
-  verifyBody:     { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.lg },
-  verifyEmail:    { color: colors.accent, fontWeight: "700" },
-  verifyNote: {
-    ...typography.bodySmall, color: colors.textMuted,
-    textAlign: "center", marginTop: spacing.md, lineHeight: 17,
-  },
-  resetBack: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    marginBottom: spacing.lg,
-  },
-  resetBackText: { fontSize: 14, color: colors.textSecondary },
+
+  // Forgot password
   successRow: {
     flexDirection: "row", alignItems: "flex-start", gap: 6,
     backgroundColor: "rgba(92,255,143,0.1)", padding: spacing.sm,
@@ -94,12 +89,60 @@ const makeStyles = (colors) => StyleSheet.create({
     marginBottom: spacing.md,
   },
   successText: { color: colors.low, fontSize: 13, flex: 1, lineHeight: 18 },
+  resetBack: {
+    flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.lg,
+  },
+  resetBackText: { fontSize: 14, color: colors.textSecondary },
+
+  // ── Verify email modal ────────────────────────────────────
+  modalBackdrop: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center", justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: colors.bgCard, borderRadius: radius.xl,
+    padding: spacing.xl, width: "100%",
+    borderWidth: 1, borderColor: colors.border,
+    alignItems: "center", ...shadows.card,
+  },
+  modalIconWrap: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: colors.accentGlow,
+    borderWidth: 2, borderColor: colors.accent,
+    alignItems: "center", justifyContent: "center",
+    marginBottom: spacing.lg,
+  },
+  modalTitle: {
+    fontSize: 22, fontWeight: "800", color: colors.textPrimary,
+    textAlign: "center", marginBottom: spacing.sm, letterSpacing: -0.3,
+  },
+  modalBody: {
+    fontSize: 14, color: colors.textSecondary, textAlign: "center",
+    lineHeight: 22, marginBottom: spacing.lg,
+  },
+  modalEmail: { color: colors.accent, fontWeight: "700" },
+  modalBtn: {
+    width: "100%", backgroundColor: colors.accent,
+    borderRadius: radius.md, paddingVertical: 14,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, ...shadows.accent, marginBottom: spacing.sm,
+  },
+  modalBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  modalSecondaryBtn: {
+    width: "100%", paddingVertical: 12,
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+  },
+  modalSecondaryText: { color: colors.textMuted, fontSize: 14 },
+  modalResendText:    { color: colors.accent, fontSize: 14, fontWeight: "600" },
+  modalNote: {
+    fontSize: 12, color: colors.textMuted, textAlign: "center",
+    marginTop: spacing.sm, lineHeight: 17, fontStyle: "italic",
+  },
 });
 
 const friendlyAuthError = (err) => {
   const msg = err?.message ?? String(err);
-  if (msg === "EMAIL_NOT_VERIFIED")
-    return "Please verify your email before signing in. Check your inbox (and spam folder).";
   if (msg.includes("user-not-found"))         return "No account found with this email.";
   if (msg.includes("wrong-password"))         return "Incorrect password.";
   if (msg.includes("invalid-credential"))     return "Invalid email or password.";
@@ -113,7 +156,7 @@ const friendlyAuthError = (err) => {
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-// ── Password Reset Screen (clean - no stray code) ─────────────
+// ── Password Reset Screen ─────────────────────────────────────
 const ForgotPasswordScreen = ({ onBack, colors, styles }) => {
   const [email, setEmail]     = useState("");
   const [loading, setLoading] = useState(false);
@@ -130,7 +173,7 @@ const ForgotPasswordScreen = ({ onBack, colors, styles }) => {
       setSent(true);
     } catch (err) {
       const msg = err?.message ?? "";
-      if (msg.includes("user-not-found")) setSent(true); // Don't reveal if account exists
+      if (msg.includes("user-not-found")) setSent(true);
       else setError(friendlyAuthError(err));
     } finally {
       setLoading(false);
@@ -174,14 +217,12 @@ const ForgotPasswordScreen = ({ onBack, colors, styles }) => {
               />
             </View>
           </View>
-
           {error ? (
             <View style={styles.errorRow}>
               <Feather name="alert-circle" size={14} color={colors.high} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
-
           <TouchableOpacity
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
             onPress={handleReset}
@@ -204,7 +245,7 @@ const AuthScreen = () => {
   const styles = makeStyles(colors);
   const { login, register } = useAuth();
 
-  const [mode, setMode]                         = useState("login"); // "login" | "register" | "forgot" | "verify"
+  const [mode, setMode]                         = useState("login");
   const [email, setEmail]                       = useState("");
   const [password, setPassword]                 = useState("");
   const [confirmPassword, setConfirmPassword]   = useState("");
@@ -213,17 +254,20 @@ const AuthScreen = () => {
   const [error, setError]                       = useState("");
   const [emailError, setEmailError]             = useState("");
   const [passwordError, setPasswordError]       = useState("");
-  const [verificationEmail, setVerificationEmail] = useState("");
   const [confirmError, setConfirmError]         = useState("");
 
-  // Store password temporarily so resend can re-auth to get a Firebase user
-  const lastPasswordRef = useRef("");
+  // Verification state
+  const [showVerifyModal, setShowVerifyModal]   = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [unverifiedEmail, setUnverifiedEmail]   = useState(""); // login-blocked state
+  const lastPasswordRef                         = useRef("");
 
   const passwordRef = useRef(null);
   const confirmRef  = useRef(null);
 
   const clearErrors = () => {
     setError(""); setEmailError(""); setPasswordError(""); setConfirmError("");
+    setUnverifiedEmail("");
   };
 
   const validate = () => {
@@ -246,17 +290,16 @@ const AuthScreen = () => {
         // Success: AppNavigator listens to auth state and navigates automatically
       } else {
         await register(email.trim(), password);
-        // Registration succeeded - show "check your email" screen
+        // Registration succeeded — show verify email modal
         lastPasswordRef.current = password;
         setVerificationEmail(email.trim());
-        setMode("verify");
+        setShowVerifyModal(true);
       }
     } catch (err) {
       if (err.message === "EMAIL_NOT_VERIFIED") {
-        // User exists but hasn't verified - show verify screen
+        // Login attempt blocked — show inline unverified warning
         lastPasswordRef.current = password;
-        setVerificationEmail(email.trim());
-        setMode("verify");
+        setUnverifiedEmail(email.trim());
       } else {
         setError(friendlyAuthError(err));
       }
@@ -265,60 +308,19 @@ const AuthScreen = () => {
     }
   };
 
-  const handleResend = async () => {
+  const handleResend = async (emailToUse) => {
     try {
-      await resendVerificationEmail(verificationEmail, lastPasswordRef.current);
+      await resendVerificationEmail(emailToUse, lastPasswordRef.current);
       Alert.alert("Sent!", "Verification email resent. Check your inbox and spam folder.");
     } catch {
       Alert.alert(
         "Couldn't resend",
-        "Please tap 'Go to Sign In' and try signing in — we'll resend the verification link automatically."
+        "Try signing in again — we'll automatically resend the verification link."
       );
     }
   };
 
-  // ── Verification sent screen ────────────────────────────────
-  if (mode === "verify") {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={[styles.container, { justifyContent: "center" }]}>
-          <View style={styles.verifyCard}>
-            <View style={styles.verifyIcon}>
-              <Feather name="mail" size={32} color={colors.accent} />
-            </View>
-            <Text style={styles.verifyTitle}>Check your email</Text>
-            <Text style={styles.verifyBody}>
-              We sent a verification link to{" "}
-              <Text style={styles.verifyEmail}>{verificationEmail}</Text>.
-              {"\n\n"}Tap the link in the email to activate your account, then come back here to sign in.
-            </Text>
-            <TouchableOpacity
-              style={styles.submitBtn}
-              onPress={() => {
-                setMode("login");
-                clearErrors();
-                setPassword("");
-                setConfirmPassword("");
-                lastPasswordRef.current = "";
-              }}
-            >
-              <Feather name="log-in" size={18} color={colors.white} />
-              <Text style={styles.submitText}>Go to Sign In</Text>
-            </TouchableOpacity>
-            <Text style={styles.verifyNote}>
-              Didn't get it?{" "}
-              <Text style={{ color: colors.accent, fontWeight: "600" }} onPress={handleResend}>
-                Resend email
-              </Text>
-              {"\n"}Also check your spam folder.
-            </Text>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ── Forgot password screen ──────────────────────────────────
+  // ── Forgot password mode ──────────────────────────────────
   if (mode === "forgot") {
     return (
       <SafeAreaView style={styles.safe}>
@@ -341,9 +343,60 @@ const AuthScreen = () => {
     );
   }
 
-  // ── Login / Register ────────────────────────────────────────
+  // ── Login / Register ──────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe}>
+
+      {/* ── Verify Email Modal — appears after first registration ── */}
+      <Modal
+        visible={showVerifyModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}} // can't dismiss with back button
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <Feather name="mail" size={36} color={colors.accent} />
+            </View>
+            <Text style={styles.modalTitle}>Verify your email</Text>
+            <Text style={styles.modalBody}>
+              We sent a confirmation link to{"\n"}
+              <Text style={styles.modalEmail}>{verificationEmail}</Text>
+              {"\n\n"}Tap the link in the email to activate your account, then come back and sign in.
+            </Text>
+
+            {/* Primary: go to sign in */}
+            <TouchableOpacity
+              style={styles.modalBtn}
+              onPress={() => {
+                setShowVerifyModal(false);
+                setMode("login");
+                setEmail(verificationEmail);
+                setPassword("");
+              }}
+            >
+              <Feather name="log-in" size={18} color="#fff" />
+              <Text style={styles.modalBtnText}>Go to Sign In</Text>
+            </TouchableOpacity>
+
+            {/* Secondary: resend */}
+            <TouchableOpacity
+              style={styles.modalSecondaryBtn}
+              onPress={() => handleResend(verificationEmail)}
+            >
+              <Text style={styles.modalSecondaryText}>Didn't get it?</Text>
+              <Text style={styles.modalResendText}>Resend email</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.modalNote}>
+              Also check your spam folder.{"\n"}
+              The email comes from noreply@taskflow.app
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kav}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.brand}>
@@ -351,7 +404,7 @@ const AuthScreen = () => {
               <Feather name="check-square" size={32} color={colors.accent} />
             </View>
             <Text style={styles.brandName}>TaskFlow</Text>
-            <Text style={styles.brandTagline}>AI-powered productivity for focused minds</Text>
+            <Text style={styles.brandTagline}>Your semester, organized.</Text>
           </View>
 
           <View style={styles.card}>
@@ -361,13 +414,17 @@ const AuthScreen = () => {
             <View style={styles.field}>
               <Text style={styles.label}>EMAIL</Text>
               <View style={styles.inputWrap}>
-                <Feather name="mail" size={16} color={emailError ? colors.high : colors.textMuted} style={styles.inputIcon} />
+                <Feather
+                  name="mail" size={16}
+                  color={emailError ? colors.high : colors.textMuted}
+                  style={styles.inputIcon}
+                />
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, emailError && styles.inputError]}
                   placeholder="you@email.com"
                   placeholderTextColor={colors.textMuted}
                   value={email}
-                  onChangeText={(v) => { setEmail(v); if (emailError) setEmailError(""); if (error) setError(""); }}
+                  onChangeText={(v) => { setEmail(v); if (emailError) setEmailError(""); if (error) setError(""); if (unverifiedEmail) setUnverifiedEmail(""); }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   returnKeyType="next"
@@ -381,10 +438,14 @@ const AuthScreen = () => {
             <View style={styles.field}>
               <Text style={styles.label}>PASSWORD</Text>
               <View style={styles.inputWrap}>
-                <Feather name="lock" size={16} color={passwordError ? colors.high : colors.textMuted} style={styles.inputIcon} />
+                <Feather
+                  name="lock" size={16}
+                  color={passwordError ? colors.high : colors.textMuted}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   ref={passwordRef}
-                  style={[styles.input, { paddingRight: 44 }]}
+                  style={[styles.input, { paddingRight: 44 }, passwordError && styles.inputError]}
                   placeholder="••••••••"
                   placeholderTextColor={colors.textMuted}
                   value={password}
@@ -400,15 +461,19 @@ const AuthScreen = () => {
               {passwordError ? <Text style={styles.fieldError}>{passwordError}</Text> : null}
             </View>
 
-            {/* Confirm password */}
+            {/* Confirm password (register only) */}
             {mode === "register" && (
               <View style={styles.field}>
                 <Text style={styles.label}>CONFIRM PASSWORD</Text>
                 <View style={styles.inputWrap}>
-                  <Feather name="lock" size={16} color={confirmError ? colors.high : colors.textMuted} style={styles.inputIcon} />
+                  <Feather
+                    name="lock" size={16}
+                    color={confirmError ? colors.high : colors.textMuted}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     ref={confirmRef}
-                    style={styles.input}
+                    style={[styles.input, confirmError && styles.inputError]}
                     placeholder="••••••••"
                     placeholderTextColor={colors.textMuted}
                     value={confirmPassword}
@@ -421,6 +486,22 @@ const AuthScreen = () => {
                 {confirmError ? <Text style={styles.fieldError}>{confirmError}</Text> : null}
               </View>
             )}
+
+            {/* Unverified email warning (login-blocked state) */}
+            {unverifiedEmail ? (
+              <View style={styles.unverifiedRow}>
+                <Feather name="alert-circle" size={14} color={colors.medium} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.unverifiedText}>
+                    Your email isn't verified yet. Check your inbox for the verification link we sent to{" "}
+                    <Text style={{ fontWeight: "700" }}>{unverifiedEmail}</Text>.
+                  </Text>
+                  <TouchableOpacity onPress={() => handleResend(unverifiedEmail)}>
+                    <Text style={styles.unverifiedResend}>Resend verification email →</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
 
             {/* Global error */}
             {error ? (
@@ -445,15 +526,19 @@ const AuthScreen = () => {
               }
             </TouchableOpacity>
 
-            {/* Forgot password - login only */}
             {mode === "login" && (
-              <TouchableOpacity onPress={() => { setMode("forgot"); clearErrors(); }} style={styles.forgotBtn}>
+              <TouchableOpacity
+                onPress={() => { setMode("forgot"); clearErrors(); }}
+                style={styles.forgotBtn}
+              >
                 <Text style={styles.forgotText}>Forgot password?</Text>
               </TouchableOpacity>
             )}
 
-            {/* Toggle login/register */}
-            <TouchableOpacity onPress={() => { setMode(mode === "login" ? "register" : "login"); clearErrors(); }} style={styles.toggleBtn}>
+            <TouchableOpacity
+              onPress={() => { setMode(mode === "login" ? "register" : "login"); clearErrors(); }}
+              style={styles.toggleBtn}
+            >
               <Text style={styles.toggleText}>
                 {mode === "login" ? "Don't have an account? " : "Already have an account? "}
                 <Text style={styles.toggleLink}>{mode === "login" ? "Sign Up" : "Sign In"}</Text>

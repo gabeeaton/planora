@@ -1,10 +1,10 @@
 // ============================================================
 // src/screens/DashboardScreen.js
-// Updated:
-//   - AI Insights + Suggest Priority moved to header icon buttons
-//   - Import (SyllabusParser) moved to header, FAB is add-only now
-//   - Safe area paddingBottom increased to clear tab bar properly
-//   - AISummaryCard still collapsible but triggered from header
+// Changes from previous version:
+//   - Replaced AISummaryCard with AIActionsCard (no more Summarize)
+//   - TodayFocusCard cache invalidated when tasks change
+//   - Focus mode hint removed (redundant — long press hint on TaskCard)
+//   - Weekly plan entry point kept in header
 // ============================================================
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -20,10 +20,12 @@ import { useUserProfile }  from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
 import TaskCard            from "../components/TaskCard";
 import TaskModal           from "../components/TaskModal";
-import AISummaryCard       from "../components/AISummaryCard";
 import StatsBar            from "../components/StatsBar";
+import ResyncButton        from "../components/ResyncButton";
 import WhatDoIDoButton     from "../components/WhatDoIDoButton";
-import SubscriptionGate    from "../components/SubscriptionGate";
+import TodayFocusCard      from "../components/TodayFocusCard";
+import AIActionsCard       from "../components/AIActionsCard";
+import { invalidateTodayFocusCache } from "../services/openai";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { format, addDays, subDays, isToday, isTomorrow, isYesterday, differenceInCalendarDays } from "date-fns";
@@ -62,7 +64,7 @@ const updateStreak = async (completedToday) => {
 };
 
 const makeStyles = (colors) => StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: colors.bg },
+  safe:   { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
@@ -71,31 +73,7 @@ const makeStyles = (colors) => StyleSheet.create({
   headerLeft:  { flex: 1 },
   greeting:    { fontSize: 22, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.3 },
   date:        { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 4 },
-  headerBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    alignItems: "center", justifyContent: "center",
-  },
-  importBtn: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: colors.accentGlow, borderRadius: radius.full,
-    borderWidth: 1, borderColor: colors.accent,
-    paddingHorizontal: 10, paddingVertical: 6,
-  },
-  importBtnText: { fontSize: 12, fontWeight: "700", color: colors.accent },
-  aiBtn: {
-    flexDirection: "row", alignItems: "center", gap: 3,
-    backgroundColor: colors.accentGlow, borderRadius: radius.full,
-    borderWidth: 1, borderColor: colors.accent,
-    paddingHorizontal: 8, paddingVertical: 5,
-  },
-  aiBtnActive: { backgroundColor: colors.accent },
-  aiBtnText: { fontSize: 11, fontWeight: "800", color: colors.accent, letterSpacing: 0.3 },
-  headerBtnActive: {
-    backgroundColor: colors.accentGlow,
-    borderWidth: 1, borderColor: colors.accent,
-  },
-
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 6 },
   streakPill: {
     flexDirection: "row", alignItems: "center", gap: 4,
     backgroundColor: colors.mediumGlow, borderRadius: radius.full,
@@ -103,6 +81,18 @@ const makeStyles = (colors) => StyleSheet.create({
     borderWidth: 1, borderColor: colors.medium,
   },
   streakText: { fontSize: 12, fontWeight: "700", color: colors.medium },
+  importBtn: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: colors.accentGlow, borderRadius: radius.full,
+    borderWidth: 1, borderColor: colors.accent,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  importBtnText: { fontSize: 12, fontWeight: "700", color: colors.accent },
+  weeklyBtn: {
+    padding: 6,
+    backgroundColor: colors.accentGlow, borderRadius: radius.full,
+    borderWidth: 1, borderColor: colors.accent,
+  },
 
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 110 },
@@ -114,16 +104,6 @@ const makeStyles = (colors) => StyleSheet.create({
     marginBottom: spacing.sm,
   },
   insightText: { fontSize: 13, fontWeight: "500", flex: 1, lineHeight: 18 },
-
-  focusHint: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingVertical: 8, paddingHorizontal: 10,
-    backgroundColor: colors.accentGlow,
-    borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.accent,
-    marginBottom: spacing.sm,
-  },
-  focusHintText: { fontSize: 12, color: colors.accent, fontWeight: "500", flex: 1 },
 
   tabScroll:    { marginBottom: spacing.sm },
   tabContainer: { gap: 6, paddingRight: spacing.md },
@@ -154,7 +134,6 @@ const makeStyles = (colors) => StyleSheet.create({
   bucketDot:   { width: 8, height: 8, borderRadius: 4 },
   bucketLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.8, textTransform: "uppercase" },
   bucketCount: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
-
   sectionLabel: {
     fontSize: 11, fontWeight: "700", color: colors.textMuted,
     letterSpacing: 0.8, textTransform: "uppercase",
@@ -196,7 +175,6 @@ const makeStyles = (colors) => StyleSheet.create({
   allDoneTitle:    { fontSize: 20, fontWeight: "800", color: colors.textPrimary, marginBottom: spacing.xs, letterSpacing: -0.3 },
   allDoneSubtitle: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22 },
 
-  // Single FAB — add task only
   fab: {
     position: "absolute", right: spacing.lg,
     width: 58, height: 58, borderRadius: 29,
@@ -249,9 +227,9 @@ const DashboardScreen = ({ navigation }) => {
   const [editingTask, setEditingTask]           = useState(null);
   const [aiAnnotatedTasks, setAiAnnotatedTasks] = useState([]);
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
-  const [showAISummary, setShowAISummary]       = useState(false);
   const [streak, setStreak]                     = useState(0);
   const [now, setNow]                           = useState(new Date());
+  const [selectedDay, setSelectedDay]           = useState(new Date());
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -267,7 +245,6 @@ const DashboardScreen = ({ navigation }) => {
     updateStreak(completedToday).then(setStreak);
   }, [completedTasks.length]);
 
-  const [selectedDay, setSelectedDay] = useState(new Date());
   const cycleDay = (direction) => {
     setSelectedDay((prev) => direction === "next" ? addDays(prev, 1) : subDays(prev, 1));
     setActiveTab("Today");
@@ -304,7 +281,9 @@ const DashboardScreen = ({ navigation }) => {
         return sortByDue(filtered.filter((t) => {
           const d = safeDate(t.dueDate);
           if (!d) return false;
-          return d.getDate() === selectedDay.getDate() && d.getMonth() === selectedDay.getMonth() && d.getFullYear() === selectedDay.getFullYear();
+          return d.getDate() === selectedDay.getDate() &&
+                 d.getMonth() === selectedDay.getMonth() &&
+                 d.getFullYear() === selectedDay.getFullYear();
         }));
       case "Pending": return sortByDue(filtered.filter((t) => !t.completed));
       case "Done":    return enrichedTasks.filter((t) => t.completed);
@@ -322,18 +301,18 @@ const DashboardScreen = ({ navigation }) => {
       return t._lowGrade && !t.completed && d && differenceInCalendarDays(d, new Date()) <= 3;
     });
     if (lowGradeUrgent) {
-      return { type: "grade", text: `"${lowGradeUrgent.title}" is due soon and you have a low grade in ${lowGradeUrgent.className} — prioritize this.`, icon: "trending-up", color: colors.high };
+      return { text: `"${lowGradeUrgent.title}" is due soon and you have a low grade in ${lowGradeUrgent.className}.`, icon: "trending-up", color: colors.high };
     }
     if (urgentUntouched?.length > 0) {
       const t = urgentUntouched[0];
-      return { type: "urgent", text: `"${t.title}" is due soon and hasn't been started.`, icon: "alert-triangle", color: colors.high };
+      return { text: `"${t.title}" is due soon and hasn't been started.`, icon: "alert-triangle", color: colors.high };
     }
     if (staleTasks?.length > 0) {
       const t = staleTasks[0];
-      return { type: "stale", text: `"${t.title}" hasn't been touched in ${t.daysSinceTouched} days.`, icon: "clock", color: colors.medium };
+      return { text: `"${t.title}" hasn't been touched in ${t.daysSinceTouched} days.`, icon: "clock", color: colors.medium };
     }
     if (latenessProfile?.label === "often late" && overallStats?.totalPending > 0) {
-      return { type: "pattern", text: "You tend to finish tasks late. Start your highest-priority item first today.", icon: "trending-up", color: colors.accent };
+      return { text: "You tend to finish late. Start your highest-priority item first today.", icon: "trending-up", color: colors.accent };
     }
     return null;
   }, [patterns, enrichedTasks]);
@@ -343,6 +322,8 @@ const DashboardScreen = ({ navigation }) => {
   const handleSaveTask   = async (taskData) => {
     if (editingTask) await editTask(editingTask.id, taskData);
     else             await createTask(taskData);
+    // New or edited task — refresh today's focus
+    invalidateTodayFocusCache();
   };
   const handleDeleteTask = (task) => {
     if (!task) return;
@@ -351,15 +332,25 @@ const DashboardScreen = ({ navigation }) => {
       { text: "Delete", style: "destructive", onPress: () => removeTask(task.id, task.notificationId) },
     ]);
   };
-  const handleToggle    = (task) => { if (!task) return; completeTask(task); };
+  const handleToggle = (task) => {
+    if (!task) return;
+    completeTask(task);
+    // Completing a task should refresh today's focus suggestions
+    invalidateTodayFocusCache();
+  };
   const serializeTask = (task) => ({
     ...task,
-    createdAt:    task.createdAt    instanceof Date ? task.createdAt.toISOString()    : task.createdAt    ?? null,
-    dueDate:      task.dueDate      instanceof Date ? task.dueDate.toISOString()      : task.dueDate      ?? null,
-    completedAt:  task.completedAt  instanceof Date ? task.completedAt.toISOString()  : task.completedAt  ?? null,
+    createdAt:     task.createdAt     instanceof Date ? task.createdAt.toISOString()     : task.createdAt     ?? null,
+    dueDate:       task.dueDate       instanceof Date ? task.dueDate.toISOString()       : task.dueDate       ?? null,
+    completedAt:   task.completedAt   instanceof Date ? task.completedAt.toISOString()   : task.completedAt   ?? null,
     lastTouchedAt: task.lastTouchedAt instanceof Date ? task.lastTouchedAt.toISOString() : task.lastTouchedAt ?? null,
   });
-  const handleFocusTask = (task) => { if (!task) return; hasProAccess ? navigation.navigate("FocusMode", { task: serializeTask(task) }) : navigation.navigate("Paywall"); };
+  const handleFocusTask = (task) => {
+    if (!task) return;
+    hasProAccess
+      ? navigation.navigate("FocusMode", { task: serializeTask(task) })
+      : navigation.navigate("Paywall");
+  };
 
   const greeting = () => {
     const h = now.getHours();
@@ -397,12 +388,11 @@ const DashboardScreen = ({ navigation }) => {
     );
   };
 
-  // FAB sits just above the tab bar
-  const fabBottom = insets.bottom + 80; // lowered slightly from tab bar
+  const fabBottom = insets.bottom + 80;
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.greeting}>{greeting()}{firstName ? `, ${firstName}` : ""}</Text>
@@ -415,8 +405,6 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.streakText}>{streak}</Text>
             </View>
           )}
-
-          {/* Import syllabus — moved from FAB to header */}
           <TouchableOpacity
             onPress={() => navigation.navigate("SyllabusParser")}
             style={styles.importBtn}
@@ -425,27 +413,15 @@ const DashboardScreen = ({ navigation }) => {
             <Feather name="upload-cloud" size={14} color={colors.accent} />
             <Text style={styles.importBtnText}>Import</Text>
           </TouchableOpacity>
-
-          {/* AI Insights toggle — moved from bottom of list to header */}
-          {tasks.length > 0 && (
+          {hasProAccess && (
             <TouchableOpacity
-              onPress={() => setShowAISummary((v) => !v)}
-              style={[styles.aiBtn, showAISummary && styles.aiBtnActive]}
+              onPress={() => navigation.navigate("WeeklyBriefing")}
+              style={styles.weeklyBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Feather name="zap" size={12} color={showAISummary ? "#fff" : colors.accent} />
-              <Text style={[styles.aiBtnText, showAISummary && { color: "#fff" }]}>AI</Text>
+              <Feather name="calendar" size={16} color={colors.accent} />
             </TouchableOpacity>
           )}
-
-          {/* Weekly briefing — Pro only */}
-          <TouchableOpacity
-            onPress={() => hasProAccess ? navigation.navigate("WeeklyBriefing") : navigation.navigate("Paywall")}
-            style={styles.headerBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name="calendar" size={18} color={hasProAccess ? colors.accent : colors.textMuted} />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -453,7 +429,13 @@ const DashboardScreen = ({ navigation }) => {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={loading && tasks.length === 0} tintColor={colors.accent} colors={[colors.accent]} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading && tasks.length === 0}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
       >
         <StatsBar
           todayCount={todaysTasks.length}
@@ -461,41 +443,60 @@ const DashboardScreen = ({ navigation }) => {
           completedCount={completedTasks.length}
         />
 
-        {/* WhatDoIDo */}
-        <SubscriptionGate featureName="What should I do right now?" onUpgrade={() => navigation.navigate("Paywall")}>
-          <WhatDoIDoButton tasks={tasks} userProfile={profile} patterns={patterns} onTaskHighlight={setHighlightedTaskId} />
-        </SubscriptionGate>
+        {/* Resync — visible once user has tasks, for re-importing updated calendars */}
+        {tasks.length > 0 && !isFirstTime && (
+          <ResyncButton onPress={() => navigation.navigate('SyllabusParser')} />
+        )}
 
-        {/* AI Summary — now toggled from header icon, shown inline here */}
-        {showAISummary && tasks.length > 0 && (
-          <AISummaryCard tasks={tasks} patterns={patterns} onPrioritiesUpdated={setAiAnnotatedTasks} />
+        {/* Today's Focus — auto-loads, no button press needed */}
+        {tasks.length > 0 && (
+          <TodayFocusCard tasks={tasks} userProfile={profile} patterns={patterns} />
+        )}
+
+        {/* What should I do right now — Pro feature */}
+        {tasks.length > 0 && (
+          <WhatDoIDoButton
+            tasks={tasks}
+            userProfile={profile}
+            patterns={patterns}
+            onTaskHighlight={setHighlightedTaskId}
+            onUpgrade={() => navigation.navigate("Paywall")}
+            onPrioritiesUpdated={setAiAnnotatedTasks}
+          />
+        )}
+
+        {/* AI Priority actions — Pro feature */}
+        {tasks.length > 0 && hasProAccess && (
+          <AIActionsCard
+            tasks={tasks}
+            patterns={patterns}
+            onPrioritiesUpdated={setAiAnnotatedTasks}
+          />
         )}
 
         {/* Behavioral insight strip */}
         {behavioralInsight && (
           <View style={[styles.insightStrip, { borderLeftColor: behavioralInsight.color }]}>
             <Feather name={behavioralInsight.icon} size={13} color={behavioralInsight.color} />
-            <Text style={[styles.insightText, { color: behavioralInsight.color }]}>{behavioralInsight.text}</Text>
+            <Text style={[styles.insightText, { color: behavioralInsight.color }]}>
+              {behavioralInsight.text}
+            </Text>
           </View>
         )}
 
-        {/* Focus Mode hint — shows once when tasks exist */}
-        {pendingTasks.length > 0 && (
-          <TouchableOpacity
-            style={styles.focusHint}
-            onPress={() => { if (!pendingTasks[0]) return; hasProAccess ? navigation.navigate("FocusMode", { task: serializeTask(pendingTasks[0]) }) : navigation.navigate("Paywall"); }}
-            activeOpacity={0.7}
-          >
-            <Feather name="zap" size={12} color={colors.accent} />
-            <Text style={styles.focusHintText}>Hold any task to enter Focus Mode (Pomodoro)</Text>
-            <Feather name="chevron-right" size={12} color={colors.textMuted} />
-          </TouchableOpacity>
-        )}
-
         {/* Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabScroll}
+          contentContainerStyle={styles.tabContainer}
+        >
           {TABS.map((tab) => (
-            <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.tabActive]}>
+            <TouchableOpacity
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+            >
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
                 {tab}{tab === "Pending" && pendingTasks.length > 0 ? ` (${pendingTasks.length})` : ""}
               </Text>
@@ -503,7 +504,7 @@ const DashboardScreen = ({ navigation }) => {
           ))}
         </ScrollView>
 
-        {/* Day cycler */}
+        {/* Day cycler for Today tab */}
         {activeTab === "Today" && (
           <View style={styles.dayCycler}>
             <TouchableOpacity onPress={() => cycleDay("prev")} style={styles.dayCyclerBtn}>
@@ -533,7 +534,7 @@ const DashboardScreen = ({ navigation }) => {
             </View>
             <Text style={styles.emptyTitle}>You're all set up!</Text>
             <Text style={styles.emptySubtitle}>
-              Add your first task, or import your entire semester from a Canvas calendar — the AI will use it to coach you.
+              Add your first task, or import your entire semester from a Canvas calendar.
             </Text>
             <View style={styles.emptyActionsRow}>
               <TouchableOpacity style={styles.emptyBtn} onPress={handleAddTask}>
@@ -558,11 +559,11 @@ const DashboardScreen = ({ navigation }) => {
 
         ) : activeTab === "All" ? (
           <>
-            {renderBucket("Overdue",    buckets.overdue,   colors.high)}
-            {renderBucket("Due Today",  buckets.dueToday,  colors.medium)}
-            {renderBucket("This Week",  buckets.thisWeek,  colors.accent)}
-            {renderBucket("Later",      buckets.later,     colors.textMuted)}
-            {renderBucket("No Due Date",buckets.noDate,    colors.textMuted)}
+            {renderBucket("Overdue",     buckets.overdue,   colors.high)}
+            {renderBucket("Due Today",   buckets.dueToday,  colors.medium)}
+            {renderBucket("This Week",   buckets.thisWeek,  colors.accent)}
+            {renderBucket("Later",       buckets.later,     colors.textMuted)}
+            {renderBucket("No Due Date", buckets.noDate,    colors.textMuted)}
             {buckets.completed.length > 0 && (
               <View style={{ marginTop: spacing.sm }}>
                 <View style={styles.bucketHeader}>
@@ -571,7 +572,13 @@ const DashboardScreen = ({ navigation }) => {
                   <Text style={styles.bucketCount}>({buckets.completed.length})</Text>
                 </View>
                 {buckets.completed.slice(0, 5).map((task) =>
-                  task ? <TaskCard key={task.id} task={task} onToggle={handleToggle} onEdit={handleEditTask} onDelete={handleDeleteTask} onFocus={handleFocusTask} /> : null
+                  task ? (
+                    <TaskCard
+                      key={task.id} task={task}
+                      onToggle={handleToggle} onEdit={handleEditTask}
+                      onDelete={handleDeleteTask} onFocus={handleFocusTask}
+                    />
+                  ) : null
                 )}
                 {buckets.completed.length > 5 && (
                   <Text style={[styles.sectionLabel, { textAlign: "center", marginTop: spacing.xs }]}>
@@ -588,7 +595,9 @@ const DashboardScreen = ({ navigation }) => {
               <Feather name={activeTab === "Done" ? "check-circle" : "inbox"} size={28} color={colors.accent} />
             </View>
             <Text style={styles.emptyTitle}>
-              {activeTab === "Done" ? "Nothing completed yet" : activeTab === "Today" ? `Nothing due ${getDayLabel(selectedDay).toLowerCase()}` : "All clear!"}
+              {activeTab === "Done"  ? "Nothing completed yet" :
+               activeTab === "Today" ? `Nothing due ${getDayLabel(selectedDay).toLowerCase()}` :
+               "All clear!"}
             </Text>
             <Text style={styles.emptySubtitle}>
               {activeTab === "Done"    ? "Check off tasks and they'll appear here." :
@@ -601,20 +610,17 @@ const DashboardScreen = ({ navigation }) => {
           displayedTasks.map((task) =>
             task ? (
               <TaskCard
-                key={task.id}
-                task={task}
-                onToggle={handleToggle}
-                onEdit={handleEditTask}
-              onDelete={handleDeleteTask}
-              onFocus={handleFocusTask}
-              highlighted={task.id === highlightedTaskId}
+                key={task.id} task={task}
+                onToggle={handleToggle} onEdit={handleEditTask}
+                onDelete={handleDeleteTask} onFocus={handleFocusTask}
+                highlighted={task.id === highlightedTaskId}
               />
             ) : null
           )
         )}
       </ScrollView>
 
-      {/* Single FAB — add task only */}
+      {/* FAB — add task only */}
       <TouchableOpacity
         onPress={handleAddTask}
         style={[styles.fab, { bottom: fabBottom }]}

@@ -5,7 +5,7 @@ import { cacheUserSession, loadCachedUser, clearCache } from "../services/offlin
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,11 +28,17 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  // Registration now logs the user straight in — no email verification gate
+  // (Firebase Dynamic Links is shut down, breaking mobile email verification)
+  const register = async (email, password) => {
+    return await registerUser(email, password);
+  };
+
   return (
     <AuthContext.Provider value={{
       user, loading,
       login: loginUser,
-      register: registerUser,
+      register,
       logout: async () => { await clearCache(); await logoutUser(); },
     }}>
       {children}

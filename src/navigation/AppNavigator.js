@@ -78,6 +78,8 @@ const tabStyles = StyleSheet.create({
     paddingHorizontal: 16,
     shadowColor: "#000", shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.12, shadowRadius: 4, elevation: 8,
+    // Prevent dark strip: ensure bg covers all the way to screen bottom
+    marginBottom: 0,
   },
   tab:      { flex: 1, alignItems: "center", gap: 4 },
   iconWrap: { width: 40, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 12 },
@@ -89,7 +91,7 @@ const tabStyles = StyleSheet.create({
 const MainTabs = () => (
   <Tab.Navigator
     tabBar={(props) => <CustomTabBar {...props} />}
-    screenOptions={{ headerShown: false }}
+    screenOptions={{ headerShown: false, lazy: false }}
     sceneContainerStyle={{ backgroundColor: "transparent" }}
   >
     <Tab.Screen name="Dashboard" component={DashboardScreen} />
@@ -117,6 +119,8 @@ const AppNavigator = () => {
   }, [profile?.colorTheme, profile?.darkMode]);
 
   const loading       = authLoading || (!!user && profileLoading);
+  // Wait for Firestore to actually respond before deciding to show onboarding.
+  // Without this, stale cache (missing onboardingComplete) triggers onboarding wrongly.
   const shouldOnboard = !!user && !loading && firestoreReady && profile?.onboardingComplete !== true;
 
   if (loading) {
@@ -148,7 +152,11 @@ const AppNavigator = () => {
             <Stack.Screen name="WeeklyBriefing" component={WeeklyBriefingScreen} />
             <Stack.Screen name="Onboarding"     component={OnboardingScreen} />
             <Stack.Screen name="ICSReview"      component={ICSReviewScreen} />
-            <Stack.Screen name="FocusMode" component={FocusModeScreen} options={{ presentation: "fullScreenModal", headerShown: false }} />
+            <Stack.Screen
+              name="FocusMode"
+              component={FocusModeScreen}
+              options={{ presentation: "fullScreenModal", headerShown: false }}
+            />
             <Stack.Screen
               name="Paywall"
               component={PaywallScreen}
