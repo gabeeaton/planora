@@ -9,11 +9,26 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.taskflow"
+      "bundleIdentifier": "com.yourcompany.taskflow",
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
-      "package": "com.yourcompany.taskflow"
+      "package": "com.yourcompany.taskflow",
+      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE", "POST_NOTIFICATIONS"]
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#6C63FF",
+          "defaultChannel": "task-reminders",
+          "sounds": []
+        }
+      ]
+    ],
     "extra": {
       "firebaseApiKey":            "$FIREBASE_API_KEY",
       "firebaseAuthDomain":        "$FIREBASE_AUTH_DOMAIN",

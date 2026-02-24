@@ -26,12 +26,12 @@ import WhatDoIDoButton     from "../components/WhatDoIDoButton";
 import TodayFocusCard      from "../components/TodayFocusCard";
 import AIActionsCard       from "../components/AIActionsCard";
 import { invalidateTodayFocusCache } from "../services/openai";
+import NotificationPermissionPrompt, { NOTIF_PROMPT_KEY } from "../components/NotificationPermissionPrompt";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { format, addDays, subDays, isToday, isTomorrow, isYesterday, differenceInCalendarDays } from "date-fns";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 const safeDate = (val) => {
   if (!val) return null;
   if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
@@ -230,11 +230,21 @@ const DashboardScreen = ({ navigation }) => {
   const [streak, setStreak]                     = useState(0);
   const [now, setNow]                           = useState(new Date());
   const [selectedDay, setSelectedDay]           = useState(new Date());
+  const [showNotifPrompt, setShowNotifPrompt]   = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // Show notification permission prompt once, after the user has tasks
+  // (asking before they've seen the app's value gets a lower grant rate)
+  useEffect(() => {
+    if (tasks.length === 0 || loading) return;
+    AsyncStorage.getItem(NOTIF_PROMPT_KEY).then((shown) => {
+      if (!shown) setShowNotifPrompt(true);
+    }).catch(() => {});
+  }, [tasks.length > 0, loading]);
 
   useEffect(() => {
     const completedToday = completedTasks.some((t) => {
@@ -329,7 +339,7 @@ const DashboardScreen = ({ navigation }) => {
     if (!task) return;
     Alert.alert("Delete Task", `Delete "${task.title}"?`, [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => removeTask(task.id, task.notificationId) },
+      { text: "Delete", style: "destructive", onPress: () => removeTask(task.id, task.notificationIds ?? task.notificationId) },
     ]);
   };
   const handleToggle = (task) => {
@@ -634,6 +644,11 @@ const DashboardScreen = ({ navigation }) => {
         task={editingTask}
         onClose={() => setModalVisible(false)}
         onSave={handleSaveTask}
+      />
+
+      <NotificationPermissionPrompt
+        visible={showNotifPrompt}
+        onDismiss={() => setShowNotifPrompt(false)}
       />
     </SafeAreaView>
   );
