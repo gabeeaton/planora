@@ -19,7 +19,8 @@ const client = new OpenAI({
 });
 
 // System message applied to every call — prevents [ID:xxx] echoing
-const BASE_SYSTEM = "You are a helpful academic coach. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output. These are internal only and must never appear in recommendations, coaching lines, or any user-facing text.";
+const BASE_SYSTEM =
+  "You are a helpful academic coach. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output. These are internal only and must never appear in recommendations, coaching lines, or any user-facing text.";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -27,33 +28,54 @@ const formatTaskList = (tasks) =>
   tasks
     .slice(0, APP_CONFIG.maxTasksForAI)
     .map((t, i) => {
-      const due      = t.dueDate ? `due ${new Date(t.dueDate).toLocaleDateString()}` : "no due date";
-      const cls      = t.className ? `[${t.className}]` : "";
-      const priority = t.priority  ? `priority:${t.priority}` : "";
-      return `${i + 1}. [ID:${t.id}] ${cls} "${t.title}" — ${due} ${priority}`.trim();
+      const due = t.dueDate
+        ? `due ${new Date(t.dueDate).toLocaleDateString()}`
+        : "no due date";
+      const cls = t.className ? `[${t.className}]` : "";
+      const priority = t.priority ? `priority:${t.priority}` : "";
+      return `${i + 1}. [ID:${t.id}] ${cls} "${
+        t.title
+      }" — ${due} ${priority}`.trim();
     })
     .join("\n");
 
-const today = () => new Date().toLocaleDateString("en-US", {
-  weekday: "long", year: "numeric", month: "long", day: "numeric",
-});
+const today = () =>
+  new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
 // Safe JSON parse — handles minor model formatting issues
 const safeParseJSON = (raw, type = "object") => {
-  let text = raw.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
-  const open  = type === "array" ? "[" : "{";
+  let text = raw
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/gi, "")
+    .trim();
+  const open = type === "array" ? "[" : "{";
   const close = type === "array" ? "]" : "}";
   const start = text.indexOf(open);
   if (start === -1) throw new Error(`No JSON ${type} in response`);
-  let depth = 0, end = -1;
+  let depth = 0,
+    end = -1;
   for (let i = start; i < text.length; i++) {
-    if (text[i] === open)  depth++;
-    else if (text[i] === close) { depth--; if (depth === 0) { end = i; break; } }
+    if (text[i] === open) depth++;
+    else if (text[i] === close) {
+      depth--;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
   }
   if (end === -1) throw new Error(`Unterminated JSON ${type} in response`);
   const chunk = text.slice(start, end + 1);
-  try { return JSON.parse(chunk); }
-  catch { return JSON.parse(chunk.replace(/,\s*([}\]])/g, "$1")); }
+  try {
+    return JSON.parse(chunk);
+  } catch {
+    return JSON.parse(chunk.replace(/,\s*([}\]])/g, "$1"));
+  }
 };
 
 /**
@@ -61,24 +83,31 @@ const safeParseJSON = (raw, type = "object") => {
  */
 const friendlyError = (err) => {
   const status = err?.status ?? err?.response?.status;
-  if (status === 429) return "AI is busy right now — wait a minute and try again.";
+  if (status === 429)
+    return "AI is busy right now — wait a minute and try again.";
   if (status === 401) return "AI configuration error. Please contact support.";
-  if (status >= 500)  return "OpenAI is having issues. Try again in a moment.";
-  if (err?.message?.toLowerCase().includes("network") ||
-      err?.message?.toLowerCase().includes("fetch"))
+  if (status >= 500) return "OpenAI is having issues. Try again in a moment.";
+  if (
+    err?.message?.toLowerCase().includes("network") ||
+    err?.message?.toLowerCase().includes("fetch")
+  )
     return "Check your internet connection and try again.";
   return "Couldn't reach AI. Check your connection and try again.";
 };
 
 // ── 1. Today's Focus (auto-loads on dashboard) ───────────────
 // Module-level cache — survives navigation, resets after 2 hours
-let _focusCache     = null;
-let _focusCachedAt  = null;
-const FOCUS_TTL_MS  = 2 * 60 * 60 * 1000; // 2 hours (was 30min — saves ~75% of calls)
+let _focusCache = null;
+let _focusCachedAt = null;
+const FOCUS_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (was 30min — saves ~75% of calls)
 
 export const getTodayFocus = async (tasks, userProfile, patterns) => {
   // Return cache if fresh
-  if (_focusCache && _focusCachedAt && (Date.now() - _focusCachedAt) < FOCUS_TTL_MS) {
+  if (
+    _focusCache &&
+    _focusCachedAt &&
+    Date.now() - _focusCachedAt < FOCUS_TTL_MS
+  ) {
     return _focusCache;
   }
 
@@ -86,11 +115,16 @@ export const getTodayFocus = async (tasks, userProfile, patterns) => {
   if (pending.length === 0) return null;
 
   // Pass userProfile so lifestyle/hardestClass context is included
-  const patternCtx = patterns ? buildPatternContext(patterns, userProfile) : "No pattern data yet.";
-  const taskList   = formatTaskList(pending);
-  const classes    = userProfile?.classes?.map(
-    (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade ?? "?"})`
-  ).join(", ") ?? "Not specified";
+  const patternCtx = patterns
+    ? buildPatternContext(patterns, userProfile)
+    : "No pattern data yet.";
+  const taskList = formatTaskList(pending);
+  const classes =
+    userProfile?.classes
+      ?.map(
+        (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade ?? "?"})`
+      )
+      .join(", ") ?? "Not specified";
 
   const prompt = `You are a focused academic coach. Pick the 2-3 most important tasks for a student to work on TODAY and write one short coaching line.
 
@@ -118,16 +152,16 @@ Respond ONLY with this JSON, no markdown:
 
   try {
     const response = await client.chat.completions.create({
-      model:       APP_CONFIG.gptModel,
-      messages:    [
+      model: APP_CONFIG.gptModel,
+      messages: [
         { role: "system", content: BASE_SYSTEM },
-        { role: "user",   content: prompt },
+        { role: "user", content: prompt },
       ],
       temperature: 0.3,
-      max_tokens:  200,
+      max_tokens: 200,
     });
     const result = safeParseJSON(response.choices[0].message.content.trim());
-    _focusCache    = result;
+    _focusCache = result;
     _focusCachedAt = Date.now();
     return result;
   } catch (err) {
@@ -138,7 +172,7 @@ Respond ONLY with this JSON, no markdown:
 
 // Call this when tasks change significantly (new task added, task completed)
 export const invalidateTodayFocusCache = () => {
-  _focusCache    = null;
+  _focusCache = null;
   _focusCachedAt = null;
 };
 
@@ -146,18 +180,28 @@ export const invalidateTodayFocusCache = () => {
 
 export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
   const pending = tasks.filter((t) => !t.completed);
-  if (pending.length === 0) return {
-    recommendation: "You have no pending tasks! Enjoy the moment or add something new.",
-    reasoning: null,
-    taskId: null,
-  };
+  if (pending.length === 0)
+    return {
+      recommendation:
+        "You have no pending tasks! Enjoy the moment or add something new.",
+      reasoning: null,
+      taskId: null,
+    };
 
   // Pass userProfile for full lifestyle/hardestClass context
-  const patternCtx = patterns ? buildPatternContext(patterns, userProfile) : "No pattern data yet.";
-  const taskList   = formatTaskList(pending);
-  const classes    = userProfile?.classes?.map(
-    (c) => `${c.name} (${c.creditHours} credits, current grade: ${c.grade ?? "unknown"})`
-  ).join(", ") ?? "Not specified";
+  const patternCtx = patterns
+    ? buildPatternContext(patterns, userProfile)
+    : "No pattern data yet.";
+  const taskList = formatTaskList(pending);
+  const classes =
+    userProfile?.classes
+      ?.map(
+        (c) =>
+          `${c.name} (${c.creditHours} credits, current grade: ${
+            c.grade ?? "unknown"
+          })`
+      )
+      .join(", ") ?? "Not specified";
 
   const prompt = `You are a proactive personal productivity coach. Based on everything you know, tell them exactly ONE task to work on right now.
 
@@ -186,13 +230,13 @@ Respond ONLY with this JSON, no markdown:
 
   try {
     const response = await client.chat.completions.create({
-      model:       APP_CONFIG.gptModel,
-      messages:    [
+      model: APP_CONFIG.gptModel,
+      messages: [
         { role: "system", content: BASE_SYSTEM },
-        { role: "user",   content: prompt },
+        { role: "user", content: prompt },
       ],
       temperature: 0.3,
-      max_tokens:  300,
+      max_tokens: 300,
     });
     return safeParseJSON(response.choices[0].message.content.trim());
   } catch (err) {
@@ -204,16 +248,23 @@ Respond ONLY with this JSON, no markdown:
 // ── 3. Weekly Plan ───────────────────────────────────────────
 
 export const getWeeklyPlan = async (tasks, userProfile, patterns) => {
-  const pending       = tasks.filter((t) => !t.completed);
-  const patternCtx    = patterns ? buildPatternContext(patterns, userProfile) : "No pattern data yet.";
-  const taskList      = formatTaskList(pending);
-  const classes       = userProfile?.classes?.map(
-    (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade ?? "?"})`
-  ).join("\n  ") ?? "Not specified";
+  const pending = tasks.filter((t) => !t.completed);
+  const patternCtx = patterns
+    ? buildPatternContext(patterns, userProfile)
+    : "No pattern data yet.";
+  const taskList = formatTaskList(pending);
+  const classes =
+    userProfile?.classes
+      ?.map(
+        (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade ?? "?"})`
+      )
+      .join("\n  ") ?? "Not specified";
   const preferredTime = userProfile?.preferredWorkTime ?? "not specified";
 
-  const exactTitles = pending.slice(0, APP_CONFIG.maxTasksForAI)
-    .map((t) => `"${t.title}"`).join(", ");
+  const exactTitles = pending
+    .slice(0, APP_CONFIG.maxTasksForAI)
+    .map((t) => `"${t.title}"`)
+    .join(", ");
 
   const prompt = `You are an academic planner. Build a realistic 7-day study plan for a college student.
 
@@ -256,13 +307,13 @@ Respond ONLY with this JSON (no markdown):
 
   try {
     const response = await client.chat.completions.create({
-      model:       APP_CONFIG.gptModel,
-      messages:    [
+      model: APP_CONFIG.gptModel,
+      messages: [
         { role: "system", content: BASE_SYSTEM },
-        { role: "user",   content: prompt },
+        { role: "user", content: prompt },
       ],
       temperature: 0.3,
-      max_tokens:  1200,
+      max_tokens: 1200,
     });
 
     const result = safeParseJSON(response.choices[0].message.content.trim());
@@ -285,11 +336,15 @@ Respond ONLY with this JSON (no markdown):
 
 // ── 4. AI Priority Suggestion — uses gpt-4o-mini (30x cheaper) ──
 
-export const suggestPriorities = async (tasks, patterns, userProfile = null) => {
+export const suggestPriorities = async (
+  tasks,
+  patterns,
+  userProfile = null
+) => {
   if (!tasks || tasks.length === 0) return [];
 
   const patternCtx = patterns ? buildPatternContext(patterns, userProfile) : "";
-  const taskList   = formatTaskList(tasks);
+  const taskList = formatTaskList(tasks);
 
   const prompt = `You are a productivity assistant. Assign each task a priority based on urgency, due dates, and student behavioral patterns.
 
@@ -309,20 +364,25 @@ CRITICAL: Output ONLY a raw JSON array. Start with [ end with ]. No markdown, no
 
   try {
     const response = await client.chat.completions.create({
-      model:    "gpt-4o-mini",  // Switched from gpt-4o — 30x cheaper, same quality for this task
+      model: "gpt-4o-mini", // Switched from gpt-4o — 30x cheaper, same quality for this task
       messages: [
         { role: "system", content: BASE_SYSTEM },
-        { role: "user",   content: prompt },
+        { role: "user", content: prompt },
       ],
       temperature: 0.3,
-      max_tokens:  1400,
+      max_tokens: 1400,
     });
 
-    const data = safeParseJSON(response.choices[0].message.content.trim(), "array");
+    const data = safeParseJSON(
+      response.choices[0].message.content.trim(),
+      "array"
+    );
 
     return tasks.map((task) => {
       const s = data.find((p) => p.id === task.id);
-      return s ? { ...task, aiPriority: s.aiPriority, aiReason: s.aiReason } : task;
+      return s
+        ? { ...task, aiPriority: s.aiPriority, aiReason: s.aiReason }
+        : task;
     });
   } catch (err) {
     console.error("suggestPriorities failed:", err);
