@@ -57,7 +57,7 @@ const safeDate = (val) => {
   return isNaN(d.getTime()) ? null : d;
 };
 
-const makeStyles = (colors) =>
+const makeStyles = (colors, insets) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bg },
     header: {
@@ -110,7 +110,7 @@ const makeStyles = (colors) =>
     },
 
     scroll: { flex: 1 },
-    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 110 },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 80 },
 
     insightStrip: {
       flexDirection: "row",
@@ -351,8 +351,8 @@ const bucketTasks = (tasks) => {
 
 const DashboardScreen = ({ navigation }) => {
   const { colors } = useTheme();
-  const styles = makeStyles(colors);
   const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(colors, insets), [colors, insets]);
 
   const { user } = useAuth();
   const { profile } = useUserProfile();
@@ -610,10 +610,10 @@ const DashboardScreen = ({ navigation }) => {
     );
   };
 
-  const fabBottom = insets.bottom + 80;
+  const fabBottom = (insets.bottom || 16) + 20;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={[styles.safe, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -938,7 +938,7 @@ const DashboardScreen = ({ navigation }) => {
         visible={showNotifPrompt}
         onDismiss={() => setShowNotifPrompt(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
