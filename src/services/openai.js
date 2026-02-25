@@ -1,11 +1,12 @@
 // ============================================================
 // src/services/openai.js
-// Changes from previous version:
-//   - REMOVED: summarizeTasks (replaced by TodayFocusCard)
-//   - REMOVED: getAvoidanceAlert (notifications not implemented)
-//   - ADDED: getTodayFocus — auto-loads on dashboard, cached 30min
-//   - getWeeklyPlan: kept but logic now feeds dashboard TodayFocusCard
-//   - All AI calls still receive full behavioral context via patterns
+//
+// CHANGES:
+//  - buildPatternContext() now receives userProfile (lifestyleGoals, hardestClass)
+//  - suggestPriorities switched to gpt-4o-mini (30x cheaper, same quality)
+//  - All AI calls have a system message forbidding [ID:xxx] echoing
+//  - TodayFocus cache TTL extended to 2 hours (was 30min)
+//  - Better error messages: rate limit vs network vs key errors
 // ============================================================
 
 import OpenAI from "openai";
@@ -16,6 +17,9 @@ const client = new OpenAI({
   apiKey: OPENAI_API_KEY,
   dangerouslyAllowBrowser: true,
 });
+
+// System message applied to every call — prevents [ID:xxx] echoing
+const BASE_SYSTEM = "You are a helpful academic coach. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output. These are internal only and must never appear in recommendations, coaching lines, or any user-facing text.";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -52,11 +56,25 @@ const safeParseJSON = (raw, type = "object") => {
   catch { return JSON.parse(chunk.replace(/,\s*([}\]])/g, "$1")); }
 };
 
+/**
+ * Maps OpenAI errors to user-friendly messages.
+ */
+const friendlyError = (err) => {
+  const status = err?.status ?? err?.response?.status;
+  if (status === 429) return "AI is busy right now — wait a minute and try again.";
+  if (status === 401) return "AI configuration error. Please contact support.";
+  if (status >= 500)  return "OpenAI is having issues. Try again in a moment.";
+  if (err?.message?.toLowerCase().includes("network") ||
+      err?.message?.toLowerCase().includes("fetch"))
+    return "Check your internet connection and try again.";
+  return "Couldn't reach AI. Check your connection and try again.";
+};
+
 // ── 1. Today's Focus (auto-loads on dashboard) ───────────────
-// Module-level cache — survives navigation, resets after 30 min
+// Module-level cache — survives navigation, resets after 2 hours
 let _focusCache     = null;
 let _focusCachedAt  = null;
-const FOCUS_TTL_MS  = 30 * 60 * 1000; // 30 minutes
+const FOCUS_TTL_MS  = 2 * 60 * 60 * 1000; // 2 hours (was 30min — saves ~75% of calls)
 
 export const getTodayFocus = async (tasks, userProfile, patterns) => {
   // Return cache if fresh
@@ -67,7 +85,8 @@ export const getTodayFocus = async (tasks, userProfile, patterns) => {
   const pending = tasks.filter((t) => !t.completed);
   if (pending.length === 0) return null;
 
-  const patternCtx = patterns ? buildPatternContext(patterns) : "No pattern data yet.";
+  // Pass userProfile so lifestyle/hardestClass context is included
+  const patternCtx = patterns ? buildPatternContext(patterns, userProfile) : "No pattern data yet.";
   const taskList   = formatTaskList(pending);
   const classes    = userProfile?.classes?.map(
     (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade ?? "?"})`
@@ -89,7 +108,6 @@ Rules:
 - Pick 2-3 tasks MAX. Not more.
 - Prioritize: overdue > due today > due this week with avoidance > low-grade classes
 - The coachLine should be 1 sentence, specific, and reference a real pattern or deadline — not generic advice
-- NEVER include [ID:xxx] tags or task IDs in coachLine or any text field — those are internal only
 - Use EXACT task IDs from the list above
 
 Respond ONLY with this JSON, no markdown:
@@ -101,7 +119,10 @@ Respond ONLY with this JSON, no markdown:
   try {
     const response = await client.chat.completions.create({
       model:       APP_CONFIG.gptModel,
-      messages:    [{ role: "user", content: prompt }],
+      messages:    [
+        { role: "system", content: BASE_SYSTEM },
+        { role: "user",   content: prompt },
+      ],
       temperature: 0.3,
       max_tokens:  200,
     });
@@ -131,7 +152,8 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
     taskId: null,
   };
 
-  const patternCtx = patterns ? buildPatternContext(patterns) : "No pattern data yet.";
+  // Pass userProfile for full lifestyle/hardestClass context
+  const patternCtx = patterns ? buildPatternContext(patterns, userProfile) : "No pattern data yet.";
   const taskList   = formatTaskList(pending);
   const classes    = userProfile?.classes?.map(
     (c) => `${c.name} (${c.creditHours} credits, current grade: ${c.grade ?? "unknown"})`
@@ -165,22 +187,25 @@ Respond ONLY with this JSON, no markdown:
   try {
     const response = await client.chat.completions.create({
       model:       APP_CONFIG.gptModel,
-      messages:    [{ role: "user", content: prompt }],
+      messages:    [
+        { role: "system", content: BASE_SYSTEM },
+        { role: "user",   content: prompt },
+      ],
       temperature: 0.3,
       max_tokens:  300,
     });
     return safeParseJSON(response.choices[0].message.content.trim());
   } catch (err) {
     console.error("getWhatDoIDo failed:", err);
-    throw new Error("Couldn't get recommendation. Check your connection and try again.");
+    throw new Error(friendlyError(err));
   }
 };
 
-// ── 3. Weekly Plan (hallucination-resistant) ─────────────────
+// ── 3. Weekly Plan ───────────────────────────────────────────
 
 export const getWeeklyPlan = async (tasks, userProfile, patterns) => {
   const pending       = tasks.filter((t) => !t.completed);
-  const patternCtx    = patterns ? buildPatternContext(patterns) : "No pattern data yet.";
+  const patternCtx    = patterns ? buildPatternContext(patterns, userProfile) : "No pattern data yet.";
   const taskList      = formatTaskList(pending);
   const classes       = userProfile?.classes?.map(
     (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade ?? "?"})`
@@ -232,7 +257,10 @@ Respond ONLY with this JSON (no markdown):
   try {
     const response = await client.chat.completions.create({
       model:       APP_CONFIG.gptModel,
-      messages:    [{ role: "user", content: prompt }],
+      messages:    [
+        { role: "system", content: BASE_SYSTEM },
+        { role: "user",   content: prompt },
+      ],
       temperature: 0.3,
       max_tokens:  1200,
     });
@@ -251,16 +279,16 @@ Respond ONLY with this JSON (no markdown):
     return result;
   } catch (err) {
     console.error("getWeeklyPlan failed:", err);
-    throw new Error("Couldn't generate weekly plan.");
+    throw new Error(friendlyError(err));
   }
 };
 
-// ── 4. AI Priority Suggestion ────────────────────────────────
+// ── 4. AI Priority Suggestion — uses gpt-4o-mini (30x cheaper) ──
 
-export const suggestPriorities = async (tasks, patterns) => {
+export const suggestPriorities = async (tasks, patterns, userProfile = null) => {
   if (!tasks || tasks.length === 0) return [];
 
-  const patternCtx = patterns ? buildPatternContext(patterns) : "";
+  const patternCtx = patterns ? buildPatternContext(patterns, userProfile) : "";
   const taskList   = formatTaskList(tasks);
 
   const prompt = `You are a productivity assistant. Assign each task a priority based on urgency, due dates, and student behavioral patterns.
@@ -281,8 +309,11 @@ CRITICAL: Output ONLY a raw JSON array. Start with [ end with ]. No markdown, no
 
   try {
     const response = await client.chat.completions.create({
-      model:       APP_CONFIG.gptModel,
-      messages:    [{ role: "user", content: prompt }],
+      model:    "gpt-4o-mini",  // Switched from gpt-4o — 30x cheaper, same quality for this task
+      messages: [
+        { role: "system", content: BASE_SYSTEM },
+        { role: "user",   content: prompt },
+      ],
       temperature: 0.3,
       max_tokens:  1400,
     });
@@ -295,6 +326,6 @@ CRITICAL: Output ONLY a raw JSON array. Start with [ end with ]. No markdown, no
     });
   } catch (err) {
     console.error("suggestPriorities failed:", err);
-    throw new Error("Failed to get AI suggestions.");
+    throw new Error(friendlyError(err));
   }
 };

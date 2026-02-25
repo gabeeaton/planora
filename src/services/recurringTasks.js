@@ -1,27 +1,21 @@
 // ============================================================
 // src/services/recurringTasks.js
-// Handles all recurring task logic — generation, scheduling,
-// and next-due-date calculation.
+//
+// CHANGES:
+//  - spawnNextRecurringTask now has an idempotency guard:
+//    checks Firestore for an existing task with the same
+//    parentTaskId + dueDate before spawning. Prevents duplicates
+//    if a user double-taps a completion.
 // ============================================================
 
-import { addDoc, collection, Timestamp } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, where, Timestamp } from "firebase/firestore";
 import { db } from "./firebase";
-
-/**
- * Recurrence types supported:
- *   daily        — every day
- *   weekly       — same day each week
- *   custom_days  — specific days of week (e.g. Mon/Wed/Fri)
- *   biweekly     — every 2 weeks
- *   monthly      — same date each month
- */
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_FULL  = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
 /**
  * Returns a human-readable label for a recurrence config.
- * e.g. { type: "custom_days", days: [1,3,5] } → "Mon, Wed, Fri"
  */
 export const getRecurrenceLabel = (recurrence) => {
   if (!recurrence) return null;
@@ -37,12 +31,11 @@ export const getRecurrenceLabel = (recurrence) => {
 };
 
 /**
- * Given a recurrence config and a reference date (usually today or last due date),
- * returns the next Date this task should be due.
+ * Given a recurrence config and a reference date, returns the next Date.
  */
 export const getNextDueDate = (recurrence, fromDate = new Date()) => {
   const base = new Date(fromDate);
-  base.setHours(23, 59, 0, 0); // end of day
+  base.setHours(23, 59, 0, 0);
 
   switch (recurrence.type) {
     case "daily": {
@@ -50,7 +43,6 @@ export const getNextDueDate = (recurrence, fromDate = new Date()) => {
       next.setDate(next.getDate() + 1);
       return next;
     }
-
     case "weekly": {
       const next = new Date(base);
       const targetDay = recurrence.dayOfWeek ?? base.getDay();
@@ -58,24 +50,20 @@ export const getNextDueDate = (recurrence, fromDate = new Date()) => {
       next.setDate(next.getDate() + diff);
       return next;
     }
-
     case "biweekly": {
       const next = new Date(base);
       next.setDate(next.getDate() + 14);
       return next;
     }
-
     case "monthly": {
       const next = new Date(base);
       next.setMonth(next.getMonth() + 1);
       return next;
     }
-
     case "custom_days": {
       const days = recurrence.days ?? [];
       if (days.length === 0) return null;
       const today = base.getDay();
-      // Find the soonest upcoming day in the set
       let minDiff = 8;
       for (const d of days) {
         const diff = (d - today + 7) % 7 || 7;
@@ -85,7 +73,6 @@ export const getNextDueDate = (recurrence, fromDate = new Date()) => {
       next.setDate(next.getDate() + minDiff);
       return next;
     }
-
     default:
       return null;
   }
@@ -93,6 +80,11 @@ export const getNextDueDate = (recurrence, fromDate = new Date()) => {
 
 /**
  * When a recurring task is completed, spawn the next instance.
+ *
+ * IDEMPOTENCY GUARD: Before creating, we query Firestore for any
+ * existing task that shares the same parentTaskId AND dueDate.
+ * If one already exists, we skip — preventing duplicates from
+ * double-taps or network retries.
  */
 export const spawnNextRecurringTask = async (completedTask) => {
   if (!completedTask.recurrence) return;
@@ -104,6 +96,24 @@ export const spawnNextRecurringTask = async (completedTask) => {
   if (!nextDue) return;
 
   try {
+    // ── Idempotency check ──────────────────────────────────
+    // Window: ±1 hour around nextDue to catch timestamp rounding
+    const windowStart = new Date(nextDue.getTime() - 60 * 60 * 1000);
+    const windowEnd   = new Date(nextDue.getTime() + 60 * 60 * 1000);
+
+    const existingQuery = query(
+      collection(db, "tasks"),
+      where("parentTaskId", "==", completedTask.id),
+      where("dueDate", ">=", Timestamp.fromDate(windowStart)),
+      where("dueDate", "<=", Timestamp.fromDate(windowEnd))
+    );
+    const existing = await getDocs(existingQuery);
+    if (!existing.empty) {
+      // Next instance already exists — skip silently
+      return;
+    }
+    // ── End idempotency check ──────────────────────────────
+
     await addDoc(collection(db, "tasks"), {
       userId:        completedTask.userId,
       title:         completedTask.title,
@@ -116,7 +126,7 @@ export const spawnNextRecurringTask = async (completedTask) => {
       createdAt:     Timestamp.now(),
       lastTouchedAt: Timestamp.now(),
       dueDate:       Timestamp.fromDate(nextDue),
-      parentTaskId:  completedTask.id, // trace back to origin
+      parentTaskId:  completedTask.id,
     });
   } catch (err) {
     console.warn("Failed to spawn next recurring task:", err);
