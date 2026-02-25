@@ -9,27 +9,43 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, RefreshControl,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { useTasks }        from "../hooks/useTasks";
-import { useAuth }         from "../hooks/useAuth";
-import { useUserProfile }  from "../hooks/useUserProfile";
+import { useTasks } from "../hooks/useTasks";
+import { useAuth } from "../hooks/useAuth";
+import { useUserProfile } from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
-import TaskCard            from "../components/TaskCard";
-import TaskModal           from "../components/TaskModal";
-import StatsBar            from "../components/StatsBar";
-import ResyncButton        from "../components/ResyncButton";
-import WhatDoIDoButton     from "../components/WhatDoIDoButton";
-import TodayFocusCard      from "../components/TodayFocusCard";
-import AIActionsCard       from "../components/AIActionsCard";
+import TaskCard from "../components/TaskCard";
+import TaskModal from "../components/TaskModal";
+import StatsBar from "../components/StatsBar";
+import ResyncButton from "../components/ResyncButton";
+import WhatDoIDoButton from "../components/WhatDoIDoButton";
+import TodayFocusCard from "../components/TodayFocusCard";
+import AIActionsCard from "../components/AIActionsCard";
 import { invalidateTodayFocusCache } from "../services/openai";
-import NotificationPermissionPrompt, { NOTIF_PROMPT_KEY } from "../components/NotificationPermissionPrompt";
+import NotificationPermissionPrompt, {
+  NOTIF_PROMPT_KEY,
+} from "../components/NotificationPermissionPrompt";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
-import { format, addDays, subDays, isToday, isTomorrow, isYesterday, differenceInCalendarDays } from "date-fns";
+import {
+  format,
+  addDays,
+  subDays,
+  isToday,
+  isTomorrow,
+  isYesterday,
+  differenceInCalendarDays,
+} from "date-fns";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 const safeDate = (val) => {
@@ -41,171 +57,296 @@ const safeDate = (val) => {
   return isNaN(d.getTime()) ? null : d;
 };
 
-const STREAK_KEY      = "@tf_streak";
-const STREAK_DATE_KEY = "@tf_streak_date";
+const makeStyles = (colors) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.bg },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.sm,
+    },
+    headerLeft: { flex: 1 },
+    greeting: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: colors.textPrimary,
+      letterSpacing: -0.3,
+    },
+    date: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+    headerRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+    streakPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: colors.mediumGlow,
+      borderRadius: radius.full,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderWidth: 1,
+      borderColor: colors.medium,
+    },
+    streakText: { fontSize: 12, fontWeight: "700", color: colors.medium },
+    importBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: colors.accentGlow,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    importBtnText: { fontSize: 12, fontWeight: "700", color: colors.accent },
+    weeklyBtn: {
+      padding: 6,
+      backgroundColor: colors.accentGlow,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.accent,
+    },
 
-const loadStreak = async () => {
-  try {
-    const [s, d] = await AsyncStorage.multiGet([STREAK_KEY, STREAK_DATE_KEY]);
-    return { count: parseInt(s[1] ?? "0", 10) || 0, lastDate: d[1] };
-  } catch { return { count: 0, lastDate: null }; }
-};
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 110 },
 
-const updateStreak = async (completedToday) => {
-  const today = format(new Date(), "yyyy-MM-dd");
-  const { count, lastDate } = await loadStreak();
-  if (lastDate === today) return count;
-  const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
-  const newCount = completedToday
-    ? (lastDate === yesterday ? count + 1 : 1)
-    : (lastDate === yesterday ? count : 0);
-  await AsyncStorage.multiSet([[STREAK_KEY, String(newCount)], [STREAK_DATE_KEY, today]]);
-  return newCount;
-};
+    insightStrip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      borderLeftWidth: 3,
+      borderRadius: radius.sm,
+      paddingLeft: spacing.sm,
+      paddingRight: spacing.md,
+      paddingVertical: 10,
+      marginBottom: spacing.sm,
+    },
+    insightText: { fontSize: 13, fontWeight: "500", flex: 1, lineHeight: 18 },
 
-const makeStyles = (colors) => StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm, paddingBottom: spacing.sm,
-  },
-  headerLeft:  { flex: 1 },
-  greeting:    { fontSize: 22, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.3 },
-  date:        { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 6 },
-  streakPill: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: colors.mediumGlow, borderRadius: radius.full,
-    paddingHorizontal: 8, paddingVertical: 4,
-    borderWidth: 1, borderColor: colors.medium,
-  },
-  streakText: { fontSize: 12, fontWeight: "700", color: colors.medium },
-  importBtn: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: colors.accentGlow, borderRadius: radius.full,
-    borderWidth: 1, borderColor: colors.accent,
-    paddingHorizontal: 10, paddingVertical: 6,
-  },
-  importBtnText: { fontSize: 12, fontWeight: "700", color: colors.accent },
-  weeklyBtn: {
-    padding: 6,
-    backgroundColor: colors.accentGlow, borderRadius: radius.full,
-    borderWidth: 1, borderColor: colors.accent,
-  },
+    tabScroll: { marginBottom: spacing.sm },
+    tabContainer: { gap: 6, paddingRight: spacing.md },
+    tab: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.bgCard,
+    },
+    tabActive: {
+      backgroundColor: colors.accentGlow,
+      borderColor: colors.accent,
+    },
+    tabText: { fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
+    tabTextActive: { color: colors.accent },
 
-  scroll:        { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 110 },
+    dayCycler: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.bgCard,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: spacing.md,
+      overflow: "hidden",
+    },
+    dayCyclerBtn: { padding: spacing.md },
+    dayCyclerCenter: {
+      flex: 1,
+      alignItems: "center",
+      paddingVertical: spacing.sm,
+    },
+    dayCyclerLabel: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: colors.textPrimary,
+    },
+    dayCyclerDate: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
 
-  insightStrip: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    borderLeftWidth: 3, borderRadius: radius.sm,
-    paddingLeft: spacing.sm, paddingRight: spacing.md, paddingVertical: 10,
-    marginBottom: spacing.sm,
-  },
-  insightText: { fontSize: 13, fontWeight: "500", flex: 1, lineHeight: 18 },
+    bucketHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginTop: spacing.sm,
+      marginBottom: 6,
+    },
+    bucketDot: { width: 8, height: 8, borderRadius: 4 },
+    bucketLabel: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.textMuted,
+      letterSpacing: 0.8,
+      textTransform: "uppercase",
+    },
+    bucketCount: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.textMuted,
+      letterSpacing: 0.8,
+      textTransform: "uppercase",
+      marginBottom: spacing.sm,
+      marginTop: spacing.sm,
+    },
 
-  tabScroll:    { marginBottom: spacing.sm },
-  tabContainer: { gap: 6, paddingRight: spacing.md },
-  tab: {
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.bgCard,
-  },
-  tabActive:     { backgroundColor: colors.accentGlow, borderColor: colors.accent },
-  tabText:       { fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
-  tabTextActive: { color: colors.accent },
+    loadingContainer: { alignItems: "center", paddingTop: 60 },
+    loadingText: {
+      ...typography.body,
+      color: colors.textSecondary,
+      marginTop: spacing.md,
+    },
 
-  dayCycler: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: colors.bgCard, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    marginBottom: spacing.md, overflow: "hidden",
-  },
-  dayCyclerBtn:    { padding: spacing.md },
-  dayCyclerCenter: { flex: 1, alignItems: "center", paddingVertical: spacing.sm },
-  dayCyclerLabel:  { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
-  dayCyclerDate:   { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+    emptyContainer: { alignItems: "center", paddingTop: 48, paddingBottom: 24 },
+    emptyIcon: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.accentGlow,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: spacing.md,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: colors.textPrimary,
+      marginBottom: spacing.xs,
+      textAlign: "center",
+      letterSpacing: -0.3,
+    },
+    emptySubtitle: {
+      ...typography.body,
+      color: colors.textSecondary,
+      textAlign: "center",
+      lineHeight: 22,
+      marginBottom: spacing.lg,
+      paddingHorizontal: spacing.md,
+    },
+    emptyActionsRow: { flexDirection: "row", gap: spacing.sm },
+    emptyBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.accent,
+      borderRadius: radius.md,
+      paddingVertical: 12,
+      paddingHorizontal: spacing.md,
+      ...shadows.accent,
+    },
+    emptyBtnOutline: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.bgCard,
+      borderRadius: radius.md,
+      paddingVertical: 12,
+      paddingHorizontal: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.accent,
+    },
+    emptyBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+    emptyBtnOutlineText: {
+      color: colors.accent,
+      fontWeight: "700",
+      fontSize: 13,
+    },
 
-  bucketHeader: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    marginTop: spacing.sm, marginBottom: 6,
-  },
-  bucketDot:   { width: 8, height: 8, borderRadius: 4 },
-  bucketLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.8, textTransform: "uppercase" },
-  bucketCount: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
-  sectionLabel: {
-    fontSize: 11, fontWeight: "700", color: colors.textMuted,
-    letterSpacing: 0.8, textTransform: "uppercase",
-    marginBottom: spacing.sm, marginTop: spacing.sm,
-  },
+    allDoneContainer: {
+      alignItems: "center",
+      paddingTop: 48,
+      paddingBottom: 24,
+    },
+    allDoneIcon: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: "rgba(92,255,143,0.15)",
+      borderWidth: 1,
+      borderColor: colors.low,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: spacing.md,
+    },
+    allDoneTitle: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: colors.textPrimary,
+      marginBottom: spacing.xs,
+      letterSpacing: -0.3,
+    },
+    allDoneSubtitle: {
+      ...typography.body,
+      color: colors.textSecondary,
+      textAlign: "center",
+      lineHeight: 22,
+    },
 
-  loadingContainer: { alignItems: "center", paddingTop: 60 },
-  loadingText:      { ...typography.body, color: colors.textSecondary, marginTop: spacing.md },
-
-  emptyContainer: { alignItems: "center", paddingTop: 48, paddingBottom: 24 },
-  emptyIcon: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
-  },
-  emptyTitle:    { fontSize: 20, fontWeight: "800", color: colors.textPrimary, marginBottom: spacing.xs, textAlign: "center", letterSpacing: -0.3 },
-  emptySubtitle: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.lg, paddingHorizontal: spacing.md },
-  emptyActionsRow: { flexDirection: "row", gap: spacing.sm },
-  emptyBtn: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: colors.accent, borderRadius: radius.md,
-    paddingVertical: 12, paddingHorizontal: spacing.md, ...shadows.accent,
-  },
-  emptyBtnOutline: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: colors.bgCard, borderRadius: radius.md,
-    paddingVertical: 12, paddingHorizontal: spacing.md,
-    borderWidth: 1, borderColor: colors.accent,
-  },
-  emptyBtnText:        { color: "#fff", fontWeight: "700", fontSize: 13 },
-  emptyBtnOutlineText: { color: colors.accent, fontWeight: "700", fontSize: 13 },
-
-  allDoneContainer: { alignItems: "center", paddingTop: 48, paddingBottom: 24 },
-  allDoneIcon: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: "rgba(92,255,143,0.15)", borderWidth: 1, borderColor: colors.low,
-    alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
-  },
-  allDoneTitle:    { fontSize: 20, fontWeight: "800", color: colors.textPrimary, marginBottom: spacing.xs, letterSpacing: -0.3 },
-  allDoneSubtitle: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22 },
-
-  fab: {
-    position: "absolute", right: spacing.lg,
-    width: 58, height: 58, borderRadius: 29,
-    backgroundColor: colors.accent, alignItems: "center", justifyContent: "center",
-    ...shadows.accent,
-  },
-});
+    fab: {
+      position: "absolute",
+      right: spacing.lg,
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      backgroundColor: colors.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      ...shadows.accent,
+    },
+  });
 
 const TABS = ["All", "Today", "Pending", "Done"];
 
 const getDayLabel = (date) => {
-  if (isToday(date))     return "Today";
-  if (isTomorrow(date))  return "Tomorrow";
+  if (isToday(date)) return "Today";
+  if (isTomorrow(date)) return "Tomorrow";
   if (isYesterday(date)) return "Yesterday";
   return format(date, "EEE, MMM d");
 };
 
 const bucketTasks = (tasks) => {
-  const now   = new Date();
-  const today = new Date(now); today.setHours(23, 59, 59, 999);
-  const week  = addDays(today, 7);
-  const overdue = [], dueToday = [], thisWeek = [], later = [], noDate = [];
-  tasks.filter((t) => !t.completed).forEach((t) => {
-    const d = safeDate(t.dueDate);
-    if (!d) { noDate.push(t); return; }
-    if (d < now)    { overdue.push(t);  return; }
-    if (d <= today) { dueToday.push(t); return; }
-    if (d <= week)  { thisWeek.push(t); return; }
-    later.push(t);
-  });
-  return { overdue, dueToday, thisWeek, later, noDate, completed: tasks.filter((t) => t.completed) };
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(23, 59, 59, 999);
+  const week = addDays(today, 7);
+  const overdue = [],
+    dueToday = [],
+    thisWeek = [],
+    later = [],
+    noDate = [];
+  tasks
+    .filter((t) => !t.completed)
+    .forEach((t) => {
+      const d = safeDate(t.dueDate);
+      if (!d) {
+        noDate.push(t);
+        return;
+      }
+      if (d < now) {
+        overdue.push(t);
+        return;
+      }
+      if (d <= today) {
+        dueToday.push(t);
+        return;
+      }
+      if (d <= week) {
+        thisWeek.push(t);
+        return;
+      }
+      later.push(t);
+    });
+  return {
+    overdue,
+    dueToday,
+    thisWeek,
+    later,
+    noDate,
+    completed: tasks.filter((t) => t.completed),
+  };
 };
 
 const DashboardScreen = ({ navigation }) => {
@@ -213,24 +354,31 @@ const DashboardScreen = ({ navigation }) => {
   const styles = makeStyles(colors);
   const insets = useSafeAreaInsets();
 
-  const { user }         = useAuth();
-  const { profile }      = useUserProfile();
+  const { user } = useAuth();
+  const { profile } = useUserProfile();
   const { hasProAccess } = useSubscription();
   const {
-    tasks, pendingTasks, completedTasks, todaysTasks,
-    patterns, loading,
-    createTask, editTask, completeTask, removeTask,
+    tasks,
+    pendingTasks,
+    completedTasks,
+    todaysTasks,
+    patterns,
+    loading,
+    streak,
+    createTask,
+    editTask,
+    completeTask,
+    removeTask,
   } = useTasks();
 
-  const [activeTab, setActiveTab]               = useState("All");
-  const [modalVisible, setModalVisible]         = useState(false);
-  const [editingTask, setEditingTask]           = useState(null);
+  const [activeTab, setActiveTab] = useState("All");
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
   const [aiAnnotatedTasks, setAiAnnotatedTasks] = useState([]);
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
-  const [streak, setStreak]                     = useState(0);
-  const [now, setNow]                           = useState(new Date());
-  const [selectedDay, setSelectedDay]           = useState(new Date());
-  const [showNotifPrompt, setShowNotifPrompt]   = useState(false);
+  const [now, setNow] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(new Date());
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -241,22 +389,17 @@ const DashboardScreen = ({ navigation }) => {
   // (asking before they've seen the app's value gets a lower grant rate)
   useEffect(() => {
     if (tasks.length === 0 || loading) return;
-    AsyncStorage.getItem(NOTIF_PROMPT_KEY).then((shown) => {
-      if (!shown) setShowNotifPrompt(true);
-    }).catch(() => {});
+    AsyncStorage.getItem(NOTIF_PROMPT_KEY)
+      .then((shown) => {
+        if (!shown) setShowNotifPrompt(true);
+      })
+      .catch(() => {});
   }, [tasks.length > 0, loading]);
 
-  useEffect(() => {
-    const completedToday = completedTasks.some((t) => {
-      if (!t.completedAt) return false;
-      const d = safeDate(t.completedAt);
-      return d && format(d, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-    });
-    updateStreak(completedToday).then(setStreak);
-  }, [completedTasks.length]);
-
   const cycleDay = (direction) => {
-    setSelectedDay((prev) => direction === "next" ? addDays(prev, 1) : subDays(prev, 1));
+    setSelectedDay((prev) =>
+      direction === "next" ? addDays(prev, 1) : subDays(prev, 1)
+    );
     setActiveTab("Today");
   };
 
@@ -266,38 +409,57 @@ const DashboardScreen = ({ navigation }) => {
       if (c.name && c.grade) gradeMap[c.name] = c.grade;
     });
     const gradeWeighted = tasks.map((t) => {
-      const grade    = gradeMap[t.className];
-      const lowGrade = grade && (grade.startsWith("D") || grade.startsWith("F") || grade === "C-" || grade === "C" || grade === "C+");
+      const grade = gradeMap[t.className];
+      const lowGrade =
+        grade &&
+        (grade.startsWith("D") ||
+          grade.startsWith("F") ||
+          grade === "C-" ||
+          grade === "C" ||
+          grade === "C+");
       return lowGrade ? { ...t, _lowGrade: true } : t;
     });
     if (aiAnnotatedTasks.length === 0) return gradeWeighted;
     const aiMap = {};
-    aiAnnotatedTasks.forEach((t) => { aiMap[t.id] = { aiPriority: t.aiPriority, aiReason: t.aiReason }; });
+    aiAnnotatedTasks.forEach((t) => {
+      aiMap[t.id] = { aiPriority: t.aiPriority, aiReason: t.aiReason };
+    });
     return gradeWeighted.map((t) => ({ ...t, ...(aiMap[t.id] || {}) }));
   }, [tasks, aiAnnotatedTasks, profile?.classes]);
 
-  const sortByDue = (arr) => [...arr].sort((a, b) => {
-    const da = safeDate(a.dueDate), db = safeDate(b.dueDate);
-    if (!da && !db) return 0;
-    if (!da) return 1;
-    if (!db) return -1;
-    return da - db;
-  });
+  const sortByDue = (arr) =>
+    [...arr].sort((a, b) => {
+      const da = safeDate(a.dueDate),
+        db = safeDate(b.dueDate);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da - db;
+    });
 
   const displayedTasks = useMemo(() => {
-    const filtered = enrichedTasks.filter((t) => !(t.recurrence && t.completed));
+    const filtered = enrichedTasks.filter(
+      (t) => !(t.recurrence && t.completed)
+    );
     switch (activeTab) {
       case "Today":
-        return sortByDue(filtered.filter((t) => {
-          const d = safeDate(t.dueDate);
-          if (!d) return false;
-          return d.getDate() === selectedDay.getDate() &&
-                 d.getMonth() === selectedDay.getMonth() &&
-                 d.getFullYear() === selectedDay.getFullYear();
-        }));
-      case "Pending": return sortByDue(filtered.filter((t) => !t.completed));
-      case "Done":    return enrichedTasks.filter((t) => t.completed);
-      default:        return sortByDue(filtered);
+        return sortByDue(
+          filtered.filter((t) => {
+            const d = safeDate(t.dueDate);
+            if (!d) return false;
+            return (
+              d.getDate() === selectedDay.getDate() &&
+              d.getMonth() === selectedDay.getMonth() &&
+              d.getFullYear() === selectedDay.getFullYear()
+            );
+          })
+        );
+      case "Pending":
+        return sortByDue(filtered.filter((t) => !t.completed));
+      case "Done":
+        return enrichedTasks.filter((t) => t.completed);
+      default:
+        return sortByDue(filtered);
     }
   }, [enrichedTasks, activeTab, selectedDay]);
 
@@ -305,33 +467,65 @@ const DashboardScreen = ({ navigation }) => {
 
   const behavioralInsight = useMemo(() => {
     if (!patterns) return null;
-    const { urgentUntouched, staleTasks, latenessProfile, overallStats } = patterns;
+    const { urgentUntouched, staleTasks, latenessProfile, overallStats } =
+      patterns;
     const lowGradeUrgent = enrichedTasks.find((t) => {
       const d = safeDate(t.dueDate);
-      return t._lowGrade && !t.completed && d && differenceInCalendarDays(d, new Date()) <= 3;
+      return (
+        t._lowGrade &&
+        !t.completed &&
+        d &&
+        differenceInCalendarDays(d, new Date()) <= 3
+      );
     });
     if (lowGradeUrgent) {
-      return { text: `"${lowGradeUrgent.title}" is due soon and you have a low grade in ${lowGradeUrgent.className}.`, icon: "trending-up", color: colors.high };
+      return {
+        text: `"${lowGradeUrgent.title}" is due soon and you have a low grade in ${lowGradeUrgent.className}.`,
+        icon: "trending-up",
+        color: colors.high,
+      };
     }
     if (urgentUntouched?.length > 0) {
       const t = urgentUntouched[0];
-      return { text: `"${t.title}" is due soon and hasn't been started.`, icon: "alert-triangle", color: colors.high };
+      return {
+        text: `"${t.title}" is due soon and hasn't been started.`,
+        icon: "alert-triangle",
+        color: colors.high,
+      };
     }
     if (staleTasks?.length > 0) {
       const t = staleTasks[0];
-      return { text: `"${t.title}" hasn't been touched in ${t.daysSinceTouched} days.`, icon: "clock", color: colors.medium };
+      return {
+        text: `"${t.title}" hasn't been touched in ${t.daysSinceTouched} days.`,
+        icon: "clock",
+        color: colors.medium,
+      };
     }
-    if (latenessProfile?.label === "often late" && overallStats?.totalPending > 0) {
-      return { text: "You tend to finish late. Start your highest-priority item first today.", icon: "trending-up", color: colors.accent };
+    if (
+      latenessProfile?.label === "often late" &&
+      overallStats?.totalPending > 0
+    ) {
+      return {
+        text: "You tend to finish late. Start your highest-priority item first today.",
+        icon: "trending-up",
+        color: colors.accent,
+      };
     }
     return null;
   }, [patterns, enrichedTasks]);
 
-  const handleAddTask    = () => { setEditingTask(null); setModalVisible(true); };
-  const handleEditTask   = (task) => { if (!task) return; setEditingTask(task); setModalVisible(true); };
-  const handleSaveTask   = async (taskData) => {
+  const handleAddTask = () => {
+    setEditingTask(null);
+    setModalVisible(true);
+  };
+  const handleEditTask = (task) => {
+    if (!task) return;
+    setEditingTask(task);
+    setModalVisible(true);
+  };
+  const handleSaveTask = async (taskData) => {
     if (editingTask) await editTask(editingTask.id, taskData);
-    else             await createTask(taskData);
+    else await createTask(taskData);
     // New or edited task — refresh today's focus
     invalidateTodayFocusCache();
   };
@@ -339,7 +533,12 @@ const DashboardScreen = ({ navigation }) => {
     if (!task) return;
     Alert.alert("Delete Task", `Delete "${task.title}"?`, [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => removeTask(task.id, task.notificationIds ?? task.notificationId) },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () =>
+          removeTask(task.id, task.notificationIds ?? task.notificationId),
+      },
     ]);
   };
   const handleToggle = (task) => {
@@ -350,10 +549,22 @@ const DashboardScreen = ({ navigation }) => {
   };
   const serializeTask = (task) => ({
     ...task,
-    createdAt:     task.createdAt     instanceof Date ? task.createdAt.toISOString()     : task.createdAt     ?? null,
-    dueDate:       task.dueDate       instanceof Date ? task.dueDate.toISOString()       : task.dueDate       ?? null,
-    completedAt:   task.completedAt   instanceof Date ? task.completedAt.toISOString()   : task.completedAt   ?? null,
-    lastTouchedAt: task.lastTouchedAt instanceof Date ? task.lastTouchedAt.toISOString() : task.lastTouchedAt ?? null,
+    createdAt:
+      task.createdAt instanceof Date
+        ? task.createdAt.toISOString()
+        : task.createdAt ?? null,
+    dueDate:
+      task.dueDate instanceof Date
+        ? task.dueDate.toISOString()
+        : task.dueDate ?? null,
+    completedAt:
+      task.completedAt instanceof Date
+        ? task.completedAt.toISOString()
+        : task.completedAt ?? null,
+    lastTouchedAt:
+      task.lastTouchedAt instanceof Date
+        ? task.lastTouchedAt.toISOString()
+        : task.lastTouchedAt ?? null,
   });
   const handleFocusTask = (task) => {
     if (!task) return;
@@ -369,8 +580,9 @@ const DashboardScreen = ({ navigation }) => {
     return "Good evening";
   };
 
-  const firstName   = profile?.name?.split(" ")[0] ?? null;
-  const isFirstTime = !loading && tasks.length === 0 && completedTasks.length === 0;
+  const firstName = profile?.name?.split(" ")[0] ?? null;
+  const isFirstTime =
+    !loading && tasks.length === 0 && completedTasks.length === 0;
 
   const renderBucket = (label, taskList, color) => {
     if (taskList.length === 0) return null;
@@ -405,14 +617,19 @@ const DashboardScreen = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>{greeting()}{firstName ? `, ${firstName}` : ""}</Text>
+          <Text style={styles.greeting}>
+            {greeting()}
+            {firstName ? `, ${firstName}` : ""}
+          </Text>
           <Text style={styles.date}>{format(now, "EEEE, MMMM d")}</Text>
         </View>
         <View style={styles.headerRight}>
           {streak > 0 && (
             <View style={styles.streakPill}>
               <Text>🔥</Text>
-              <Text style={styles.streakText}>{streak}</Text>
+              <Text style={styles.streakText}>
+                {streak} day{streak !== 1 ? "s" : ""}
+              </Text>
             </View>
           )}
           <TouchableOpacity
@@ -455,12 +672,16 @@ const DashboardScreen = ({ navigation }) => {
 
         {/* Resync — visible once user has tasks, for re-importing updated calendars */}
         {tasks.length > 0 && !isFirstTime && (
-          <ResyncButton onPress={() => navigation.navigate('SyllabusParser')} />
+          <ResyncButton onPress={() => navigation.navigate("SyllabusParser")} />
         )}
 
         {/* Today's Focus — auto-loads, no button press needed */}
         {tasks.length > 0 && (
-          <TodayFocusCard tasks={tasks} userProfile={profile} patterns={patterns} />
+          <TodayFocusCard
+            tasks={tasks}
+            userProfile={profile}
+            patterns={patterns}
+          />
         )}
 
         {/* What should I do right now — Pro feature */}
@@ -486,9 +707,20 @@ const DashboardScreen = ({ navigation }) => {
 
         {/* Behavioral insight strip */}
         {behavioralInsight && (
-          <View style={[styles.insightStrip, { borderLeftColor: behavioralInsight.color }]}>
-            <Feather name={behavioralInsight.icon} size={13} color={behavioralInsight.color} />
-            <Text style={[styles.insightText, { color: behavioralInsight.color }]}>
+          <View
+            style={[
+              styles.insightStrip,
+              { borderLeftColor: behavioralInsight.color },
+            ]}
+          >
+            <Feather
+              name={behavioralInsight.icon}
+              size={13}
+              color={behavioralInsight.color}
+            />
+            <Text
+              style={[styles.insightText, { color: behavioralInsight.color }]}
+            >
               {behavioralInsight.text}
             </Text>
           </View>
@@ -507,8 +739,16 @@ const DashboardScreen = ({ navigation }) => {
               onPress={() => setActiveTab(tab)}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
             >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab}{tab === "Pending" && pendingTasks.length > 0 ? ` (${pendingTasks.length})` : ""}
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === tab && styles.tabTextActive,
+                ]}
+              >
+                {tab}
+                {tab === "Pending" && pendingTasks.length > 0
+                  ? ` (${pendingTasks.length})`
+                  : ""}
               </Text>
             </TouchableOpacity>
           ))}
@@ -517,15 +757,33 @@ const DashboardScreen = ({ navigation }) => {
         {/* Day cycler for Today tab */}
         {activeTab === "Today" && (
           <View style={styles.dayCycler}>
-            <TouchableOpacity onPress={() => cycleDay("prev")} style={styles.dayCyclerBtn}>
-              <Feather name="chevron-left" size={18} color={colors.textPrimary} />
+            <TouchableOpacity
+              onPress={() => cycleDay("prev")}
+              style={styles.dayCyclerBtn}
+            >
+              <Feather
+                name="chevron-left"
+                size={18}
+                color={colors.textPrimary}
+              />
             </TouchableOpacity>
             <View style={styles.dayCyclerCenter}>
-              <Text style={styles.dayCyclerLabel}>{getDayLabel(selectedDay)}</Text>
-              <Text style={styles.dayCyclerDate}>{format(selectedDay, "MMMM d, yyyy")}</Text>
+              <Text style={styles.dayCyclerLabel}>
+                {getDayLabel(selectedDay)}
+              </Text>
+              <Text style={styles.dayCyclerDate}>
+                {format(selectedDay, "MMMM d, yyyy")}
+              </Text>
             </View>
-            <TouchableOpacity onPress={() => cycleDay("next")} style={styles.dayCyclerBtn}>
-              <Feather name="chevron-right" size={18} color={colors.textPrimary} />
+            <TouchableOpacity
+              onPress={() => cycleDay("next")}
+              style={styles.dayCyclerBtn}
+            >
+              <Feather
+                name="chevron-right"
+                size={18}
+                color={colors.textPrimary}
+              />
             </TouchableOpacity>
           </View>
         )}
@@ -536,7 +794,6 @@ const DashboardScreen = ({ navigation }) => {
             <ActivityIndicator size="large" color={colors.accent} />
             <Text style={styles.loadingText}>Loading tasks...</Text>
           </View>
-
         ) : isFirstTime ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIcon}>
@@ -544,85 +801,116 @@ const DashboardScreen = ({ navigation }) => {
             </View>
             <Text style={styles.emptyTitle}>You're all set up!</Text>
             <Text style={styles.emptySubtitle}>
-              Add your first task, or import your entire semester from a Canvas calendar.
+              Add your first task, or import your entire semester from a Canvas
+              calendar.
             </Text>
             <View style={styles.emptyActionsRow}>
               <TouchableOpacity style={styles.emptyBtn} onPress={handleAddTask}>
                 <Feather name="plus" size={15} color="#fff" />
                 <Text style={styles.emptyBtnText}>Add Task</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.emptyBtnOutline} onPress={() => navigation.navigate("SyllabusParser")}>
+              <TouchableOpacity
+                style={styles.emptyBtnOutline}
+                onPress={() => navigation.navigate("SyllabusParser")}
+              >
                 <Feather name="upload" size={15} color={colors.accent} />
                 <Text style={styles.emptyBtnOutlineText}>Import</Text>
               </TouchableOpacity>
             </View>
           </View>
-
-        ) : activeTab === "All" && displayedTasks.filter((t) => !t.completed).length === 0 && completedTasks.length > 0 ? (
+        ) : activeTab === "All" &&
+          displayedTasks.filter((t) => !t.completed).length === 0 &&
+          completedTasks.length > 0 ? (
           <View style={styles.allDoneContainer}>
             <View style={styles.allDoneIcon}>
               <Feather name="check-circle" size={32} color={colors.low} />
             </View>
             <Text style={styles.allDoneTitle}>All done! 🎉</Text>
-            <Text style={styles.allDoneSubtitle}>Nothing pending. Add something new or check your weekly plan.</Text>
+            <Text style={styles.allDoneSubtitle}>
+              Nothing pending. Add something new or check your weekly plan.
+            </Text>
           </View>
-
         ) : activeTab === "All" ? (
           <>
-            {renderBucket("Overdue",     buckets.overdue,   colors.high)}
-            {renderBucket("Due Today",   buckets.dueToday,  colors.medium)}
-            {renderBucket("This Week",   buckets.thisWeek,  colors.accent)}
-            {renderBucket("Later",       buckets.later,     colors.textMuted)}
-            {renderBucket("No Due Date", buckets.noDate,    colors.textMuted)}
+            {renderBucket("Overdue", buckets.overdue, colors.high)}
+            {renderBucket("Due Today", buckets.dueToday, colors.medium)}
+            {renderBucket("This Week", buckets.thisWeek, colors.accent)}
+            {renderBucket("Later", buckets.later, colors.textMuted)}
+            {renderBucket("No Due Date", buckets.noDate, colors.textMuted)}
             {buckets.completed.length > 0 && (
               <View style={{ marginTop: spacing.sm }}>
                 <View style={styles.bucketHeader}>
-                  <View style={[styles.bucketDot, { backgroundColor: colors.low }]} />
-                  <Text style={[styles.bucketLabel, { color: colors.low }]}>Completed</Text>
-                  <Text style={styles.bucketCount}>({buckets.completed.length})</Text>
+                  <View
+                    style={[styles.bucketDot, { backgroundColor: colors.low }]}
+                  />
+                  <Text style={[styles.bucketLabel, { color: colors.low }]}>
+                    Completed
+                  </Text>
+                  <Text style={styles.bucketCount}>
+                    ({buckets.completed.length})
+                  </Text>
                 </View>
-                {buckets.completed.slice(0, 5).map((task) =>
-                  task ? (
-                    <TaskCard
-                      key={task.id} task={task}
-                      onToggle={handleToggle} onEdit={handleEditTask}
-                      onDelete={handleDeleteTask} onFocus={handleFocusTask}
-                    />
-                  ) : null
-                )}
+                {buckets.completed
+                  .slice(0, 5)
+                  .map((task) =>
+                    task ? (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onToggle={handleToggle}
+                        onEdit={handleEditTask}
+                        onDelete={handleDeleteTask}
+                        onFocus={handleFocusTask}
+                      />
+                    ) : null
+                  )}
                 {buckets.completed.length > 5 && (
-                  <Text style={[styles.sectionLabel, { textAlign: "center", marginTop: spacing.xs }]}>
+                  <Text
+                    style={[
+                      styles.sectionLabel,
+                      { textAlign: "center", marginTop: spacing.xs },
+                    ]}
+                  >
                     + {buckets.completed.length - 5} more completed
                   </Text>
                 )}
               </View>
             )}
           </>
-
         ) : displayedTasks.length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIcon}>
-              <Feather name={activeTab === "Done" ? "check-circle" : "inbox"} size={28} color={colors.accent} />
+              <Feather
+                name={activeTab === "Done" ? "check-circle" : "inbox"}
+                size={28}
+                color={colors.accent}
+              />
             </View>
             <Text style={styles.emptyTitle}>
-              {activeTab === "Done"  ? "Nothing completed yet" :
-               activeTab === "Today" ? `Nothing due ${getDayLabel(selectedDay).toLowerCase()}` :
-               "All clear!"}
+              {activeTab === "Done"
+                ? "Nothing completed yet"
+                : activeTab === "Today"
+                ? `Nothing due ${getDayLabel(selectedDay).toLowerCase()}`
+                : "All clear!"}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {activeTab === "Done"    ? "Check off tasks and they'll appear here." :
-               activeTab === "Today"  ? "Enjoy the breather — or get ahead on upcoming work." :
-               "No pending tasks. Tap + to add one."}
+              {activeTab === "Done"
+                ? "Check off tasks and they'll appear here."
+                : activeTab === "Today"
+                ? "Enjoy the breather — or get ahead on upcoming work."
+                : "No pending tasks. Tap + to add one."}
             </Text>
           </View>
-
         ) : (
           displayedTasks.map((task) =>
             task ? (
               <TaskCard
-                key={task.id} task={task}
-                onToggle={handleToggle} onEdit={handleEditTask}
-                onDelete={handleDeleteTask} onFocus={handleFocusTask}
+                key={task.id}
+                task={task}
+                onToggle={handleToggle}
+                onEdit={handleEditTask}
+                onDelete={handleDeleteTask}
+                onFocus={handleFocusTask}
                 highlighted={task.id === highlightedTaskId}
               />
             ) : null

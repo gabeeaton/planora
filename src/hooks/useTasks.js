@@ -3,11 +3,12 @@
 // Updated: real notification scheduling wired in.
 //   - createTask: schedules 24h + 2h reminders, stores notificationIds
 //   - editTask: cancels old reminders, schedules new ones if date changed
-//   - completeTask: cancels reminders on completion
+//   - completeTask: cancels reminders on completion, increments streak
 //   - removeTask: cancels reminders on delete
 // ============================================================
 
 import { useState, useEffect, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   subscribeTasks, addTask, updateTask,
   toggleTask, deleteTask, recordTaskCompletion,
@@ -24,6 +25,56 @@ import { analyzePatterns } from "../services/patternAnalysis";
 import { useAuth } from "./useAuth";
 import { useUserProfile } from "./useUserProfile";
 
+// ── Streak helpers ──────────────────────────────────────────
+const STREAK_KEY      = "@planora_streak";
+const STREAK_DATE_KEY = "@planora_streak_date";
+
+const getTodayString = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth() + 1).padStart(2, "0");
+  const dd   = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const getYesterdayString = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth() + 1).padStart(2, "0");
+  const dd   = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const loadStreak = async () => {
+  try {
+    const results  = await AsyncStorage.multiGet([STREAK_KEY, STREAK_DATE_KEY]);
+    const countVal = results[0][1];
+    const dateVal  = results[1][1];
+    const count    = countVal ? parseInt(countVal, 10) : 0;
+    return { count: isNaN(count) ? 0 : count, lastDate: dateVal };
+  } catch {
+    return { count: 0, lastDate: null };
+  }
+};
+
+const incrementStreak = async () => {
+  const today     = getTodayString();
+  const yesterday = getYesterdayString();
+  const { count, lastDate } = await loadStreak();
+  if (lastDate === today) {
+    console.log("[streak] already incremented today:", count);
+    return count;
+  }
+  const newCount = lastDate === yesterday ? count + 1 : 1;
+  console.log("[streak] writing newCount:", newCount);
+  await AsyncStorage.multiSet([
+    [STREAK_KEY,      String(newCount)],
+    [STREAK_DATE_KEY, today],
+  ]);
+  return newCount;
+};
+
 export const useTasks = () => {
   const { user } = useAuth();
   const { profile } = useUserProfile();
@@ -32,6 +83,14 @@ export const useTasks = () => {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
   const [patterns, setPatterns] = useState(null);
+  const [streak, setStreak]     = useState(0);
+
+  // Load persisted streak on mount
+  useEffect(() => {
+    loadStreak().then(({ count }) => {
+      if (count > 0) setStreak(count);
+    });
+  }, []);
 
   // Recompute patterns whenever tasks or history change
   useEffect(() => {
@@ -81,13 +140,11 @@ export const useTasks = () => {
     try {
       const docRef = await addTask(user.uid, taskData);
 
-      // Schedule reminder and store the notification IDs back on the task
       if (taskData.dueDate) {
         const notificationIds = await scheduleTaskReminder({
           id: docRef.id,
           ...taskData,
         });
-        // Only write back if we actually got IDs — avoids a pointless Firestore write
         if (notificationIds.id24h || notificationIds.id2h) {
           await updateTask(docRef.id, { notificationIds }).catch(() => {});
         }
@@ -108,10 +165,8 @@ export const useTasks = () => {
   const createManyTasks = useCallback(async (tasksArray) => {
     if (!user) throw new Error("Not logged in.");
     try {
-      // Create all tasks in parallel, then schedule reminders
       const docRefs = await Promise.all(tasksArray.map((t) => addTask(user.uid, t)));
 
-      // Schedule reminders in the background — don't block the import UI
       Promise.all(
         docRefs.map(async (docRef, i) => {
           const task = tasksArray[i];
@@ -121,7 +176,7 @@ export const useTasks = () => {
             await updateTask(docRef.id, { notificationIds }).catch(() => {});
           }
         })
-      ).catch(() => {}); // Non-critical
+      ).catch(() => {});
 
     } catch (err) {
       const msg = err.message || "Failed to import tasks.";
@@ -134,21 +189,17 @@ export const useTasks = () => {
 
   const editTask = useCallback(async (taskId, updates) => {
     try {
-      // Find the current task to check if due date changed
       const currentTask = tasks.find((t) => t.id === taskId);
 
-      // If the due date changed (or was added/removed), reschedule reminders
       if (currentTask && "dueDate" in updates) {
         const oldDue = currentTask.dueDate?.getTime?.() ?? null;
         const newDue = updates.dueDate ? new Date(updates.dueDate).getTime() : null;
 
         if (oldDue !== newDue) {
-          // Cancel old reminders
           if (currentTask.notificationIds) {
             await cancelTaskReminder(currentTask.notificationIds).catch(() => {});
           }
 
-          // Schedule new reminders if there's a new due date
           if (updates.dueDate) {
             const notificationIds = await scheduleTaskReminder({
               id: taskId,
@@ -161,7 +212,6 @@ export const useTasks = () => {
               ? notificationIds
               : null;
           } else {
-            // Due date was cleared — remove stored IDs
             updates.notificationIds = null;
           }
         }
@@ -186,6 +236,11 @@ export const useTasks = () => {
       if (!task.completed) {
         // Task is being marked complete
 
+        // Increment streak — only fires on actual completion, not on app open
+        incrementStreak().then((newCount) => {
+          setStreak(newCount);
+        }).catch((e) => console.log("[streak] error:", e));
+
         // Spawn next occurrence for recurring tasks
         if (task.recurrence) {
           await spawnNextRecurringTask({ ...task, userId: user.uid });
@@ -194,7 +249,7 @@ export const useTasks = () => {
         // Record for pattern analysis
         await recordTaskCompletion({ ...task, userId: user.uid });
 
-        // Cancel the reminders — no point reminding about a done task
+        // Cancel reminders — no point reminding about a done task
         if (task.notificationIds) {
           await cancelTaskReminder(task.notificationIds).catch(() => {});
         }
@@ -204,8 +259,9 @@ export const useTasks = () => {
           setHistory(fresh);
           cacheTaskHistory(fresh);
         }).catch(() => {});
+
       } else {
-        // Task is being un-completed — reschedule reminder if it has a future due date
+        // Task is being un-completed — reschedule reminder if future due date
         if (task.dueDate && new Date(task.dueDate) > new Date()) {
           const notificationIds = await scheduleTaskReminder(task);
           if (notificationIds.id24h || notificationIds.id2h) {
@@ -223,7 +279,6 @@ export const useTasks = () => {
   const removeTask = useCallback(async (taskId, notificationIds) => {
     try {
       await deleteTask(taskId);
-      // Cancel reminders — accept both old string format and new object format
       if (notificationIds) {
         await cancelTaskReminder(notificationIds).catch(() => {});
       }
@@ -251,7 +306,7 @@ export const useTasks = () => {
 
   return {
     tasks, pendingTasks, completedTasks, todaysTasks,
-    loading, error, patterns,
+    loading, error, patterns, streak,
     createTask, createManyTasks, editTask, completeTask, removeTask,
   };
 };
