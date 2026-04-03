@@ -29,7 +29,6 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendEmailVerification,
   sendPasswordResetEmail,
 } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -77,12 +76,6 @@ export const registerUser = async (email, password) => {
 export const logoutUser = () => signOut(auth);
 
 export const resetPassword = (email) => sendPasswordResetEmail(auth, email);
-
-export const resendVerificationEmail = async (email, password) => {
-  // Stubbed out — Dynamic Links is shut down, verification emails broken on mobile.
-  // Return false so callers don't crash.
-  return false;
-};
 
 export const onAuthChange = (cb) => onAuthStateChanged(auth, cb);
 

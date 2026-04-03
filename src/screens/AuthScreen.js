@@ -1,23 +1,17 @@
 // ============================================================
 // src/screens/AuthScreen.js
-// Changes:
-//   - On first registration: shows a proper modal overlay over
-//     the form (not a new screen) to tell them to verify email
-//   - On login attempt with unverified email: inline warning
-//     with clear "Resend email" CTA instead of generic error
-//   - Forgot password flow unchanged
 // ============================================================
 
 import React, { useState, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  ScrollView, Alert, Modal, Animated,
+  ScrollView, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "../hooks/useAuth";
-import { resetPassword, resendVerificationEmail } from "../services/firebase";
+import { resetPassword } from "../services/firebase";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 
@@ -59,15 +53,6 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   errorText: { color: colors.high, fontSize: 13, flex: 1, lineHeight: 18 },
 
-  // Unverified warning (inline, orange-tinted)
-  unverifiedRow: {
-    flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: spacing.md,
-    backgroundColor: "rgba(255,179,71,0.12)", padding: spacing.sm, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: "rgba(255,179,71,0.5)",
-  },
-  unverifiedText:   { color: colors.medium, fontSize: 13, flex: 1, lineHeight: 18 },
-  unverifiedResend: { color: colors.accent, fontWeight: "700", fontSize: 13, marginTop: 6 },
-
   submitBtn: {
     backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 15,
     flexDirection: "row", alignItems: "center", justifyContent: "center",
@@ -94,51 +79,6 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   resetBackText: { fontSize: 14, color: colors.textSecondary },
 
-  // ── Verify email modal ────────────────────────────────────
-  modalBackdrop: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.65)",
-    alignItems: "center", justifyContent: "center",
-    paddingHorizontal: spacing.lg,
-  },
-  modalCard: {
-    backgroundColor: colors.bgCard, borderRadius: radius.xl,
-    padding: spacing.xl, width: "100%",
-    borderWidth: 1, borderColor: colors.border,
-    alignItems: "center", ...shadows.card,
-  },
-  modalIconWrap: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: colors.accentGlow,
-    borderWidth: 2, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center",
-    marginBottom: spacing.lg,
-  },
-  modalTitle: {
-    fontSize: 22, fontWeight: "800", color: colors.textPrimary,
-    textAlign: "center", marginBottom: spacing.sm, letterSpacing: -0.3,
-  },
-  modalBody: {
-    fontSize: 14, color: colors.textSecondary, textAlign: "center",
-    lineHeight: 22, marginBottom: spacing.lg,
-  },
-  modalEmail: { color: colors.accent, fontWeight: "700" },
-  modalBtn: {
-    width: "100%", backgroundColor: colors.accent,
-    borderRadius: radius.md, paddingVertical: 14,
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, ...shadows.accent, marginBottom: spacing.sm,
-  },
-  modalBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-  modalSecondaryBtn: {
-    width: "100%", paddingVertical: 12,
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
-  },
-  modalSecondaryText: { color: colors.textMuted, fontSize: 14 },
-  modalResendText:    { color: colors.accent, fontSize: 14, fontWeight: "600" },
-  modalNote: {
-    fontSize: 12, color: colors.textMuted, textAlign: "center",
-    marginTop: spacing.sm, lineHeight: 17, fontStyle: "italic",
-  },
 });
 
 const friendlyAuthError = (err) => {
@@ -256,18 +196,11 @@ const AuthScreen = () => {
   const [passwordError, setPasswordError]       = useState("");
   const [confirmError, setConfirmError]         = useState("");
 
-  // Verification state
-  const [showVerifyModal, setShowVerifyModal]   = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState("");
-  const [unverifiedEmail, setUnverifiedEmail]   = useState(""); // login-blocked state
-  const lastPasswordRef                         = useRef("");
-
   const passwordRef = useRef(null);
   const confirmRef  = useRef(null);
 
   const clearErrors = () => {
     setError(""); setEmailError(""); setPasswordError(""); setConfirmError("");
-    setUnverifiedEmail("");
   };
 
   const validate = () => {
@@ -287,36 +220,14 @@ const AuthScreen = () => {
     try {
       if (mode === "login") {
         await login(email.trim(), password);
-        // Success: AppNavigator listens to auth state and navigates automatically
       } else {
         await register(email.trim(), password);
-        // Registration succeeded — show verify email modal
-        lastPasswordRef.current = password;
-        setVerificationEmail(email.trim());
-        setShowVerifyModal(true);
+        // AppNavigator listens to auth state and navigates to Onboarding automatically
       }
     } catch (err) {
-      if (err.message === "EMAIL_NOT_VERIFIED") {
-        // Login attempt blocked — show inline unverified warning
-        lastPasswordRef.current = password;
-        setUnverifiedEmail(email.trim());
-      } else {
-        setError(friendlyAuthError(err));
-      }
+      setError(friendlyAuthError(err));
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResend = async (emailToUse) => {
-    try {
-      await resendVerificationEmail(emailToUse, lastPasswordRef.current);
-      Alert.alert("Sent!", "Verification email resent. Check your inbox and spam folder.");
-    } catch {
-      Alert.alert(
-        "Couldn't resend",
-        "Try signing in again — we'll automatically resend the verification link."
-      );
     }
   };
 
@@ -347,56 +258,6 @@ const AuthScreen = () => {
   return (
     <SafeAreaView style={styles.safe}>
 
-      {/* ── Verify Email Modal — appears after first registration ── */}
-      <Modal
-        visible={showVerifyModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {}} // can't dismiss with back button
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalIconWrap}>
-              <Feather name="mail" size={36} color={colors.accent} />
-            </View>
-            <Text style={styles.modalTitle}>Verify your email</Text>
-            <Text style={styles.modalBody}>
-              We sent a confirmation link to{"\n"}
-              <Text style={styles.modalEmail}>{verificationEmail}</Text>
-              {"\n\n"}Tap the link in the email to activate your account, then come back and sign in.
-            </Text>
-
-            {/* Primary: go to sign in */}
-            <TouchableOpacity
-              style={styles.modalBtn}
-              onPress={() => {
-                setShowVerifyModal(false);
-                setMode("login");
-                setEmail(verificationEmail);
-                setPassword("");
-              }}
-            >
-              <Feather name="log-in" size={18} color="#fff" />
-              <Text style={styles.modalBtnText}>Go to Sign In</Text>
-            </TouchableOpacity>
-
-            {/* Secondary: resend */}
-            <TouchableOpacity
-              style={styles.modalSecondaryBtn}
-              onPress={() => handleResend(verificationEmail)}
-            >
-              <Text style={styles.modalSecondaryText}>Didn't get it?</Text>
-              <Text style={styles.modalResendText}>Resend email</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.modalNote}>
-              Also check your spam folder.{"\n"}
-              The email comes from noreply@taskflow.app
-            </Text>
-          </View>
-        </View>
-      </Modal>
-
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kav}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.brand}>
@@ -424,7 +285,7 @@ const AuthScreen = () => {
                   placeholder="you@email.com"
                   placeholderTextColor={colors.textMuted}
                   value={email}
-                  onChangeText={(v) => { setEmail(v); if (emailError) setEmailError(""); if (error) setError(""); if (unverifiedEmail) setUnverifiedEmail(""); }}
+                  onChangeText={(v) => { setEmail(v); if (emailError) setEmailError(""); if (error) setError(""); }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   returnKeyType="next"
@@ -486,22 +347,6 @@ const AuthScreen = () => {
                 {confirmError ? <Text style={styles.fieldError}>{confirmError}</Text> : null}
               </View>
             )}
-
-            {/* Unverified email warning (login-blocked state) */}
-            {unverifiedEmail ? (
-              <View style={styles.unverifiedRow}>
-                <Feather name="alert-circle" size={14} color={colors.medium} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.unverifiedText}>
-                    Your email isn't verified yet. Check your inbox for the verification link we sent to{" "}
-                    <Text style={{ fontWeight: "700" }}>{unverifiedEmail}</Text>.
-                  </Text>
-                  <TouchableOpacity onPress={() => handleResend(unverifiedEmail)}>
-                    <Text style={styles.unverifiedResend}>Resend verification email →</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
 
             {/* Global error */}
             {error ? (
