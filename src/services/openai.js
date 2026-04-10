@@ -115,7 +115,17 @@ const callProxy = async ({ model, messages, temperature = 0.3, max_tokens = 500 
     body: JSON.stringify({ model, messages, temperature, max_tokens }),
   });
 
-  const data = await res.json();
+  // Guard against Vercel returning an HTML error page (e.g. missing env vars)
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    console.error("Proxy non-JSON response:", text.slice(0, 200));
+    const err = new Error("AI service unavailable");
+    err.status = res.status;
+    throw err;
+  }
 
   if (!res.ok) {
     const err = new Error(data.error ?? "Proxy request failed");
