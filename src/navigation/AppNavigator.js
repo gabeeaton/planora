@@ -24,6 +24,7 @@ import PaywallScreen        from "../screens/PaywallScreen";
 import SyllabusParserScreen from "../screens/SyllabusParserScreen";
 import ICSReviewScreen      from "../screens/ICSReviewScreen";
 import FocusModeScreen     from "../screens/FocusModeScreen";
+import ChatScreen          from "../screens/ChatScreen";
 import { useTheme } from "../utils/ThemeContext";
 
 const Stack = createNativeStackNavigator();
@@ -156,6 +157,11 @@ const AppNavigator = () => {
               name="FocusMode"
               component={FocusModeScreen}
               options={{ presentation: "fullScreenModal", headerShown: false }}
+            />
+            <Stack.Screen
+              name="Chat"
+              component={ChatScreen}
+              options={{ headerShown: false }}
             />
             <Stack.Screen
               name="Paywall"

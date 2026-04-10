@@ -373,6 +373,105 @@ Respond ONLY with this JSON (no markdown):
   }
 };
 
+// ── 5. Academic Coach Chat ───────────────────────────────────
+
+const CHAT_SYSTEM = (contextBlock) =>
+  `You are an academic coach inside Planora, a productivity app for college students. Be direct, warm, and specific — always reference the student's real tasks, classes, and patterns by name. Keep responses concise (2-4 sentences) unless they ask for something detailed. Never be generic.
+
+${contextBlock}`;
+
+/**
+ * Build a lean context block for chat.
+ * Only includes overdue + next-7-days tasks to keep tokens low.
+ */
+const buildChatContext = (tasks, userProfile, patterns) => {
+  const now      = new Date();
+  const in7days  = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const relevant = tasks
+    .filter((t) => !t.completed && t.dueDate && new Date(t.dueDate) <= in7days)
+    .slice(0, 10);
+
+  const overdue = tasks.filter(
+    (t) => !t.completed && t.dueDate && new Date(t.dueDate) < now
+  );
+
+  const lines = [];
+  lines.push(`Today: ${today()}`);
+
+  const classes = userProfile?.classes
+    ?.map((c) => `${c.name} (${c.creditHours}cr, grade:${c.grade ?? "?"})`)
+    .join(", ");
+  if (classes) lines.push(`Classes: ${classes}`);
+  if (userProfile?.semester) lines.push(`Semester: ${userProfile.semester}`);
+  if (userProfile?.preferredWorkTime) lines.push(`Best work time: ${userProfile.preferredWorkTime}`);
+
+  if (overdue.length > 0) {
+    lines.push(`OVERDUE: ${overdue.map((t) => `"${t.title}"`).join(", ")}`);
+  }
+  if (relevant.length > 0) {
+    lines.push(
+      `Upcoming (next 7 days): ${relevant
+        .map((t) => `"${t.title}" due ${new Date(t.dueDate).toLocaleDateString()}`)
+        .join(", ")}`
+    );
+  } else {
+    const pending = tasks.filter((t) => !t.completed).slice(0, 5);
+    if (pending.length > 0) {
+      lines.push(`Pending tasks: ${pending.map((t) => `"${t.title}"`).join(", ")}`);
+    }
+  }
+
+  if (patterns) {
+    const ctx = buildPatternContext(patterns, userProfile);
+    if (ctx) lines.push(`\nBehavioral patterns:\n${ctx}`);
+  }
+
+  return lines.join("\n");
+};
+
+/**
+ * Send one chat turn to the coach.
+ * @param {Array}  history     - prior messages [{role, content}], max last 10
+ * @param {string} userMessage - the new user message
+ * @param {Array}  tasks       - all tasks for context
+ * @param {object} userProfile
+ * @param {object} patterns
+ * @returns {string} AI reply text
+ */
+export const sendChatMessage = async (
+  history,
+  userMessage,
+  tasks,
+  userProfile,
+  patterns
+) => {
+  const contextBlock = buildChatContext(tasks, userProfile, patterns);
+  const systemMsg    = { role: "system", content: CHAT_SYSTEM(contextBlock) };
+
+  // Cap history at last 10 messages to keep tokens lean
+  const trimmedHistory = history.slice(-10);
+
+  const messages = [
+    systemMsg,
+    ...trimmedHistory,
+    { role: "user", content: userMessage },
+  ];
+
+  try {
+    const content = await callProxy({
+      model: "gpt-4o-mini",
+      messages,
+      temperature: 0.5,
+      max_tokens: 400,
+    });
+    return content.trim();
+  } catch (err) {
+    console.error("sendChatMessage failed:", err);
+    throw new Error(friendlyError(err));
+  }
+};
+
 // ── 4. AI Priority Suggestion ────────────────────────────────
 
 export const suggestPriorities = async (
