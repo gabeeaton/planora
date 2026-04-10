@@ -483,11 +483,11 @@ const LIFESTYLE_OPTIONS = [
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // ── Import Step Sub-component ─────────────────────────────────
-const ImportStep = ({ classes, onImported, styles, colors }) => {
+const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
   const { createManyTasks } = useTasks();
   const [activeTab, setActiveTab] = useState("syllabus");
   const [syllabusText, setSyllabusText] = useState("");
-  const [selectedClass, setSelectedClass] = useState(null);
+  const [manualClassName, setManualClassName] = useState("");
   const [parsing, setParsing] = useState(false);
   const [icsUrl, setIcsUrl] = useState("");
   const [icsLoading, setIcsLoading] = useState(false);
@@ -504,7 +504,7 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
     setError(null);
     setParsing(true);
     try {
-      const className = selectedClass?.name ?? null;
+      const className = manualClassName.trim() || null;
       const tasks = await parseSyllabusText(syllabusText, className);
       if (tasks.length === 0) {
         setError(
@@ -610,6 +610,9 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
       setImportCount(toImport.length);
       setImportDone(true);
       onImported(toImport.length);
+      if (manualClassName.trim() && onClassDetected) {
+        onClassDetected(manualClassName.trim());
+      }
     } catch {
       setError("Import failed. You can try again from the dashboard.");
     } finally {
@@ -743,36 +746,16 @@ const ImportStep = ({ classes, onImported, styles, colors }) => {
             </Text>
           </View>
 
-          {classes.length > 0 && (
-            <View style={{ marginBottom: spacing.sm }}>
-              <Text style={styles.fieldLabel}>Which class? (optional)</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipRow}>
-                  {classes
-                    .filter((c) => c.name?.trim())
-                    .map((cls) => {
-                      const sel = selectedClass?.id === cls.id;
-                      return (
-                        <TouchableOpacity
-                          key={cls.id}
-                          style={[styles.chipSm, sel && styles.chipSmSelected]}
-                          onPress={() => setSelectedClass(sel ? null : cls)}
-                        >
-                          <Text
-                            style={[
-                              styles.chipSmText,
-                              sel && styles.chipSmTextSelected,
-                            ]}
-                          >
-                            {cls.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                </View>
-              </ScrollView>
-            </View>
-          )}
+          <View style={{ marginBottom: spacing.sm }}>
+            <Text style={styles.fieldLabel}>CLASS NAME (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. HIST 201 — World History"
+              placeholderTextColor={colors.textMuted}
+              value={manualClassName}
+              onChangeText={setManualClassName}
+            />
+          </View>
 
           <TextInput
             style={styles.syllabusInput}
@@ -972,6 +955,18 @@ const OnboardingScreen = ({ navigation }) => {
     }
   }, []);
 
+  const handleClassDetected = (name) => {
+    setClasses((prev) => {
+      if (prev.length === 1 && !prev[0].name.trim()) {
+        return [{ ...prev[0], name }];
+      }
+      if (!prev.some((c) => c.name.trim() === name)) {
+        return [...prev, { id: generateId(), name, creditHours: "3", grade: "B" }];
+      }
+      return prev;
+    });
+  };
+
   const addClass = () =>
     setClasses((p) => [
       ...p,
@@ -985,13 +980,10 @@ const OnboardingScreen = ({ navigation }) => {
 
   const canAdvance = () => {
     if (step_n === 0) return !!semester;
-    if (step_n === 1)
-      return (
-        classes.length > 0 && classes.every((c) => c.name.trim().length > 0)
-      );
-    if (step_n === 2) return !!workTime;
-    if (step_n === 3) return true; // lifestyle goals optional
-    if (step_n === 4) return true; // import step always skippable
+    if (step_n === 1) return true; // import optional
+    if (step_n === 2) return true; // classes optional
+    if (step_n === 3) return !!workTime;
+    if (step_n === 4) return true; // lifestyle goals optional
     return false;
   };
 
@@ -1006,7 +998,7 @@ const OnboardingScreen = ({ navigation }) => {
       const data = {
         name: name.trim() || null,
         semester,
-        classes: classes.map((c) => ({
+        classes: classes.filter((c) => c.name.trim()).map((c) => ({
           id: c.id,
           name: c.name.trim(),
           creditHours: parseInt(c.creditHours) || 3,
@@ -1082,7 +1074,7 @@ const OnboardingScreen = ({ navigation }) => {
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Add your classes</Text>
       <Text style={styles.stepSubtitle}>
-        The AI weights recommendations by class difficulty and credit hours.
+        Optional — but helps the AI weight recommendations by difficulty and credit hours. You can also add classes later in your profile.
       </Text>
 
       {classes.map((cls, idx) => (
@@ -1291,8 +1283,8 @@ const OnboardingScreen = ({ navigation }) => {
 
       {importedCount === 0 && (
         <ImportStep
-          classes={classes.filter((c) => c.name.trim())}
           onImported={(count) => setImportedCount(count)}
+          onClassDetected={handleClassDetected}
           styles={styles}
           colors={colors}
         />
@@ -1301,11 +1293,11 @@ const OnboardingScreen = ({ navigation }) => {
   );
 
   const steps = [
-    renderStep0,
-    renderStep1,
-    renderStep2,
-    renderStep3,
-    renderStep4,
+    renderStep0, // identity
+    renderStep4, // import
+    renderStep1, // classes (optional)
+    renderStep2, // work time
+    renderStep3, // lifestyle
   ];
 
   const getNextLabel = () => {
