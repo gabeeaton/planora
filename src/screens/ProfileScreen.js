@@ -5,18 +5,47 @@
 import React, { useState, useEffect } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, TextInput, Switch,
+  ScrollView, Alert, TextInput, Switch, Modal,
+  FlatList, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useAuth }         from "../hooks/useAuth";
 import { useUserProfile }  from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
-import { typography, spacing, radius, shadows, COLOR_THEMES,  } from "../utils/theme";
+import { typography, spacing, radius, shadows, COLOR_THEMES } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
 
+// ── Constants (mirrors OnboardingScreen) ─────────────────────
+const generateSemesters = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const results = [];
+  for (let y = year; y <= year + 2; y++) {
+    [
+      { name: `Spring ${y}`, startMonth: 0 },
+      { name: `Summer ${y}`, startMonth: 4 },
+      { name: `Fall ${y}`,   startMonth: 7 },
+    ].forEach(({ name, startMonth }) => {
+      const monthsAgo = (now.getFullYear() - y) * 12 + (now.getMonth() - startMonth);
+      if (monthsAgo <= 3) results.push(name);
+    });
+  }
+  return [...new Set(results)].slice(0, 8);
+};
 
+const SEMESTERS  = generateSemesters();
+const WORK_TIMES = [
+  "Morning (6am–12pm)",
+  "Afternoon (12pm–5pm)",
+  "Evening (5pm–9pm)",
+  "Night (9pm+)",
+];
+const GRADES     = ["A", "B", "C", "D", "Not sure"];
+const CREDIT_OPTS = ["1", "2", "3", "4", "5+"];
+
+// ── Styles ────────────────────────────────────────────────────
 const makeStyles = (colors) => StyleSheet.create({
   safe:   { flex: 1 },
   scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
@@ -87,28 +116,92 @@ const makeStyles = (colors) => StyleSheet.create({
   classMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 
   version: { textAlign: "center", fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
+
+  // ── Modal shared ──
+  overlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: colors.bgCard, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingBottom: 32,
+  },
+  sheetHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  sheetTitle:  { fontSize: 17, fontWeight: "700", color: colors.textPrimary },
+  sheetDone: {
+    paddingHorizontal: spacing.md, paddingVertical: 6,
+    backgroundColor: colors.accent, borderRadius: radius.sm,
+  },
+  sheetDoneText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+
+  optionBtn: {
+    paddingHorizontal: spacing.md, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+  },
+  optionText:         { fontSize: 15, color: colors.textPrimary },
+  optionTextSelected: { color: colors.accent, fontWeight: "700" },
+
+  // ── Classes editor ──
+  classEditorRow: {
+    backgroundColor: colors.bg, borderRadius: radius.md, borderWidth: 1,
+    borderColor: colors.border, padding: spacing.md, marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm, gap: 8,
+  },
+  classNameInput: {
+    backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10,
+    color: colors.textPrimary, fontSize: 15,
+  },
+  classMetaRow:  { flexDirection: "row", gap: 8 },
+  classPicker:   { flex: 1, flexDirection: "row", gap: 4, flexWrap: "wrap" },
+  classChip: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg,
+  },
+  classChipSelected: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
+  classChipText:     { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
+  classChipTextSelected: { color: colors.accent },
+  classChipLabel: { fontSize: 11, color: colors.textMuted, marginBottom: 4 },
+  removeClassBtn: { alignSelf: "flex-start", padding: 4 },
+  addClassBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    marginHorizontal: spacing.lg, marginTop: 4, paddingVertical: 8,
+  },
+  addClassText: { fontSize: 14, color: colors.accent, fontWeight: "600" },
 });
 
+// ── ProfileScreen ─────────────────────────────────────────────
 const ProfileScreen = ({ navigation }) => {
-  const { user, logout }                                       = useAuth();
-  const { colors, accentKey, isDark, setTheme, setDark }        = useTheme();
+  const { user, logout }                          = useAuth();
+  const { colors, accentKey, isDark, setTheme, setDark } = useTheme();
   const styles = makeStyles(colors);
-  const { profile }                                            = useUserProfile();
-  const { isPro, hasProAccess } = useSubscription();
+  const { profile }                               = useUserProfile();
+  const { isPro, hasProAccess }                   = useSubscription();
 
-  // Local theme state so label + dots update immediately on press
-  const [activeThemeKey, setActiveThemeKeyState] = useState(
-    profile?.colorTheme ?? accentKey
-  );
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput]     = useState("");
+  const [activeThemeKey, setActiveThemeKeyState] = useState(profile?.colorTheme ?? accentKey);
+  const [editingName, setEditingName]             = useState(false);
+  const [nameInput, setNameInput]                 = useState("");
+
+  // Modal state
+  const [modal, setModal] = useState(null); // "semester" | "worktime" | "classes"
+  // Classes editor local state
+  const [editClasses, setEditClasses] = useState([]);
 
   useEffect(() => {
     setNameInput(profile?.name ?? "");
     if (profile?.colorTheme) setActiveThemeKeyState(profile.colorTheme);
   }, [profile?.name, profile?.colorTheme]);
 
-  const ac = { accent: colors.accent, accentGlow: colors.accentGlow, accentShadow: { shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 } };
+  const ac = {
+    accent: colors.accent,
+    accentGlow: colors.accentGlow,
+    accentShadow: { shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+  };
 
   const displayInitial = profile?.name
     ? profile.name[0].toUpperCase()
@@ -137,6 +230,52 @@ const ProfileScreen = ({ navigation }) => {
     await saveUserProfile(user.uid, { darkMode: val });
   };
 
+  // ── Semester picker ──
+  const openSemester = () => setModal("semester");
+  const pickSemester = async (s) => {
+    await saveUserProfile(user.uid, { semester: s });
+    setModal(null);
+  };
+
+  // ── Work time picker ──
+  const openWorkTime = () => setModal("worktime");
+  const pickWorkTime = async (t) => {
+    await saveUserProfile(user.uid, { preferredWorkTime: t });
+    setModal(null);
+  };
+
+  // ── Classes editor ──
+  const openClasses = () => {
+    const existing = (profile?.classes ?? []).map((c) => ({ ...c }));
+    if (existing.length === 0) {
+      existing.push({ id: Date.now().toString(), name: "", creditHours: "3", grade: "B" });
+    }
+    setEditClasses(existing);
+    setModal("classes");
+  };
+
+  const addClassRow = () => {
+    setEditClasses((prev) => [
+      ...prev,
+      { id: Date.now().toString(), name: "", creditHours: "3", grade: "B" },
+    ]);
+  };
+
+  const updateClass = (id, field, value) => {
+    setEditClasses((prev) => prev.map((c) => c.id === id ? { ...c, [field]: value } : c));
+  };
+
+  const removeClass = (id) => {
+    setEditClasses((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const saveClasses = async () => {
+    const valid = editClasses.filter((c) => c.name.trim().length > 0);
+    await saveUserProfile(user.uid, { classes: valid });
+    setModal(null);
+  };
+
+  // ── Shared components ──
   const SectionHeader = ({ title }) =>
     title ? <Text style={styles.sectionHeader}>{title}</Text> : <View style={{ height: spacing.xs }} />;
 
@@ -225,11 +364,7 @@ const ProfileScreen = ({ navigation }) => {
               return (
                 <View key={theme.key} style={styles.themeItem}>
                   <TouchableOpacity
-                    style={[
-                      styles.themeDot,
-                      { backgroundColor: theme.accent },
-                      isActive && styles.themeDotActive,
-                    ]}
+                    style={[styles.themeDot, { backgroundColor: theme.accent }, isActive && styles.themeDotActive]}
                     onPress={() => handleThemeChange(theme.key)}
                   >
                     {isActive && <Feather name="check" size={14} color="#fff" />}
@@ -256,16 +391,14 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Academic profile */}
+        {/* Academic profile — each row is independently editable */}
         <SectionHeader title="Academic Profile" />
         <View style={styles.card}>
-          <Row icon="book"   label="Semester"             value={profile?.semester ?? "Not set"} />
+          <Row icon="book"   label="Semester"      value={profile?.semester ?? "Not set"}           onPress={openSemester} />
           <View style={styles.divider} />
-          <Row icon="layers" label="Classes"               value={profile?.classes?.length ? `${profile.classes.length} classes` : "Not set"} />
+          <Row icon="layers" label="Classes"        value={profile?.classes?.length ? `${profile.classes.length} classes` : "Not set"} onPress={openClasses} />
           <View style={styles.divider} />
-          <Row icon="sun"    label="Best work time"        value={profile?.preferredWorkTime ?? "Not set"} />
-          <View style={styles.divider} />
-          <Row icon="edit"   label="Edit Academic Profile" onPress={() => navigation.navigate("Onboarding")} />
+          <Row icon="sun"    label="Best work time" value={profile?.preferredWorkTime ?? "Not set"}  onPress={openWorkTime} />
         </View>
 
         {/* Classes list */}
@@ -300,9 +433,121 @@ const ProfileScreen = ({ navigation }) => {
         <Text style={styles.version}>Planora v1.0.0</Text>
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ── Semester picker modal ── */}
+      <Modal visible={modal === "semester"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModal(null)}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Select Semester</Text>
+              <TouchableOpacity onPress={() => setModal(null)}>
+                <Feather name="x" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {SEMESTERS.map((s) => (
+              <TouchableOpacity key={s} style={styles.optionBtn} onPress={() => pickSemester(s)}>
+                <Text style={[styles.optionText, profile?.semester === s && styles.optionTextSelected]}>{s}</Text>
+                {profile?.semester === s && <Feather name="check" size={16} color={colors.accent} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Work time picker modal ── */}
+      <Modal visible={modal === "worktime"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModal(null)}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Best Work Time</Text>
+              <TouchableOpacity onPress={() => setModal(null)}>
+                <Feather name="x" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {WORK_TIMES.map((t) => (
+              <TouchableOpacity key={t} style={styles.optionBtn} onPress={() => pickWorkTime(t)}>
+                <Text style={[styles.optionText, profile?.preferredWorkTime === t && styles.optionTextSelected]}>{t}</Text>
+                {profile?.preferredWorkTime === t && <Feather name="check" size={16} color={colors.accent} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Classes editor modal ── */}
+      <Modal visible={modal === "classes"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModal(null)}>
+            <View style={[styles.sheet, { maxHeight: "85%" }]}>
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>Edit Classes</Text>
+                <TouchableOpacity style={styles.sheetDone} onPress={saveClasses}>
+                  <Text style={styles.sheetDoneText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ paddingTop: spacing.sm }}>
+                {editClasses.map((cls) => (
+                  <View key={cls.id} style={styles.classEditorRow}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <TextInput
+                        style={[styles.classNameInput, { flex: 1 }]}
+                        placeholder="Class name (e.g. MATH 201)"
+                        placeholderTextColor={colors.textMuted}
+                        value={cls.name}
+                        onChangeText={(v) => updateClass(cls.id, "name", v)}
+                      />
+                      <TouchableOpacity onPress={() => removeClass(cls.id)} style={styles.removeClassBtn}>
+                        <Feather name="trash-2" size={16} color={colors.high} />
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.classMetaRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.classChipLabel}>CREDITS</Text>
+                        <View style={styles.classPicker}>
+                          {CREDIT_OPTS.map((c) => (
+                            <TouchableOpacity
+                              key={c}
+                              style={[styles.classChip, cls.creditHours === c && styles.classChipSelected]}
+                              onPress={() => updateClass(cls.id, "creditHours", c)}
+                            >
+                              <Text style={[styles.classChipText, cls.creditHours === c && styles.classChipTextSelected]}>{c}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.classChipLabel}>GRADE</Text>
+                        <View style={styles.classPicker}>
+                          {GRADES.map((g) => (
+                            <TouchableOpacity
+                              key={g}
+                              style={[styles.classChip, cls.grade === g && styles.classChipSelected]}
+                              onPress={() => updateClass(cls.id, "grade", g)}
+                            >
+                              <Text style={[styles.classChipText, cls.grade === g && styles.classChipTextSelected]}>{g}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+
+                <TouchableOpacity style={styles.addClassBtn} onPress={addClassRow}>
+                  <Feather name="plus-circle" size={16} color={colors.accent} />
+                  <Text style={styles.addClassText}>Add another class</Text>
+                </TouchableOpacity>
+
+                <View style={{ height: 24 }} />
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
-
 
 export default ProfileScreen;
