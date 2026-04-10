@@ -34,14 +34,7 @@ const makeStyles = (colors) => StyleSheet.create({
     alignItems: "center", marginBottom: 20,
   },
   headerTitle: { fontSize: 20, fontWeight: "700", color: colors.textPrimary },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  calBtn: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderRadius: radius.full, borderWidth: 1,
-  },
-  calBtnText: { fontSize: 12, fontWeight: "600" },
-  closeBtn:   { padding: 4 },
+  closeBtn: { padding: 4 },
   field:      { marginBottom: 16 },
   label: {
     fontSize: 11, fontWeight: "700", color: colors.textMuted,
@@ -111,15 +104,16 @@ const makeStyles = (colors) => StyleSheet.create({
   timePicker: {
     marginTop: 8, backgroundColor: colors.bgInput,
     borderRadius: 12, borderWidth: 1, borderColor: colors.border,
-    maxHeight: 160,
+    maxHeight: 148,
   },
-  timeGrid:      { flexDirection: "row", flexWrap: "wrap", padding: 8, gap: 6 },
+  timeGrid:  { flexDirection: "row", flexWrap: "wrap", padding: 8, gap: 6 },
   timeCell: {
-    paddingHorizontal: 10, paddingVertical: 7,
+    paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: 8, borderWidth: 1, borderColor: colors.border,
     backgroundColor: colors.bgCard,
+    minWidth: 72,
   },
-  timeCellText:     { fontSize: 12, color: colors.textSecondary },
+  timeCellText: { fontSize: 12, color: colors.textSecondary, textAlign: "center" },
 
   calExportRow: {
     flexDirection: "row", alignItems: "center", gap: 8,
@@ -145,8 +139,12 @@ const PRIORITY_META = {
   LOW:    { icon: "check-circle", color: "#5CFF8F", label: "Low" },
 };
 
-const HOURS   = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = ["00", "15", "30", "45"];
+// 6 AM – 11:30 PM in 30-min increments (common academic hours)
+const TIME_OPTIONS = [];
+for (let h = 6; h <= 23; h++) {
+  TIME_OPTIONS.push([h, 0]);
+  TIME_OPTIONS.push([h, 30]);
+}
 
 const RECURRENCE_OPTIONS = [
   { label: "None",     value: null },
@@ -319,20 +317,9 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
           <View style={styles.handle} />
           <View style={styles.header}>
             <Text style={styles.headerTitle}>{task ? "Edit Task" : "New Task"}</Text>
-            <View style={styles.headerRight}>
-              {task && task.dueDate && (
-                <TouchableOpacity
-                  onPress={() => openInGoogleCalendar({ ...task, dueTime })}
-                  style={[styles.calBtn, { backgroundColor: colors.accentGlow, borderColor: colors.accent }]}
-                >
-                  <Feather name="calendar" size={14} color={colors.accent} />
-                  <Text style={[styles.calBtnText, { color: colors.accent }]}>Add to Calendar</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Feather name="x" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Feather name="x" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingRight: 8 }}>
@@ -519,28 +506,26 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
 
                 {showTimePicker && (
                   <View style={styles.timePicker}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <ScrollView showsVerticalScrollIndicator={false}>
                       <View style={styles.timeGrid}>
-                        {HOURS.map((h) =>
-                          MINUTES.map((m) => {
-                            const minNum     = parseInt(m);
-                            const isSelected = dueTime && dueTime[0] === h && dueTime[1] === minNum;
-                            return (
-                              <TouchableOpacity
-                                key={`${h}:${m}`}
-                                style={[
-                                  styles.timeCell,
-                                  isSelected && { backgroundColor: colors.accent, borderColor: colors.accent },
-                                ]}
-                                onPress={() => { setDueTime([h, minNum]); setShowTimePicker(false); }}
-                              >
-                                <Text style={[styles.timeCellText, isSelected && { color: "#fff", fontWeight: "700" }]}>
-                                  {formatHour(h)}:{m}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })
-                        )}
+                        {TIME_OPTIONS.map(([h, m]) => {
+                          const isSelected = dueTime && dueTime[0] === h && dueTime[1] === m;
+                          const label = `${formatHour(h)}${m > 0 ? `:${String(m).padStart(2,"0")}` : ""}`;
+                          return (
+                            <TouchableOpacity
+                              key={`${h}:${m}`}
+                              style={[
+                                styles.timeCell,
+                                isSelected && { backgroundColor: colors.accent, borderColor: colors.accent },
+                              ]}
+                              onPress={() => { setDueTime([h, m]); setShowTimePicker(false); }}
+                            >
+                              <Text style={[styles.timeCellText, isSelected && { color: "#fff", fontWeight: "700" }]}>
+                                {label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
                       </View>
                     </ScrollView>
                   </View>

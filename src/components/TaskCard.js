@@ -108,7 +108,11 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = fal
   const priorityColor   = displayPriority ? priorityColors[displayPriority] : colors.textMuted;
   const glowColor       = displayPriority ? priorityGlow[displayPriority]   : "transparent";
 
-  const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
+  const isOverdue    = task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
+  const daysOverdue  = isOverdue
+    ? Math.max(1, Math.floor((new Date() - new Date(task.dueDate)) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const overdueLabelPrefix = daysOverdue === 1 ? "Yesterday" : `${daysOverdue}d overdue`;
 
   const lastTouched      = task.lastTouchedAt ? new Date(task.lastTouchedAt) : null;
   const daysSinceTouched = lastTouched
@@ -198,14 +202,11 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = fal
                 <View style={styles.dueDateRow}>
                   <Feather name="calendar" size={11} color={isOverdue ? colors.high : colors.textMuted} />
                   <Text style={[styles.dueDate, isOverdue && { color: colors.high }]}>
-                    {isOverdue ? "Overdue · " : ""}{format(new Date(task.dueDate), "MMM d")}
+                    {isOverdue ? overdueLabelPrefix : format(new Date(task.dueDate), "MMM d")}
                   </Text>
                 </View>
               ) : <View />}
               <View style={styles.actions}>
-                <TouchableOpacity onPress={() => onEdit(task)} style={styles.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Feather name="edit-2" size={14} color={colors.textMuted} />
-                </TouchableOpacity>
                 <TouchableOpacity onPress={() => onDelete(task)} style={styles.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Feather name="trash-2" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
