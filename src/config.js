@@ -17,7 +17,11 @@ export const FIREBASE_CONFIG = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-export const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+// Vercel proxy URL — set EXPO_PUBLIC_VERCEL_API_URL in .env
+// e.g. https://taskflow-abc123.vercel.app
+// Leave blank to use the production Vercel URL automatically (same domain in prod)
+export const VERCEL_API_URL =
+  process.env.EXPO_PUBLIC_VERCEL_API_URL ?? "https://taskflow.vercel.app";
 
 export const APP_CONFIG = {
   gptModel: "gpt-4o",
@@ -26,10 +30,9 @@ export const APP_CONFIG = {
 };
 
 // ── Dev safety check ─────────────────────────────────────────
-// Warns you in the console if you forgot to set up .env
 if (__DEV__) {
   const missing = [];
-  if (!OPENAI_API_KEY) missing.push("EXPO_PUBLIC_OPENAI_API_KEY");
+  if (!VERCEL_API_URL) missing.push("EXPO_PUBLIC_VERCEL_API_URL");
   if (!FIREBASE_CONFIG.apiKey) missing.push("EXPO_PUBLIC_FIREBASE_API_KEY");
   if (!FIREBASE_CONFIG.projectId)
     missing.push("EXPO_PUBLIC_FIREBASE_PROJECT_ID");

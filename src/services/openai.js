@@ -1,26 +1,14 @@
 // ============================================================
 // src/services/openai.js
 //
-// CHANGES:
-//  - buildPatternContext() now receives userProfile (lifestyleGoals, hardestClass)
-//  - suggestPriorities switched to gpt-4o-mini (30x cheaper, same quality)
-//  - All AI calls have a system message forbidding [ID:xxx] echoing
-//  - TodayFocus cache TTL extended to 2 hours (was 30min)
-//  - Better error messages: rate limit vs network vs key errors
+// All AI calls go through the Vercel proxy (api/ai.js).
+// The OpenAI API key never touches the client bundle.
+// Firebase ID token is sent on every request for auth + rate limiting.
 // ============================================================
 
-import OpenAI from "openai";
-import { OPENAI_API_KEY, APP_CONFIG } from "../config";
+import { APP_CONFIG, VERCEL_API_URL } from "../config";
 import { buildPatternContext } from "./patternAnalysis";
-
-const client = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
-
-// System message applied to every call — prevents [ID:xxx] echoing
-const BASE_SYSTEM =
-  "You are a helpful academic coach. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output. These are internal only and must never appear in recommendations, coaching lines, or any user-facing text.";
+import { auth } from "./firebase";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -78,15 +66,22 @@ const safeParseJSON = (raw, type = "object") => {
   }
 };
 
+// System message applied to every call — prevents [ID:xxx] echoing
+const BASE_SYSTEM =
+  "You are a helpful academic coach. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output. These are internal only and must never appear in recommendations, coaching lines, or any user-facing text.";
+
 /**
- * Maps OpenAI errors to user-friendly messages.
+ * Maps proxy/network errors to user-friendly messages.
  */
 const friendlyError = (err) => {
-  const status = err?.status ?? err?.response?.status;
-  if (status === 429)
+  if (err?.limitReached) {
+    return "You've used all 10 free AI requests today. Upgrade to Pro for unlimited access.";
+  }
+  const status = err?.status;
+  if (status === 429 || status === 503)
     return "AI is busy right now — wait a minute and try again.";
   if (status === 401) return "AI configuration error. Please contact support.";
-  if (status >= 500) return "OpenAI is having issues. Try again in a moment.";
+  if (status >= 500) return "AI service is having issues. Try again in a moment.";
   if (
     err?.message?.toLowerCase().includes("network") ||
     err?.message?.toLowerCase().includes("fetch")
@@ -95,14 +90,50 @@ const friendlyError = (err) => {
   return "Couldn't reach AI. Check your connection and try again.";
 };
 
+/**
+ * Gets a fresh Firebase ID token for the current user.
+ * Throws if the user is not signed in.
+ */
+const getIdToken = async () => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  return user.getIdToken();
+};
+
+/**
+ * POST to the Vercel proxy with auth token + OpenAI params.
+ * Returns the raw content string from the model.
+ */
+const callProxy = async ({ model, messages, temperature = 0.3, max_tokens = 500 }) => {
+  const token = await getIdToken();
+  const res = await fetch(`${VERCEL_API_URL}/api/ai`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ model, messages, temperature, max_tokens }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    const err = new Error(data.error ?? "Proxy request failed");
+    err.status = res.status;
+    err.limitReached = data.limitReached ?? false;
+    throw err;
+  }
+
+  return data.content;
+};
+
 // ── 1. Today's Focus (auto-loads on dashboard) ───────────────
 // Module-level cache — survives navigation, resets after 2 hours
 let _focusCache = null;
 let _focusCachedAt = null;
-const FOCUS_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (was 30min — saves ~75% of calls)
+const FOCUS_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 export const getTodayFocus = async (tasks, userProfile, patterns) => {
-  // Return cache if fresh
   if (
     _focusCache &&
     _focusCachedAt &&
@@ -114,7 +145,6 @@ export const getTodayFocus = async (tasks, userProfile, patterns) => {
   const pending = tasks.filter((t) => !t.completed);
   if (pending.length === 0) return null;
 
-  // Pass userProfile so lifestyle/hardestClass context is included
   const patternCtx = patterns
     ? buildPatternContext(patterns, userProfile)
     : "No pattern data yet.";
@@ -151,7 +181,7 @@ Respond ONLY with this JSON, no markdown:
 }`;
 
   try {
-    const response = await client.chat.completions.create({
+    const content = await callProxy({
       model: APP_CONFIG.gptModel,
       messages: [
         { role: "system", content: BASE_SYSTEM },
@@ -160,7 +190,7 @@ Respond ONLY with this JSON, no markdown:
       temperature: 0.3,
       max_tokens: 200,
     });
-    const result = safeParseJSON(response.choices[0].message.content.trim());
+    const result = safeParseJSON(content.trim());
     _focusCache = result;
     _focusCachedAt = Date.now();
     return result;
@@ -188,7 +218,6 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
       taskId: null,
     };
 
-  // Pass userProfile for full lifestyle/hardestClass context
   const patternCtx = patterns
     ? buildPatternContext(patterns, userProfile)
     : "No pattern data yet.";
@@ -229,7 +258,7 @@ Respond ONLY with this JSON, no markdown:
 }`;
 
   try {
-    const response = await client.chat.completions.create({
+    const content = await callProxy({
       model: APP_CONFIG.gptModel,
       messages: [
         { role: "system", content: BASE_SYSTEM },
@@ -238,7 +267,7 @@ Respond ONLY with this JSON, no markdown:
       temperature: 0.3,
       max_tokens: 300,
     });
-    return safeParseJSON(response.choices[0].message.content.trim());
+    return safeParseJSON(content.trim());
   } catch (err) {
     console.error("getWhatDoIDo failed:", err);
     throw new Error(friendlyError(err));
@@ -306,7 +335,7 @@ Respond ONLY with this JSON (no markdown):
 }`;
 
   try {
-    const response = await client.chat.completions.create({
+    const content = await callProxy({
       model: APP_CONFIG.gptModel,
       messages: [
         { role: "system", content: BASE_SYSTEM },
@@ -316,7 +345,7 @@ Respond ONLY with this JSON (no markdown):
       max_tokens: 1200,
     });
 
-    const result = safeParseJSON(response.choices[0].message.content.trim());
+    const result = safeParseJSON(content.trim());
 
     // Post-process: validate task titles actually exist
     const validTitles = new Set(pending.map((t) => t.title));
@@ -334,7 +363,7 @@ Respond ONLY with this JSON (no markdown):
   }
 };
 
-// ── 4. AI Priority Suggestion — uses gpt-4o-mini (30x cheaper) ──
+// ── 4. AI Priority Suggestion ────────────────────────────────
 
 export const suggestPriorities = async (
   tasks,
@@ -363,8 +392,8 @@ CRITICAL: Output ONLY a raw JSON array. Start with [ end with ]. No markdown, no
 [{"id":"task_id","aiPriority":"HIGH","aiReason":"Max 12 words explaining why"}]`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini", // Switched from gpt-4o — 30x cheaper, same quality for this task
+    const content = await callProxy({
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: BASE_SYSTEM },
         { role: "user", content: prompt },
@@ -373,10 +402,7 @@ CRITICAL: Output ONLY a raw JSON array. Start with [ end with ]. No markdown, no
       max_tokens: 1400,
     });
 
-    const data = safeParseJSON(
-      response.choices[0].message.content.trim(),
-      "array"
-    );
+    const data = safeParseJSON(content.trim(), "array");
 
     return tasks.map((task) => {
       const s = data.find((p) => p.id === task.id);
