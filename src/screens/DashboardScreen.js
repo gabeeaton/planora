@@ -639,13 +639,6 @@ const DashboardScreen = ({ navigation }) => {
             <Feather name="upload-cloud" size={14} color={colors.accent} />
             <Text style={styles.importBtnText}>Import</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => navigation.navigate("Chat")}
-            style={styles.weeklyBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name="message-circle" size={16} color={colors.accent} />
-          </TouchableOpacity>
           {hasProAccess && (
             <TouchableOpacity
               onPress={() => navigation.navigate("WeeklyBriefing")}
@@ -916,7 +909,7 @@ const DashboardScreen = ({ navigation }) => {
         )}
       </ScrollView>
 
-      {/* FAB — add task only */}
+      {/* FAB — add task */}
       <TouchableOpacity
         onPress={handleAddTask}
         style={[styles.fab, { bottom: fabBottom }]}

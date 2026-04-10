@@ -30,7 +30,7 @@ const STARTERS = [
   "Which class should I be most worried about?",
 ];
 
-export default function ChatScreen({ navigation }) {
+export default function ChatScreen() {
   const { colors }                   = useTheme();
   const insets                       = useSafeAreaInsets();
   const { user }                     = useAuth();
@@ -150,9 +150,6 @@ export default function ChatScreen({ navigation }) {
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Feather name="arrow-left" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Academic Coach</Text>
           <Text style={styles.headerSub}>Powered by AI · knows your tasks</Text>
