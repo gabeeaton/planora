@@ -485,7 +485,7 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 // ── Import Step Sub-component ─────────────────────────────────
 const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
   const { createManyTasks } = useTasks();
-  const [activeTab, setActiveTab] = useState("syllabus");
+  const [activeTab, setActiveTab] = useState("ics");
   const [syllabusText, setSyllabusText] = useState("");
   const [manualClassName, setManualClassName] = useState("");
   const [parsing, setParsing] = useState(false);
@@ -704,8 +704,8 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
       {/* Tabs */}
       <View style={styles.importTabRow}>
         {[
-          { key: "syllabus", icon: "file-text", label: "Syllabus" },
           { key: "ics", icon: "calendar", label: "Calendar" },
+          { key: "syllabus", icon: "file-text", label: "Syllabus" },
         ].map((t) => (
           <TouchableOpacity
             key={t.key}
