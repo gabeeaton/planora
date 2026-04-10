@@ -75,7 +75,7 @@ const BASE_SYSTEM =
  */
 const friendlyError = (err) => {
   if (err?.limitReached) {
-    return "You've used all 10 free AI requests today. Upgrade to Pro for unlimited access.";
+    return "You've used all 10 free AI requests today. Upgrade to Scholar for unlimited access.";
   }
   const status = err?.status;
   if (status === 429 || status === 503)

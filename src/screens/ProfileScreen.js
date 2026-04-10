@@ -332,7 +332,7 @@ const ProfileScreen = ({ navigation }) => {
           <View style={[styles.planBadge, hasProAccess && { borderColor: ac.accent }]}>
             <Feather name={hasProAccess ? "zap" : "user"} size={11} color={hasProAccess ? ac.accent : colors.textMuted} />
             <Text style={[styles.planText, hasProAccess && { color: ac.accent }]}>
-              {isPro ? "Pro" : "Free"}
+              {isPro ? "Scholar" : "Free"}
             </Text>
           </View>
         </View>
@@ -347,7 +347,7 @@ const ProfileScreen = ({ navigation }) => {
             <View style={styles.upgradeLeft}>
               <Feather name="zap" size={18} color={ac.accent} />
               <View>
-                <Text style={styles.upgradeTitle}>Upgrade to Pro</Text>
+                <Text style={styles.upgradeTitle}>Upgrade to Scholar</Text>
                 <Text style={styles.upgradeSubtitle}>AI coaching, weekly plans & more</Text>
               </View>
             </View>

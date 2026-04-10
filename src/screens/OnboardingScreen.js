@@ -520,6 +520,19 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
     }
   };
 
+  const parseAndSet = (text) => {
+    try {
+      const tasks = parseIcsText(text);
+      if (tasks.length === 0) {
+        setError("No upcoming assignments found in this calendar.");
+        return;
+      }
+      setParsedTasks(tasks);
+    } catch {
+      setError("Couldn't parse this file. Try exporting again.");
+    }
+  };
+
   const handleFetchUrl = async () => {
     const url = icsUrl.trim();
     if (!url) return;
@@ -533,12 +546,9 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
         setError(
           "That URL didn't return a valid calendar. Make sure you copied the full feed URL from Canvas."
         );
-        setIcsLoading(false);
         return;
       }
-      const count = countIcsEvents(text);
-      setIcsText(text);
-      setIcsEventCount(count);
+      parseAndSet(text);
     } catch {
       setError(
         "Couldn't load that URL. Make sure it starts with https:// — replace webcal:// if needed."
@@ -565,11 +575,9 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
       });
       if (!isValidIcs(text)) {
         setError("This doesn't look like a valid .ics file.");
-        setIcsLoading(false);
         return;
       }
-      setIcsText(text);
-      setIcsEventCount(countIcsEvents(text));
+      parseAndSet(text);
     } catch {
       setError("Couldn't read that file.");
     } finally {
@@ -872,11 +880,7 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
             disabled={icsLoading}
           >
             <Feather name="upload" size={15} color={colors.textMuted} />
-            <Text style={styles.pickFileBtnText}>
-              {icsText
-                ? `✓ ${icsEventCount} events loaded`
-                : "Pick a .ics file from Files"}
-            </Text>
+            <Text style={styles.pickFileBtnText}>Pick a .ics file from Files</Text>
           </TouchableOpacity>
 
           {error && (
@@ -886,18 +890,6 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
             </View>
           )}
 
-          {icsText && (
-            <TouchableOpacity
-              style={[styles.parseBtn, icsLoading && styles.parseBtnDisabled]}
-              onPress={handleParseIcs}
-              disabled={icsLoading}
-            >
-              <Feather name="calendar" size={15} color="#fff" />
-              <Text style={styles.parseBtnText}>
-                Parse {icsEventCount} Events
-              </Text>
-            </TouchableOpacity>
-          )}
         </>
       )}
     </View>

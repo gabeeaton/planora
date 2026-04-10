@@ -190,7 +190,7 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
         <Text style={styles.paywallLabel} numberOfLines={1}>Find my focus</Text>
         <View style={styles.paywallBadge}>
           <Feather name="lock" size={9} color={colors.accent} />
-          <Text style={styles.paywallBadgeText}>Pro</Text>
+          <Text style={styles.paywallBadgeText}>Scholar</Text>
         </View>
       </TouchableOpacity>
     );

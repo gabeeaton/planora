@@ -62,26 +62,33 @@ const makeStyles = (colors) => StyleSheet.create({
   featureTitle: { fontSize: 14, fontWeight: "700", color: colors.textPrimary, marginBottom: 2 },
   featureDesc:  { fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
 
-  plansRow:     { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+  plansRow:     { flexDirection: "column", gap: 10, marginBottom: spacing.md },
   planCard: {
-    flex: 1, backgroundColor: colors.bgCard, borderRadius: radius.lg,
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: colors.bgCard, borderRadius: radius.lg,
     borderWidth: 1.5, borderColor: colors.border,
-    padding: spacing.md, alignItems: "center",
+    paddingVertical: 20, paddingHorizontal: 18,
   },
   planCardActive: { borderColor: colors.accent, ...shadows.accent },
   planBadge: {
     backgroundColor: colors.accent, borderRadius: radius.full,
-    paddingHorizontal: 8, paddingVertical: 3, marginBottom: spacing.sm,
+    paddingHorizontal: 8, paddingVertical: 3, marginLeft: spacing.sm,
   },
   planBadgeText:   { fontSize: 9, color: "#fff", fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" },
-  planLabel:       { fontSize: 12, color: colors.textMuted, fontWeight: "600", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 },
-  planPrice:       { fontSize: 28, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.5 },
-  planPer:         { fontSize: 12, color: colors.textSecondary },
-  planSavings:     { fontSize: 11, color: colors.accent, fontWeight: "700", marginTop: 4 },
+  planLabel:       { fontSize: 16, color: colors.textPrimary, fontWeight: "700" },
+  planSub:         { fontSize: 12, color: colors.textMuted, marginTop: 3 },
+  planPrice:       { fontSize: 20, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.5 },
+  planPer:         { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  planSavings:     { fontSize: 12, color: colors.accent, fontWeight: "700", marginTop: 3 },
   planCheck: {
-    position: "absolute", top: 10, right: 10,
-    width: 20, height: 20, borderRadius: 10,
+    width: 22, height: 22, borderRadius: 11,
     backgroundColor: colors.accent, alignItems: "center", justifyContent: "center",
+    marginRight: spacing.sm,
+  },
+  planCheckEmpty: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 1.5, borderColor: colors.border,
+    marginRight: spacing.sm,
   },
 
   ctaBtn: {
@@ -102,7 +109,7 @@ const PaywallScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const { user } = useAuth();
-  const [selectedPlan, setSelectedPlan] = useState("annual");
+  const [selectedPlan, setSelectedPlan] = useState("semester");
   const [loading, setLoading] = useState(false);
 
   const handleUpgrade = async () => {
@@ -117,7 +124,7 @@ const PaywallScreen = ({ navigation }) => {
       const { saveUserProfile } = require("../services/firebase");
       await saveUserProfile(user.uid, { planType: selectedPlan });
       Alert.alert(
-        "Welcome to Pro! 🎉",
+        "Welcome to Scholar! 🎉",
         "All AI features are now unlocked.",
         [{ text: "Let's go!", onPress: () => navigation.goBack() }]
       );
@@ -138,7 +145,7 @@ const PaywallScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
           <Feather name="x" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Upgrade to Pro</Text>
+        <Text style={styles.headerTitle}>Upgrade to Scholar</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -150,7 +157,7 @@ const PaywallScreen = ({ navigation }) => {
           </View>
           <Text style={styles.heroTitle}>Your AI Academic Coach</Text>
           <Text style={styles.heroSubtitle}>
-            Planora is free to use forever. Pro unlocks AI features that learn how you work and tell you exactly what to do.
+            Planora is free to use forever. Scholar unlocks AI features that learn how you work and tell you exactly what to do.
           </Text>
         </View>
 
@@ -174,41 +181,47 @@ const PaywallScreen = ({ navigation }) => {
 
         {/* Plan selector */}
         <View style={styles.plansRow}>
-          {/* Monthly */}
-          <TouchableOpacity
-            style={[styles.planCard, selectedPlan === "monthly" && styles.planCardActive]}
-            onPress={() => setSelectedPlan("monthly")}
-            activeOpacity={0.8}
-          >
-            {selectedPlan === "monthly" && (
-              <View style={styles.planCheck}>
-                <Feather name="check" size={11} color="#fff" />
-              </View>
-            )}
-            <Text style={styles.planLabel}>Monthly</Text>
-            <Text style={styles.planPrice}>$4.99</Text>
-            <Text style={styles.planPer}>per month</Text>
-          </TouchableOpacity>
-
-          {/* Annual */}
-          <TouchableOpacity
-            style={[styles.planCard, selectedPlan === "annual" && styles.planCardActive]}
-            onPress={() => setSelectedPlan("annual")}
-            activeOpacity={0.8}
-          >
-            {selectedPlan === "annual" && (
-              <View style={styles.planCheck}>
-                <Feather name="check" size={11} color="#fff" />
-              </View>
-            )}
-            <View style={styles.planBadge}>
-              <Text style={styles.planBadgeText}>Best Value</Text>
-            </View>
-            <Text style={styles.planLabel}>Annual</Text>
-            <Text style={styles.planPrice}>$29.99</Text>
-            <Text style={styles.planPer}>per year</Text>
-            <Text style={styles.planSavings}>Save 50% · $2.50/mo</Text>
-          </TouchableOpacity>
+          {[
+            { key: "monthly",  label: "Monthly",  sub: "per month",      price: "$4.99",  savings: null,               badge: null },
+            { key: "semester", label: "Semester", sub: "one semester",   price: "$12.99", savings: "Save 13% · $4.33/mo", badge: "Most Popular" },
+            { key: "annual",   label: "Annual",   sub: "per year",       price: "$29.99", savings: "Save 50% · $2.50/mo", badge: "Best Value" },
+          ].map((plan) => {
+            const active = selectedPlan === plan.key;
+            return (
+              <TouchableOpacity
+                key={plan.key}
+                style={[styles.planCard, active && styles.planCardActive]}
+                onPress={() => setSelectedPlan(plan.key)}
+                activeOpacity={0.8}
+              >
+                {/* Radio */}
+                {active
+                  ? <View style={styles.planCheck}><Feather name="check" size={12} color="#fff" /></View>
+                  : <View style={styles.planCheckEmpty} />
+                }
+                {/* Label + savings */}
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Text style={styles.planLabel}>{plan.label}</Text>
+                    {plan.badge && (
+                      <View style={styles.planBadge}>
+                        <Text style={styles.planBadgeText}>{plan.badge}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {plan.savings
+                    ? <Text style={styles.planSavings}>{plan.savings}</Text>
+                    : <Text style={styles.planSub}>{plan.sub}</Text>
+                  }
+                </View>
+                {/* Price */}
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.planPrice}>{plan.price}</Text>
+                  <Text style={styles.planPer}>{plan.sub}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* CTA */}
@@ -224,7 +237,7 @@ const PaywallScreen = ({ navigation }) => {
             <>
               <Feather name="zap" size={20} color="#fff" />
               <Text style={styles.ctaBtnText}>
-                {selectedPlan === "annual" ? "Get Pro — $29.99/year" : "Get Pro — $4.99/month"}
+                {selectedPlan === "annual" ? "Get Scholar — $29.99/year" : selectedPlan === "semester" ? "Get Scholar — $12.99/semester" : "Get Scholar — $4.99/month"}
               </Text>
             </>
           )}
@@ -237,6 +250,8 @@ const PaywallScreen = ({ navigation }) => {
         <Text style={styles.legal}>
           {selectedPlan === "annual"
             ? "Billed as $29.99/year. Cancel anytime."
+            : selectedPlan === "semester"
+            ? "One-time payment of $12.99 for one semester (~4 months)."
             : "Billed monthly at $4.99. Cancel anytime."
           }{" "}
           By continuing you agree to our Terms of Service.
