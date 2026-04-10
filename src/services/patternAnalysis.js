@@ -226,24 +226,6 @@ export const buildPatternContext = (patterns, userProfile = null) => {
   lines.push(`Most productive time: ${productiveTimeOfDay.bestTime}`);
   lines.push(`Currently: ${overallStats.totalPending} pending, ${overallStats.totalOverdue} overdue`);
 
-  // Lifestyle goals — tells AI about time constraints
-  if (userProfile?.lifestyleGoals?.length > 0) {
-    const GOAL_LABELS = {
-      gym_fitness:   "goes to the gym",
-      sleep_health:  "prioritizes sleep",
-      mental_health: "managing mental health",
-      part_time_job: "works a part-time job",
-      social_life:   "values social life",
-      side_projects: "has side projects",
-      greek_life:    "involved in greek life",
-      athletics:     "student athlete",
-    };
-    const labels = userProfile.lifestyleGoals
-      .map((g) => GOAL_LABELS[g] ?? g)
-      .join(", ");
-    lines.push(`Lifestyle: ${labels} — factor this into time recommendations`);
-  }
-
   // Hardest class — AI should be extra proactive about it
   if (userProfile?.hardestClass) {
     const cls         = userProfile?.classes?.find((c) => c.id === userProfile.hardestClass);

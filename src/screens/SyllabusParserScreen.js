@@ -385,7 +385,7 @@ const SyllabusParserScreen = ({ navigation }) => {
   const { profile }            = useUserProfile();
   const classes                = profile?.classes ?? [];
 
-  const [activeTab, setActiveTab] = useState("syllabus");
+  const [activeTab, setActiveTab] = useState("ics");
 
   // Shared
   const [parsedTasks,   setParsedTasks]   = useState(null);
@@ -593,8 +593,8 @@ const SyllabusParserScreen = ({ navigation }) => {
       {/* Tab bar */}
       <View style={styles.tabBar}>
         {[
-          { key: "syllabus", icon: "file-text", label: "Syllabus Text" },
           { key: "ics",      icon: "calendar",  label: "Calendar File" },
+          { key: "syllabus", icon: "file-text", label: "Syllabus Text" },
         ].map((t) => (
           <TouchableOpacity
             key={t.key}

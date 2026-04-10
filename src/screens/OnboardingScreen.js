@@ -461,24 +461,7 @@ const WORK_TIMES = [
 ];
 const GRADES = ["A", "B", "C", "D", "Not sure"];
 const CREDIT_OPTS = ["1", "2", "3", "4", "5+"];
-const STEP_COUNT = 5; // was 4, added import step
-
-const LIFESTYLE_OPTIONS = [
-  { id: "student", label: "📚 Academics", desc: "Classes, assignments, exams" },
-  {
-    id: "fitness",
-    label: "💪 Fitness & Health",
-    desc: "Gym, workouts, nutrition",
-  },
-  { id: "work", label: "💼 Work / Career", desc: "Job, freelance, internship" },
-  {
-    id: "personal",
-    label: "🌱 Personal Growth",
-    desc: "Hobbies, reading, side projects",
-  },
-  { id: "social", label: "🤝 Social", desc: "Friends, family, events" },
-  { id: "finance", label: "💰 Finance", desc: "Budgeting, bills, savings" },
-];
+const STEP_COUNT = 4;
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -926,8 +909,6 @@ const OnboardingScreen = ({ navigation }) => {
   const [workTime, setWorkTime] = useState(null);
   const [hardestClass, setHardestClass] = useState(null);
 
-  // Step 3 — lifestyle goals
-  const [lifestyleGoals, setLifestyleGoals] = useState([]);
 
   // Pre-fill when editing
   useEffect(() => {
@@ -975,7 +956,6 @@ const OnboardingScreen = ({ navigation }) => {
     if (step_n === 1) return true; // import optional
     if (step_n === 2) return true; // classes optional
     if (step_n === 3) return !!workTime;
-    if (step_n === 4) return true; // lifestyle goals optional
     return false;
   };
 
@@ -998,8 +978,6 @@ const OnboardingScreen = ({ navigation }) => {
         })),
         preferredWorkTime: workTime,
         hardestClass: hardestClass ?? null,
-        lifestyleGoals:
-          lifestyleGoals.length > 0 ? lifestyleGoals : ["student"],
         onboardingComplete: true,
       };
       if (!isEditing) {
@@ -1202,60 +1180,6 @@ const OnboardingScreen = ({ navigation }) => {
     </View>
   );
 
-  const renderStep3 = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>What do you want to track?</Text>
-      <Text style={styles.stepSubtitle}>
-        Pick everything that applies. The AI will balance all of these, not just
-        school.
-      </Text>
-      {LIFESTYLE_OPTIONS.map((opt) => {
-        const selected = lifestyleGoals.includes(opt.id);
-        return (
-          <TouchableOpacity
-            key={opt.id}
-            style={[styles.optionBtn, selected && styles.optionBtnSelected]}
-            onPress={() =>
-              setLifestyleGoals((prev) =>
-                prev.includes(opt.id)
-                  ? prev.filter((x) => x !== opt.id)
-                  : [...prev, opt.id]
-              )
-            }
-          >
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  styles.optionText,
-                  selected && styles.optionTextSelected,
-                ]}
-              >
-                {opt.label}
-              </Text>
-              <Text
-                style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}
-              >
-                {opt.desc}
-              </Text>
-            </View>
-            {selected && (
-              <Feather name="check" size={16} color={colors.accent} />
-            )}
-          </TouchableOpacity>
-        );
-      })}
-      <Text
-        style={{
-          fontSize: 11,
-          color: colors.textMuted,
-          marginTop: spacing.md,
-          fontStyle: "italic",
-        }}
-      >
-        You can change this any time in your profile.
-      </Text>
-    </View>
-  );
 
   const renderStep4 = () => (
     <View style={styles.stepContainer}>
@@ -1289,7 +1213,6 @@ const OnboardingScreen = ({ navigation }) => {
     renderStep4, // import
     renderStep1, // classes (optional)
     renderStep2, // work time
-    renderStep3, // lifestyle
   ];
 
   const getNextLabel = () => {
