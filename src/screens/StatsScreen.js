@@ -1,13 +1,5 @@
 // ============================================================
 // src/screens/StatsScreen.js
-//
-// CHANGES from previous version:
-//  - Removed GitHub heatmap (pretty but doesn't change behavior)
-//  - Added "Semester Health" card per class — answers "am I on
-//    track?" with a plain-language risk level and pace indicator
-//  - Added "Days Until Finals" countdown if semester is set
-//  - Kept: overview numbers, per-class completion bars,
-//    priority breakdown
 // ============================================================
 
 import React, { useMemo } from "react";
@@ -29,27 +21,25 @@ const getClassColor = (name) => {
   return CLASS_COLORS[Math.abs(h) % CLASS_COLORS.length];
 };
 
-// Estimate semester end from label (e.g. "Spring 2025" → ~May 9)
 const getSemesterEnd = (label) => {
   if (!label) return null;
   const lower = label.toLowerCase();
   const yearMatch = label.match(/\d{4}/);
   const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
-  if (lower.includes("spring")) return new Date(year, 4, 9);   // ~May 9
-  if (lower.includes("summer")) return new Date(year, 7, 8);   // ~Aug 8
-  if (lower.includes("fall"))   return new Date(year, 11, 12); // ~Dec 12
+  if (lower.includes("spring")) return new Date(year, 4, 9);
+  if (lower.includes("summer")) return new Date(year, 7, 8);
+  if (lower.includes("fall"))   return new Date(year, 11, 12);
   return null;
 };
 
-// Health rating for a class based on completion rate + overdue count
 const getHealthRating = (pct, overdueCount) => {
   if (overdueCount >= 2 || pct < 40)
-    return { label: "At risk",    color: "#FF5C5C", icon: "alert-triangle", detail: "Multiple overdue or very low completion" };
+    return { label: "At risk",  color: "#FF5C5C", icon: "alert-triangle" };
   if (overdueCount >= 1 || pct < 65)
-    return { label: "Behind",     color: "#FFB347", icon: "clock",          detail: overdueCount > 0 ? "Has overdue tasks" : "Falling behind pace" };
+    return { label: "Behind",   color: "#FFB347", icon: "clock" };
   if (pct >= 85)
-    return { label: "On track",   color: "#5CFF8F", icon: "check-circle",   detail: "Keeping up well" };
-  return   { label: "Okay",       color: "#5BC8FF", icon: "minus-circle",   detail: "Manageable — stay consistent" };
+    return { label: "On track", color: "#5CFF8F", icon: "check-circle" };
+  return   { label: "Okay",     color: "#5BC8FF", icon: "minus-circle" };
 };
 
 const makeStyles = (colors) => StyleSheet.create({
@@ -57,9 +47,20 @@ const makeStyles = (colors) => StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm,
     borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
+  headerLeft:     {},
   headerTitle:    { ...typography.h1, color: colors.textPrimary },
   headerSubtitle: { ...typography.bodySmall, color: colors.textMuted, marginTop: 2 },
+  streakPill: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: colors.bgCard, borderRadius: radius.full,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderWidth: 1, borderColor: "#FFB347",
+  },
+  streakText: { fontSize: 13, fontWeight: "700", color: "#FFB347" },
+  streakLabel: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 48 },
   sectionTitle:  { ...typography.label, color: colors.textMuted, marginBottom: spacing.sm, marginTop: spacing.md },
@@ -90,53 +91,44 @@ const makeStyles = (colors) => StyleSheet.create({
   countdownLabel: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
   countdownSub:   { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
 
-  // Semester health per class
-  healthCard: {
-    backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md,
+  // Combined class card (health + bar merged)
+  classCard: {
+    backgroundColor: colors.bgCard, borderRadius: radius.lg,
     borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md,
+    overflow: "hidden",
   },
-  healthRow: {
-    flexDirection: "row", alignItems: "center", gap: 10,
-    paddingVertical: 9,
+  classRow: {
+    paddingHorizontal: spacing.md, paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  healthRowLast: { borderBottomWidth: 0 },
-  healthName:   { flex: 1, fontSize: 13, fontWeight: "700", color: colors.textPrimary },
-  healthDetail: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
+  classRowLast: { borderBottomWidth: 0 },
+  classTopRow:  { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  className:    { flex: 1, fontSize: 13, fontWeight: "700", color: colors.textPrimary },
+  classMeta:    { fontSize: 11, color: colors.textMuted },
   healthBadge: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 8, paddingVertical: 4,
+    paddingHorizontal: 8, paddingVertical: 3,
     borderRadius: radius.full, borderWidth: 1,
   },
   healthBadgeText: { fontSize: 11, fontWeight: "700" },
-
-  // Class completion bars
-  classCard: {
-    backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md,
-    borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md,
-  },
-  classRow:  { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  classRowLast: { marginBottom: 0 },
-  className: { flex: 1, fontSize: 13, fontWeight: "600", color: colors.textPrimary },
-  classMeta: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
-  barWrap:   { flex: 2 },
-  barTrack:  { height: 7, backgroundColor: colors.border, borderRadius: 4, overflow: "hidden" },
-  barFill:   { height: 7, borderRadius: 4 },
-  barPct:    { fontSize: 12, color: colors.textMuted, marginLeft: 8, width: 32, textAlign: "right", fontWeight: "600" },
+  barRow:   { flexDirection: "row", alignItems: "center", gap: 8 },
+  barTrack: { flex: 1, height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: "hidden" },
+  barFill:  { height: 6, borderRadius: 3 },
+  barPct:   { fontSize: 12, fontWeight: "700", color: colors.textMuted, width: 32, textAlign: "right" },
 
   // Priority breakdown
   priorityCard: {
     backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md,
     borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md,
   },
-  priorityRow:   { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  priorityRowLast: { marginBottom: 0 },
-  priorityLeft:  { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
-  priorityDot:   { width: 10, height: 10, borderRadius: 5 },
-  priorityLabel: { fontSize: 13, color: colors.textPrimary, fontWeight: "500" },
+  priorityRow:      { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  priorityRowLast:  { marginBottom: 0 },
+  priorityLeft:     { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
+  priorityDot:      { width: 10, height: 10, borderRadius: 5 },
+  priorityLabel:    { fontSize: 13, color: colors.textPrimary, fontWeight: "500" },
   priorityBarTrack: { flex: 2, height: 7, backgroundColor: colors.border, borderRadius: 4, overflow: "hidden" },
   priorityBarFill:  { height: 7, borderRadius: 4 },
-  priorityCount: { fontSize: 13, fontWeight: "700", marginLeft: 8, width: 24, textAlign: "right" },
+  priorityCount:    { fontSize: 13, fontWeight: "700", marginLeft: 8, width: 24, textAlign: "right" },
 
   emptyState: { alignItems: "center", paddingVertical: 60 },
   emptyText:  { ...typography.body, color: colors.textMuted, marginTop: spacing.sm, textAlign: "center", lineHeight: 22 },
@@ -145,11 +137,10 @@ const makeStyles = (colors) => StyleSheet.create({
 const StatsScreen = () => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const { tasks, completedTasks } = useTasks();
+  const { tasks, completedTasks, streak } = useTasks();
   const { profile } = useUserProfile();
   const today = new Date();
 
-  // ── Overview counts ──────────────────────────────────────
   const totalCompleted = completedTasks.length;
   const totalPending   = tasks.filter((t) => !t.completed).length;
   const totalOverdue   = tasks.filter((t) => !t.completed && t.dueDate && new Date(t.dueDate) < today).length;
@@ -161,11 +152,9 @@ const StatsScreen = () => {
     }).length;
   }, [completedTasks]);
 
-  // ── Days until semester end ──────────────────────────────
-  const semesterEnd  = getSemesterEnd(profile?.semester);
-  const daysLeft     = semesterEnd ? differenceInCalendarDays(semesterEnd, today) : null;
+  const semesterEnd = getSemesterEnd(profile?.semester);
+  const daysLeft    = semesterEnd ? differenceInCalendarDays(semesterEnd, today) : null;
 
-  // ── Per-class data ────────────────────────────────────────
   const byClass = useMemo(() => {
     const map = {};
     tasks.forEach((t) => {
@@ -184,7 +173,6 @@ const StatsScreen = () => {
       .slice(0, 8);
   }, [tasks]);
 
-  // ── Priority breakdown of pending ────────────────────────
   const priorityBreakdown = useMemo(() => {
     const pending = tasks.filter((t) => !t.completed);
     const high   = pending.filter((t) => (t.aiPriority ?? t.priority) === "HIGH").length;
@@ -202,13 +190,13 @@ const StatsScreen = () => {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Progress</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Progress</Text>
+          </View>
         </View>
         <View style={styles.emptyState}>
           <Feather name="bar-chart-2" size={36} color={colors.textMuted} />
-          <Text style={styles.emptyText}>
-            {"Add tasks and complete them\nto see your progress here."}
-          </Text>
+          <Text style={styles.emptyText}>{"Add tasks and complete them\nto see your progress here."}</Text>
         </View>
       </SafeAreaView>
     );
@@ -217,13 +205,24 @@ const StatsScreen = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Progress</Text>
-        <Text style={styles.headerSubtitle}>How your semester is going</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>Progress</Text>
+          <Text style={styles.headerSubtitle}>How your semester is going</Text>
+        </View>
+        {streak > 0 && (
+          <View style={styles.streakPill}>
+            <Text>🔥</Text>
+            <View>
+              <Text style={styles.streakText}>{streak} day{streak !== 1 ? "s" : ""}</Text>
+              <Text style={styles.streakLabel}>streak</Text>
+            </View>
+          </View>
+        )}
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* ── Overview numbers ── */}
+        {/* Overview */}
         <Text style={styles.sectionTitle}>OVERVIEW</Text>
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
@@ -242,7 +241,7 @@ const StatsScreen = () => {
           </View>
         </View>
 
-        {/* ── Finals countdown ── */}
+        {/* Finals countdown */}
         {daysLeft !== null && daysLeft > 0 && daysLeft < 120 && (
           <>
             <Text style={styles.sectionTitle}>SEMESTER</Text>
@@ -265,49 +264,34 @@ const StatsScreen = () => {
           </>
         )}
 
-        {/* ── Semester health by class ── */}
+        {/* Combined class health + completion */}
         {byClass.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>CLASS HEALTH</Text>
-            <View style={styles.healthCard}>
+            <Text style={styles.sectionTitle}>CLASSES</Text>
+            <View style={styles.classCard}>
               {byClass.map(({ name, pct, overdue, total, done }, idx) => {
                 const health = getHealthRating(pct, overdue);
                 const isLast = idx === byClass.length - 1;
                 return (
-                  <View key={name} style={[styles.healthRow, isLast && styles.healthRowLast]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.healthName} numberOfLines={1}>{name}</Text>
-                      <Text style={styles.healthDetail}>{done}/{total} tasks done{overdue > 0 ? ` · ${overdue} overdue` : ""}</Text>
-                    </View>
-                    <View style={[styles.healthBadge, { borderColor: health.color + "66", backgroundColor: health.color + "18" }]}>
-                      <Feather name={health.icon} size={11} color={health.color} />
-                      <Text style={[styles.healthBadgeText, { color: health.color }]}>{health.label}</Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </>
-        )}
-
-        {/* ── Completion bars by class ── */}
-        {byClass.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>COMPLETION BY CLASS</Text>
-            <View style={styles.classCard}>
-              {byClass.map(({ name, pct, total }, idx) => {
-                const isLast = idx === byClass.length - 1;
-                return (
                   <View key={name} style={[styles.classRow, isLast && styles.classRowLast]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.className} numberOfLines={1}>{name}</Text>
+                    <View style={styles.classTopRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.className} numberOfLines={1}>{name}</Text>
+                        <Text style={styles.classMeta}>
+                          {done}/{total} done{overdue > 0 ? ` · ${overdue} overdue` : ""}
+                        </Text>
+                      </View>
+                      <View style={[styles.healthBadge, { borderColor: health.color + "66", backgroundColor: health.color + "18" }]}>
+                        <Feather name={health.icon} size={11} color={health.color} />
+                        <Text style={[styles.healthBadgeText, { color: health.color }]}>{health.label}</Text>
+                      </View>
                     </View>
-                    <View style={styles.barWrap}>
+                    <View style={styles.barRow}>
                       <View style={styles.barTrack}>
                         <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: getClassColor(name) }]} />
                       </View>
+                      <Text style={styles.barPct}>{pct}%</Text>
                     </View>
-                    <Text style={styles.barPct}>{pct}%</Text>
                   </View>
                 );
               })}
@@ -315,7 +299,7 @@ const StatsScreen = () => {
           </>
         )}
 
-        {/* ── Priority breakdown ── */}
+        {/* Priority breakdown */}
         {totalPending > 0 && (
           <>
             <Text style={styles.sectionTitle}>PENDING BY PRIORITY</Text>
