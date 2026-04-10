@@ -26,15 +26,15 @@ const DARK_BASE = {
 };
 
 const LIGHT_BASE = {
-  bg:            "#F0F0F7",
+  bg:            "#F2F2F7",
   bgCard:        "#FFFFFF",
-  bgElevated:    "#E8E8F2",
-  bgInput:       "#F5F5FA",
+  bgElevated:    "#E5E5EA",
+  bgInput:       "#EBEBF0",
   textPrimary:   "#0A0A1A",
-  textSecondary: "#44445A",
-  textMuted:     "#8888A0",
-  border:        "#D8D8E8",
-  borderLight:   "#E4E4F0",
+  textSecondary: "#3C3C43",
+  textMuted:     "#8E8E93",
+  border:        "#C6C6C8",
+  borderLight:   "#D1D1D6",
   overlay:       "rgba(0,0,0,0.4)",
   isDark:        false,
 };

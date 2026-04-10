@@ -106,10 +106,10 @@ const makeStyles = (colors, insets) =>
     themeBtn: {
       width: 34, height: 34,
       alignItems: "center", justifyContent: "center",
-      backgroundColor: colors.bgCard,
+      backgroundColor: colors.bgElevated,
       borderRadius: radius.full,
-      borderWidth: 1,
-      borderColor: colors.border,
+      borderWidth: 1.5,
+      borderColor: colors.borderLight,
     },
     clearBtn: {
       flexDirection: "row",
