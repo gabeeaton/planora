@@ -17,7 +17,7 @@ import { useAuth } from "../hooks/useAuth";
 import { setProStatus } from "../services/firebase";
 
 const FEATURES = [
-  { icon: "cpu",           title: "What Should I Do Right Now?",  desc: "One-tap AI recommendation based on your patterns and deadlines." },
+  { icon: "cpu",           title: "Find My Focus",                 desc: "One-tap AI recommendation based on your patterns and deadlines." },
   { icon: "calendar",      title: "AI Weekly Study Plan",          desc: "7-day plan that adapts to your habits and upcoming due dates." },
   { icon: "trending-up",   title: "Behavioral Insights",          desc: "AI learns how you work and coaches you to improve over time." },
   { icon: "zap",           title: "Smart Priority Suggestions",   desc: "AI ranks tasks by urgency, grade impact, and your history." },

@@ -187,7 +187,7 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
     return (
       <TouchableOpacity style={styles.paywallRow} onPress={onUpgrade} activeOpacity={0.7}>
         <View style={styles.paywallIcon}><Feather name="cpu" size={14} color={colors.accent} /></View>
-        <Text style={styles.paywallLabel} numberOfLines={1}>What should I do right now?</Text>
+        <Text style={styles.paywallLabel} numberOfLines={1}>Find my focus</Text>
         <View style={styles.paywallBadge}>
           <Feather name="lock" size={9} color={colors.accent} />
           <Text style={styles.paywallBadgeText}>Pro</Text>
@@ -223,7 +223,7 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
             : (
               <>
                 <Feather name="cpu" size={18} color="#fff" />
-                <Text style={styles.buttonText}>What should I do right now?</Text>
+                <Text style={styles.buttonText}>Find my focus</Text>
                 {!hasProAccess && freeUsesLeft > 0 && (
                   <View style={styles.usePill}>
                     <Text style={styles.usePillText}>{freeUsesLeft} left</Text>
