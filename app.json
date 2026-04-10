@@ -12,12 +12,21 @@
       "bundleIdentifier": "com.yourcompany.taskflow",
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification"]
-      }
+      },
+      "scheme": "planora"
     },
     "android": {
       "package": "com.yourcompany.taskflow",
-      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE", "POST_NOTIFICATIONS"]
+      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE", "POST_NOTIFICATIONS"],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "planora" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
+    "scheme": "planora",
     "plugins": [
       [
         "expo-notifications",

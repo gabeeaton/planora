@@ -17,7 +17,7 @@ import { useUserProfile }   from "../hooks/useUserProfile";
 import DashboardScreen      from "../screens/DashboardScreen";
 import ProfileScreen        from "../screens/ProfileScreen";
 import StatsScreen          from "../screens/StatsScreen";
-import AuthScreen           from "../screens/AuthScreen";
+import AuthScreen, { EmailVerificationScreen } from "../screens/AuthScreen";
 import OnboardingScreen     from "../screens/OnboardingScreen";
 import WeeklyBriefingScreen from "../screens/WeeklyBriefingScreen";
 import PaywallScreen        from "../screens/PaywallScreen";
@@ -105,7 +105,7 @@ const MainTabs = () => (
 // ── Root navigator ────────────────────────────────────────────
 
 const AppNavigator = () => {
-  const { user, loading: authLoading }                                = useAuth();
+  const { user, loading: authLoading }                                 = useAuth();
   const { profile, hasCompletedOnboarding, firestoreReady, loading: profileLoading } = useUserProfile();
   const { setTheme, setDark, colors }                                 = useTheme();
 
@@ -145,7 +145,10 @@ const AppNavigator = () => {
     >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
-          <Stack.Screen name="Auth" component={AuthScreen} />
+          <>
+            <Stack.Screen name="Auth" component={AuthScreen} />
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          </>
         ) : shouldOnboard ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (

@@ -91,6 +91,7 @@ const friendlyAuthError = (err) => {
   if (msg.includes("weak-password"))          return "Password must be at least 6 characters.";
   if (msg.includes("too-many-requests"))      return "Too many attempts. Please wait a moment and try again.";
   if (msg.includes("network-request-failed")) return "No internet connection. Check your network and try again.";
+  if (msg.includes("verify your email"))       return msg;
   return "Something went wrong. Please try again.";
 };
 
@@ -180,7 +181,7 @@ const ForgotPasswordScreen = ({ onBack, colors, styles }) => {
 };
 
 // ── Main Auth Screen ──────────────────────────────────────────
-const AuthScreen = () => {
+const AuthScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const { login, register } = useAuth();
@@ -222,7 +223,7 @@ const AuthScreen = () => {
         await login(email.trim(), password);
       } else {
         await register(email.trim(), password);
-        // AppNavigator listens to auth state and navigates to Onboarding automatically
+        navigation.navigate("EmailVerification", { email: email.trim() });
       }
     } catch (err) {
       setError(friendlyAuthError(err));
@@ -392,6 +393,46 @@ const AuthScreen = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+};
+
+// ── Email Verification Screen ─────────────────────────────────
+export const EmailVerificationScreen = ({ navigation, route }) => {
+  const { colors } = useTheme();
+  const email = route?.params?.email ?? "";
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+        <View style={{
+          width: 80, height: 80, borderRadius: 40,
+          backgroundColor: "rgba(108,99,255,0.12)",
+          borderWidth: 2, borderColor: colors.accent,
+          alignItems: "center", justifyContent: "center",
+          marginBottom: 24,
+        }}>
+          <Feather name="mail" size={36} color={colors.accent} />
+        </View>
+        <Text style={{ fontSize: 24, fontWeight: "800", color: colors.textPrimary, textAlign: "center", marginBottom: 12 }}>
+          Check your email
+        </Text>
+        <Text style={{ fontSize: 15, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: 32 }}>
+          We sent a verification link to{"\n"}
+          <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>{email}</Text>
+          {"\n\n"}Tap the link in the email to activate your account, then come back and sign in.
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Auth")}
+          style={{
+            backgroundColor: colors.accent,
+            paddingVertical: 14, paddingHorizontal: 32,
+            borderRadius: 12, width: "100%", alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>Back to Sign In</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };

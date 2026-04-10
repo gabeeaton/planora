@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     const unsubscribe = onAuthChange((firebaseUser) => {
-      if (firebaseUser) {
+      if (firebaseUser && firebaseUser.emailVerified) {
         const userData = { uid: firebaseUser.uid, email: firebaseUser.email };
         setUser(userData);
         cacheUserSession(userData);
@@ -28,17 +28,11 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  // Registration now logs the user straight in — no email verification gate
-  // (Firebase Dynamic Links is shut down, breaking mobile email verification)
-  const register = async (email, password) => {
-    return await registerUser(email, password);
-  };
-
   return (
     <AuthContext.Provider value={{
       user, loading,
       login: loginUser,
-      register,
+      register: registerUser,
       logout: async () => { await clearCache(); await logoutUser(); },
     }}>
       {children}

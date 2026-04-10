@@ -30,6 +30,7 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  sendEmailVerification,
 } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FIREBASE_CONFIG } from "../config";
@@ -51,26 +52,25 @@ export { auth };
 // ── Auth ─────────────────────────────────────────────────────
 
 export const loginUser = async (email, password) => {
-  // NOTE: Email verification gate removed — Firebase Dynamic Links is shut down,
-  // which breaks the verification email flow for mobile apps.
-  // Users can now log in without verifying their email.
-  // To re-enable: set up a custom action URL in Firebase Console →
-  // Authentication → Templates → Email address verification → Customize action URL
   const cred = await signInWithEmailAndPassword(auth, email, password);
+  if (!cred.user.emailVerified) {
+    await signOut(auth);
+    throw new Error("Please verify your email before logging in. Check your inbox for a verification link.");
+  }
   return cred;
 };
 
 export const registerUser = async (email, password) => {
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
   try {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    // NOT signing out after registration — Dynamic Links is shut down so
-    // verification emails don't work for mobile. User goes straight into the app.
-    // Re-enable email gate once you set up a custom action URL.
-    return cred;
+    await sendEmailVerification(cred.user, {
+      url: "https://planoraapp.net/verify",
+    });
   } catch (err) {
-    console.error("Registration error:", err);
-    throw err;
+    console.warn("Verification email failed (will retry on next login):", err);
   }
+  await signOut(auth);
+  return cred;
 };
 
 export const logoutUser = () => signOut(auth);
