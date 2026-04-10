@@ -8,7 +8,12 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "build:ios": "npx expo run:ios",
-    "build:android": "npx expo run:android"
+    "build:android": "npx expo run:android",
+    "test": "jest"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/__tests__/**/*.test.js"]
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -35,7 +40,9 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.0",
-    "babel-preset-expo": "~54.0.10"
+    "@jest/globals": "^30.3.0",
+    "babel-preset-expo": "~54.0.10",
+    "jest": "^30.3.0"
   },
   "private": true
 }

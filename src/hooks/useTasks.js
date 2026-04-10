@@ -24,56 +24,13 @@ import { spawnNextRecurringTask } from "../services/recurringTasks";
 import { analyzePatterns } from "../services/patternAnalysis";
 import { useAuth } from "./useAuth";
 import { useUserProfile } from "./useUserProfile";
-
-// ── Streak helpers ──────────────────────────────────────────
-const STREAK_KEY      = "@planora_streak";
-const STREAK_DATE_KEY = "@planora_streak_date";
-
-const getTodayString = () => {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth() + 1).padStart(2, "0");
-  const dd   = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-};
-
-const getYesterdayString = () => {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth() + 1).padStart(2, "0");
-  const dd   = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-};
-
-const loadStreak = async () => {
-  try {
-    const results  = await AsyncStorage.multiGet([STREAK_KEY, STREAK_DATE_KEY]);
-    const countVal = results[0][1];
-    const dateVal  = results[1][1];
-    const count    = countVal ? parseInt(countVal, 10) : 0;
-    return { count: isNaN(count) ? 0 : count, lastDate: dateVal };
-  } catch {
-    return { count: 0, lastDate: null };
-  }
-};
-
-const incrementStreak = async () => {
-  const today     = getTodayString();
-  const yesterday = getYesterdayString();
-  const { count, lastDate } = await loadStreak();
-  if (lastDate === today) {
-    console.log("[streak] already incremented today:", count);
-    return count;
-  }
-  const newCount = lastDate === yesterday ? count + 1 : 1;
-  console.log("[streak] writing newCount:", newCount);
-  await AsyncStorage.multiSet([
-    [STREAK_KEY,      String(newCount)],
-    [STREAK_DATE_KEY, today],
-  ]);
-  return newCount;
-};
+import {
+  getTodayString,
+  getYesterdayString,
+  loadStreak,
+  incrementStreak,
+  checkAndResetStreak,
+} from "../utils/streakHelpers";
 
 export const useTasks = () => {
   const { user } = useAuth();
@@ -85,11 +42,9 @@ export const useTasks = () => {
   const [patterns, setPatterns] = useState(null);
   const [streak, setStreak]     = useState(0);
 
-  // Load persisted streak on mount
+  // Load persisted streak on mount — resets if user missed a day
   useEffect(() => {
-    loadStreak().then(({ count }) => {
-      if (count > 0) setStreak(count);
-    });
+    checkAndResetStreak().then(setStreak).catch(() => {});
   }, []);
 
   // Recompute patterns whenever tasks or history change
@@ -236,10 +191,11 @@ export const useTasks = () => {
       if (!task.completed) {
         // Task is being marked complete
 
-        // Increment streak — only fires on actual completion, not on app open
+        // Increment streak — guarded inside incrementStreak so re-completing
+        // the same task today won't double-count
         incrementStreak().then((newCount) => {
           setStreak(newCount);
-        }).catch((e) => console.log("[streak] error:", e));
+        }).catch(() => {});
 
         // Spawn next occurrence for recurring tasks
         if (task.recurrence) {
