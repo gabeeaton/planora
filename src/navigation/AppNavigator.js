@@ -24,6 +24,7 @@ import PaywallScreen        from "../screens/PaywallScreen";
 import SyllabusParserScreen from "../screens/SyllabusParserScreen";
 import ICSReviewScreen      from "../screens/ICSReviewScreen";
 import FocusModeScreen     from "../screens/FocusModeScreen";
+import ChatScreen          from "../screens/ChatScreen";
 import { useTheme } from "../utils/ThemeContext";
 
 const Stack = createNativeStackNavigator();
@@ -31,8 +32,8 @@ const Tab   = createBottomTabNavigator();
 
 // ── Custom Tab Bar ────────────────────────────────────────────
 
-const TAB_ICONS  = { Dashboard: "home", Stats: "bar-chart-2", Profile: "user" };
-const TAB_LABELS = { Dashboard: "Home", Stats: "Progress",    Profile: "Profile" };
+const TAB_ICONS  = { Dashboard: "home", Stats: "bar-chart-2", Chat: "message-circle", Profile: "user" };
+const TAB_LABELS = { Dashboard: "Home", Stats: "Progress",    Chat: "Coach",          Profile: "Profile" };
 
 const CustomTabBar = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
@@ -95,6 +96,7 @@ const MainTabs = () => (
     sceneContainerStyle={{ backgroundColor: "transparent" }}
   >
     <Tab.Screen name="Dashboard" component={DashboardScreen} />
+    <Tab.Screen name="Chat"      component={ChatScreen} />
     <Tab.Screen name="Stats"     component={StatsScreen} />
     <Tab.Screen name="Profile"   component={ProfileScreen} />
   </Tab.Navigator>

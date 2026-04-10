@@ -909,7 +909,7 @@ const DashboardScreen = ({ navigation }) => {
         )}
       </ScrollView>
 
-      {/* FAB — add task only */}
+      {/* FAB — add task */}
       <TouchableOpacity
         onPress={handleAddTask}
         style={[styles.fab, { bottom: fabBottom }]}
