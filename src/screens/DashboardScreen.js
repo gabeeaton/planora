@@ -30,7 +30,6 @@ import StatsBar from "../components/StatsBar";
 import ResyncButton from "../components/ResyncButton";
 import WhatDoIDoButton from "../components/WhatDoIDoButton";
 import TodayFocusCard from "../components/TodayFocusCard";
-import AIActionsCard from "../components/AIActionsCard";
 import { invalidateTodayFocusCache } from "../services/openai";
 import NotificationPermissionPrompt, {
   NOTIF_PROMPT_KEY,
@@ -696,14 +695,6 @@ const DashboardScreen = ({ navigation }) => {
           />
         )}
 
-        {/* AI Priority actions — Pro feature */}
-        {tasks.length > 0 && hasProAccess && (
-          <AIActionsCard
-            tasks={tasks}
-            patterns={patterns}
-            onPrioritiesUpdated={setAiAnnotatedTasks}
-          />
-        )}
 
         {/* Behavioral insight strip */}
         {behavioralInsight && (
