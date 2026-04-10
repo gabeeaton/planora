@@ -107,18 +107,14 @@ const MainTabs = () => (
 const AppNavigator = () => {
   const { user, loading: authLoading }                                 = useAuth();
   const { profile, hasCompletedOnboarding, firestoreReady, loading: profileLoading } = useUserProfile();
-  const { setTheme, setDark, colors }                                 = useTheme();
+  const { setTheme, colors }                                          = useTheme();
 
   useEffect(() => {
     if (profile?.colorTheme) {
       setTheme(profile.colorTheme);
       AsyncStorage.setItem("@tf_accent", profile.colorTheme).catch(() => {});
     }
-    if (profile?.darkMode !== undefined) {
-      setDark(profile.darkMode !== false);
-      AsyncStorage.setItem("@tf_dark", String(profile.darkMode !== false)).catch(() => {});
-    }
-  }, [profile?.colorTheme, profile?.darkMode]);
+  }, [profile?.colorTheme]);
 
   const loading       = authLoading || (!!user && profileLoading);
   // Wait for Firestore to actually respond before deciding to show onboarding.

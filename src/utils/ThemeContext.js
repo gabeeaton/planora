@@ -10,26 +10,18 @@ import { buildColors, COLOR_THEMES } from "./theme";
 
 const ThemeContext = createContext(null);
 
-export const ThemeProvider = ({ children, initialTheme = "purple", initialDark = true }) => {
+export const ThemeProvider = ({ children, initialTheme = "purple" }) => {
   const [accentKey, setAccentKey] = useState(initialTheme);
-  const [isDark,    setIsDark]    = useState(initialDark);
 
-  const colors = buildColors(isDark, accentKey);
+  const colors = buildColors(true, accentKey);
 
   const setTheme = async (key) => {
     setAccentKey(key);
     await AsyncStorage.setItem("@tf_accent", key).catch(() => {});
   };
 
-  const setDark = async (dark) => {
-    setIsDark(dark);
-    await AsyncStorage.setItem("@tf_dark", String(dark)).catch(() => {});
-  };
-
-  const toggleDark = () => setDark(!isDark);
-
   return (
-    <ThemeContext.Provider value={{ colors, accentKey, isDark, setTheme, setDark, toggleDark }}>
+    <ThemeContext.Provider value={{ colors, accentKey, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

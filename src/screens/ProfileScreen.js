@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, TextInput, Switch, Modal,
+  ScrollView, Alert, TextInput, Modal,
   FlatList, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -178,7 +178,7 @@ const makeStyles = (colors) => StyleSheet.create({
 // ── ProfileScreen ─────────────────────────────────────────────
 const ProfileScreen = ({ navigation }) => {
   const { user, logout }                          = useAuth();
-  const { colors, accentKey, isDark, setTheme, setDark } = useTheme();
+  const { colors, accentKey, setTheme } = useTheme();
   const styles = makeStyles(colors);
   const { profile }                               = useUserProfile();
   const { isPro, hasProAccess }                   = useSubscription();
@@ -225,12 +225,7 @@ const ProfileScreen = ({ navigation }) => {
     await saveUserProfile(user.uid, { colorTheme: key });
   };
 
-  const handleDarkModeToggle = async (val) => {
-    setDark(val);
-    await saveUserProfile(user.uid, { darkMode: val });
-  };
-
-  // ── Semester picker ──
+// ── Semester picker ──
   const openSemester = () => setModal("semester");
   const pickSemester = async (s) => {
     await saveUserProfile(user.uid, { semester: s });
@@ -375,19 +370,6 @@ const ProfileScreen = ({ navigation }) => {
                 </View>
               );
             })}
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.row}>
-            <View style={[styles.rowIcon, { backgroundColor: ac.accentGlow }]}>
-              <Feather name={isDark ? "moon" : "sun"} size={16} color={ac.accent} />
-            </View>
-            <Text style={styles.rowLabel}>{isDark ? "Dark Mode" : "Light Mode"}</Text>
-            <Switch
-              value={isDark}
-              onValueChange={handleDarkModeToggle}
-              trackColor={{ false: colors.border, true: ac.accentGlow }}
-              thumbColor={isDark ? ac.accent : colors.textMuted}
-            />
           </View>
         </View>
 

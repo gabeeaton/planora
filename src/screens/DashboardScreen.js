@@ -103,14 +103,6 @@ const makeStyles = (colors, insets) =>
       borderWidth: 1,
       borderColor: colors.accent,
     },
-    themeBtn: {
-      width: 34, height: 34,
-      alignItems: "center", justifyContent: "center",
-      backgroundColor: colors.bgElevated,
-      borderRadius: radius.full,
-      borderWidth: 1.5,
-      borderColor: colors.borderLight,
-    },
     clearBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -376,7 +368,7 @@ const bucketTasks = (tasks) => {
 };
 
 const DashboardScreen = ({ navigation }) => {
-  const { colors, isDark, toggleDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors, insets), [colors, insets]);
 
@@ -677,14 +669,7 @@ const DashboardScreen = ({ navigation }) => {
               </Text>
             </View>
           )}
-          <TouchableOpacity
-            onPress={toggleDark}
-            style={styles.themeBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name={isDark ? "sun" : "moon"} size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity
+<TouchableOpacity
             onPress={() => navigation.navigate("SyllabusParser")}
             style={styles.importBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
