@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "TaskFlow",
-    "slug": "taskflow",
+    "name": "Planora",
+    "slug": "planora",
     "version": "1.0.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
@@ -9,14 +9,14 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.taskflow",
+      "bundleIdentifier": "com.planora.app",
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification"]
       },
       "scheme": "planora"
     },
     "android": {
-      "package": "com.yourcompany.taskflow",
+      "package": "com.planora.app",
       "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE", "POST_NOTIFICATIONS"],
       "intentFilters": [
         {
