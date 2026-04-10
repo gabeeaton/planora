@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Animated,
+  ScrollView, ActivityIndicator, Animated, Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -28,6 +28,7 @@ const makeStyles = (colors) => StyleSheet.create({
   backBtn:     { padding: 4 },
   headerTitle: { ...typography.h2, color: colors.textPrimary, },
   refreshBtn:  { padding: 4 },
+  shareBtn:    { padding: 4 },
   scroll:      { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
 
   loadingContainer: { alignItems: "center", paddingTop: 80 },
@@ -209,6 +210,21 @@ const WeeklyBriefingScreen = ({ navigation }) => {
     fetchPlan();
   };
 
+  const handleShare = async () => {
+    if (!plan) return;
+    const lines = [`📅 My Planora Weekly Plan\n`, plan.headline, ""];
+    plan.days?.forEach((day) => {
+      lines.push(`${day.day} (${day.date})`);
+      if (day.tasks?.length > 0) {
+        day.tasks.forEach((t) => lines.push(`  • ${t}`));
+      } else {
+        lines.push("  Rest day");
+      }
+      lines.push("");
+    });
+    await Share.share({ message: lines.join("\n") }).catch(() => {});
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
@@ -217,9 +233,16 @@ const WeeklyBriefingScreen = ({ navigation }) => {
           <Feather name="arrow-left" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Weekly Briefing</Text>
-        <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn} disabled={loading}>
-          <Feather name="refresh-cw" size={18} color={loading ? colors.textMuted : colors.accent} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {plan && !loading && (
+            <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
+              <Feather name="share" size={18} color={colors.accent} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn} disabled={loading}>
+            <Feather name="refresh-cw" size={18} color={loading ? colors.textMuted : colors.accent} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

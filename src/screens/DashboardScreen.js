@@ -35,6 +35,7 @@ import NotificationPermissionPrompt, {
 } from "../components/NotificationPermissionPrompt";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
+import { Share } from "react-native";
 import {
   format,
   addDays,
@@ -102,6 +103,27 @@ const makeStyles = (colors, insets) =>
       borderWidth: 1,
       borderColor: colors.accent,
     },
+    themeBtn: {
+      width: 34, height: 34,
+      alignItems: "center", justifyContent: "center",
+      backgroundColor: colors.bgCard,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    clearBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      alignSelf: "center",
+      marginTop: spacing.md,
+      paddingVertical: 10,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.high,
+    },
+    clearBtnText: { fontSize: 13, fontWeight: "600", color: colors.high },
 
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 80 },
@@ -354,7 +376,7 @@ const bucketTasks = (tasks) => {
 };
 
 const DashboardScreen = ({ navigation }) => {
-  const { colors } = useTheme();
+  const { colors, isDark, toggleDark } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors, insets), [colors, insets]);
 
@@ -373,6 +395,7 @@ const DashboardScreen = ({ navigation }) => {
     editTask,
     completeTask,
     removeTask,
+    clearCompleted,
   } = useTasks();
 
   const [activeTab, setActiveTab] = useState("All");
@@ -545,6 +568,22 @@ const DashboardScreen = ({ navigation }) => {
       },
     ]);
   };
+  const handleClearCompleted = () => {
+    if (completedTasks.length === 0) return;
+    Alert.alert(
+      "Clear Completed Tasks",
+      `Remove all ${completedTasks.length} completed task${completedTasks.length !== 1 ? "s" : ""}? This can't be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear All",
+          style: "destructive",
+          onPress: () => clearCompleted().catch(() => {}),
+        },
+      ]
+    );
+  };
+
   const handleToggle = (task) => {
     if (!task) return;
     completeTask(task);
@@ -638,6 +677,13 @@ const DashboardScreen = ({ navigation }) => {
               </Text>
             </View>
           )}
+          <TouchableOpacity
+            onPress={toggleDark}
+            style={styles.themeBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name={isDark ? "sun" : "moon"} size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate("SyllabusParser")}
             style={styles.importBtn}
@@ -869,6 +915,10 @@ const DashboardScreen = ({ navigation }) => {
                     + {buckets.completed.length - 5} more completed
                   </Text>
                 )}
+                <TouchableOpacity style={styles.clearBtn} onPress={handleClearCompleted}>
+                  <Feather name="trash-2" size={13} color={colors.high} />
+                  <Text style={styles.clearBtnText}>Clear completed</Text>
+                </TouchableOpacity>
               </View>
             )}
           </>
@@ -897,19 +947,27 @@ const DashboardScreen = ({ navigation }) => {
             </Text>
           </View>
         ) : (
-          displayedTasks.map((task) =>
-            task ? (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onToggle={handleToggle}
-                onEdit={handleEditTask}
-                onDelete={handleDeleteTask}
-                onFocus={handleFocusTask}
-                highlighted={task.id === highlightedTaskId}
-              />
-            ) : null
-          )
+          <>
+            {displayedTasks.map((task) =>
+              task ? (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onToggle={handleToggle}
+                  onEdit={handleEditTask}
+                  onDelete={handleDeleteTask}
+                  onFocus={handleFocusTask}
+                  highlighted={task.id === highlightedTaskId}
+                />
+              ) : null
+            )}
+            {activeTab === "Done" && displayedTasks.length > 0 && (
+              <TouchableOpacity style={styles.clearBtn} onPress={handleClearCompleted}>
+                <Feather name="trash-2" size={13} color={colors.high} />
+                <Text style={styles.clearBtnText}>Clear completed</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </ScrollView>
 

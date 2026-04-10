@@ -1,39 +1,19 @@
 // ============================================================
 // src/components/WhatDoIDoButton.js
 //
-// CHANGES:
-//  - Free tier gets 3 lifetime uses before paywall (stored in
-//    AsyncStorage). Users experience value before hitting gate.
-//  - "Suggest Priority" moved here as a secondary action inside
-//    the result card alongside the recommendation.
-//  - Suggestion now also flags tasks on the list (aiReason chip).
-//  - Cleaner result card: recommendation front and center,
-//    reasoning smaller below it, two actions at bottom.
+// Free tier: unlimited uses, rate-limited server-side (10 AI calls/day).
+// No lifetime cap — users get hooked before hitting any wall.
 // ============================================================
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useSubscription } from "../hooks/useSubscription";
 import { getWhatDoIDo, suggestPriorities } from "../services/openai";
-
-const FREE_USES_KEY    = "@tf_whatdoido_uses";
-const FREE_USE_LIMIT   = 3;
-
-const loadFreeUses = async () => {
-  try { return parseInt(await AsyncStorage.getItem(FREE_USES_KEY) ?? "0", 10) || 0; }
-  catch { return 0; }
-};
-const incrementFreeUses = async () => {
-  const n = (await loadFreeUses()) + 1;
-  await AsyncStorage.setItem(FREE_USES_KEY, String(n));
-  return n;
-};
 
 const makeStyles = (colors) => StyleSheet.create({
   wrapper: { marginBottom: spacing.md },
@@ -45,13 +25,6 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 10, ...shadows.accent,
   },
   buttonText: { color: "#fff", fontSize: 15, fontWeight: "700", flex: 1 },
-
-  // Free uses remaining pill
-  usePill: {
-    backgroundColor: "rgba(255,255,255,0.2)", borderRadius: radius.full,
-    paddingHorizontal: 7, paddingVertical: 3,
-  },
-  usePillText: { color: "#fff", fontSize: 11, fontWeight: "700" },
 
   // Result card
   resultCard: {
@@ -98,26 +71,6 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   priorityDoneText: { fontSize: 12, color: "#5CFF8F", fontWeight: "600" },
 
-  // Paywall nudge
-  paywallRow: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: colors.bgCard, borderRadius: radius.md,
-    paddingVertical: 11, paddingHorizontal: 14, marginBottom: spacing.md,
-    borderWidth: 1, borderColor: colors.border, borderStyle: "dashed",
-  },
-  paywallIcon: {
-    width: 28, height: 28, borderRadius: 8,
-    backgroundColor: colors.accentGlow, alignItems: "center", justifyContent: "center",
-  },
-  paywallLabel: { flex: 1, fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
-  paywallBadge: {
-    flexDirection: "row", alignItems: "center", gap: 3,
-    backgroundColor: colors.accentGlow, borderRadius: radius.full,
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderWidth: 1, borderColor: colors.accent,
-  },
-  paywallBadgeText: { fontSize: 10, color: colors.accent, fontWeight: "700", textTransform: "uppercase" },
-
   errorCard: {
     flexDirection: "row", alignItems: "center",
     backgroundColor: "rgba(255,92,92,0.1)", borderRadius: radius.md,
@@ -127,38 +80,30 @@ const makeStyles = (colors) => StyleSheet.create({
 });
 
 const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgrade, onPrioritiesUpdated }) => {
-  const { colors }         = useTheme();
-  const styles             = makeStyles(colors);
-  const { hasProAccess }   = useSubscription();
+  const { colors }       = useTheme();
+  const styles           = makeStyles(colors);
+  const { hasProAccess } = useSubscription();
 
-  const [freeUsesLeft, setFreeUsesLeft]     = useState(FREE_USE_LIMIT);
-  const [loading, setLoading]               = useState(false);
+  const [loading, setLoading]                 = useState(false);
   const [priorityLoading, setPriorityLoading] = useState(false);
-  const [result, setResult]                 = useState(null);
-  const [priorityDone, setPriorityDone]     = useState(false);
-  const [error, setError]                   = useState(null);
+  const [result, setResult]                   = useState(null);
+  const [priorityDone, setPriorityDone]       = useState(false);
+  const [error, setError]                     = useState(null);
 
-  useEffect(() => {
-    loadFreeUses().then((n) => setFreeUsesLeft(Math.max(0, FREE_USE_LIMIT - n)));
-  }, []);
-
-  const canUse = hasProAccess || freeUsesLeft > 0;
-
-  // ── Hit the "What do I do?" API ─────────────────────────
+  // ── Hit the "Find my focus" API ──────────────────────────
   const handlePress = async () => {
-    if (!canUse) { onUpgrade?.(); return; }
-
     setLoading(true); setError(null); setResult(null); setPriorityDone(false);
     try {
-      if (!hasProAccess) {
-        const newCount = await incrementFreeUses();
-        setFreeUsesLeft(Math.max(0, FREE_USE_LIMIT - newCount));
-      }
       const rec = await getWhatDoIDo(tasks, userProfile, patterns);
       setResult(rec);
       if (rec?.taskId && onTaskHighlight) onTaskHighlight(rec.taskId);
     } catch (err) {
-      setError(err.message ?? "Something went wrong.");
+      // If backend returns limitReached, nudge upgrade — otherwise show error
+      if (err?.limitReached) {
+        onUpgrade?.();
+      } else {
+        setError(err.message ?? "Something went wrong.");
+      }
     } finally {
       setLoading(false);
     }
@@ -169,8 +114,8 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
     if (!hasProAccess) { onUpgrade?.(); return; }
     setPriorityLoading(true);
     try {
-      const pending    = tasks.filter((t) => !t.completed);
-      const annotated  = await suggestPriorities(pending, patterns);
+      const pending   = tasks.filter((t) => !t.completed);
+      const annotated = await suggestPriorities(pending, patterns);
       onPrioritiesUpdated?.(annotated);
       setPriorityDone(true);
     } catch {
@@ -181,20 +126,6 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
   };
 
   const handleDismiss = () => { setResult(null); setError(null); setPriorityDone(false); };
-
-  // ── Paywall state ────────────────────────────────────────
-  if (!canUse && !hasProAccess) {
-    return (
-      <TouchableOpacity style={styles.paywallRow} onPress={onUpgrade} activeOpacity={0.7}>
-        <View style={styles.paywallIcon}><Feather name="cpu" size={14} color={colors.accent} /></View>
-        <Text style={styles.paywallLabel} numberOfLines={1}>Find my focus</Text>
-        <View style={styles.paywallBadge}>
-          <Feather name="lock" size={9} color={colors.accent} />
-          <Text style={styles.paywallBadgeText}>Scholar</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  }
 
   return (
     <View style={styles.wrapper}>
@@ -224,11 +155,6 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
               <>
                 <Feather name="cpu" size={18} color="#fff" />
                 <Text style={styles.buttonText}>Find my focus</Text>
-                {!hasProAccess && freeUsesLeft > 0 && (
-                  <View style={styles.usePill}>
-                    <Text style={styles.usePillText}>{freeUsesLeft} left</Text>
-                  </View>
-                )}
                 <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.6)" />
               </>
             )

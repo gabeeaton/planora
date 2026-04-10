@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Deny everything by default — no wildcard fallthrough
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // tasks — keyed by an auto-generated ID, userId field identifies the owner
+    match /tasks/{taskId} {
+      allow read:   if request.auth != null
+                    && request.auth.uid == resource.data.userId;
+
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.userId;
+
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.userId
+                    // Prevent reassigning a task to a different user
+                    && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.userId;
+    }
+
+    // userProfiles — document ID is the user's UID
+    match /userProfiles/{userId} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+    }
+
+    // taskHistory — keyed by an auto-generated ID, userId field identifies the owner
+    match /taskHistory/{historyId} {
+      allow read:   if request.auth != null
+                    && request.auth.uid == resource.data.userId;
+
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.userId;
+
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.userId
+                    // Prevent reassigning history to a different user
+                    && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.userId;
+    }
+  }
+}

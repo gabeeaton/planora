@@ -12,7 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   subscribeTasks, addTask, updateTask,
   toggleTask, deleteTask, recordTaskCompletion,
-  loadTaskHistory,
+  loadTaskHistory, clearCompletedTasks,
 } from "../services/firebase";
 import { cacheTasksLocally, loadCachedTasks, cacheTaskHistory, loadCachedHistory } from "../services/offlineStorage";
 import {
@@ -245,6 +245,25 @@ export const useTasks = () => {
     }
   }, []);
 
+  // ── Clear all completed tasks ───────────────────────────────
+
+  const clearCompleted = useCallback(async () => {
+    if (!user) return 0;
+    try {
+      // Cancel any lingering reminders on completed tasks
+      const completed = tasks.filter((t) => t.completed);
+      await Promise.all(
+        completed
+          .filter((t) => t.notificationIds)
+          .map((t) => cancelTaskReminder(t.notificationIds).catch(() => {}))
+      );
+      return await clearCompletedTasks(user.uid);
+    } catch (err) {
+      setError(err.message || "Failed to clear completed tasks.");
+      throw err;
+    }
+  }, [user, tasks]);
+
   // ── Derived lists ───────────────────────────────────────────
 
   const pendingTasks   = tasks.filter((t) => !t.completed);
@@ -263,6 +282,6 @@ export const useTasks = () => {
   return {
     tasks, pendingTasks, completedTasks, todaysTasks,
     loading, error, patterns, streak,
-    createTask, createManyTasks, editTask, completeTask, removeTask,
+    createTask, createManyTasks, editTask, completeTask, removeTask, clearCompleted,
   };
 };

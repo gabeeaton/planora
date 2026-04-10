@@ -268,7 +268,15 @@ export default function FocusModeScreen({ route, navigation }) {
           </>
         )}
         {brk && (
-          <Text style={[s.meta, { marginBottom: spacing.md }]}>Step away from the screen</Text>
+          <>
+            <Text style={[s.meta, { marginBottom: spacing.sm }]}>Step away from the screen</Text>
+            <TouchableOpacity
+              onPress={() => { setBrk(false); setSecs(WORK); setOn(false); }}
+              style={s.skipBtn}
+            >
+              <Text style={s.skipT}>Skip break</Text>
+            </TouchableOpacity>
+          </>
         )}
 
         <View style={s.btnRow}>

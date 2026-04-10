@@ -20,6 +20,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  writeBatch,
 } from "firebase/firestore";
 import {
   initializeAuth,
@@ -140,6 +141,21 @@ export const toggleTask = async (taskId, currentStatus) => {
 };
 
 export const deleteTask = (taskId) => deleteDoc(doc(db, "tasks", taskId));
+
+// Batch-delete all completed tasks for a user
+export const clearCompletedTasks = async (userId) => {
+  const q = query(
+    collection(db, "tasks"),
+    where("userId", "==", userId),
+    where("completed", "==", true)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return 0;
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+  return snap.size;
+};
 
 // ── Task History ─────────────────────────────────────────────
 

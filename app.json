@@ -11,7 +11,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.planora.app",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": ["remote-notification"],
+        "NSUserTrackingUsageDescription": "Planora does not track you across other apps or websites."
       },
       "scheme": "planora"
     },
