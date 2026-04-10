@@ -150,7 +150,7 @@ const NotificationPermissionPrompt = ({ visible, onDismiss }) => {
 
           <Text style={styles.title}>Never miss a deadline</Text>
           <Text style={styles.subtitle}>
-            TaskFlow can remind you before things are due — so you're never caught off guard.
+            Planora can remind you before things are due — so you're never caught off guard.
           </Text>
 
           {BENEFITS.map((b, i) => (

@@ -150,7 +150,7 @@ const PaywallScreen = ({ navigation }) => {
           </View>
           <Text style={styles.heroTitle}>Your AI Academic Coach</Text>
           <Text style={styles.heroSubtitle}>
-            TaskFlow is free to use forever. Pro unlocks AI features that learn how you work and tell you exactly what to do.
+            Planora is free to use forever. Pro unlocks AI features that learn how you work and tell you exactly what to do.
           </Text>
         </View>
 

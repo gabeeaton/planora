@@ -198,7 +198,7 @@ export const scheduleWeeklySummary = async () => {
     const id = await Notifications.scheduleNotificationAsync({
       content: {
         title: "📊 Your week in review",
-        body:  "Open TaskFlow to see how you did this week and plan ahead.",
+        body:  "Open Planora to see how you did this week and plan ahead.",
         data:  { type: "weekly-summary" },
         sound: true,
       },

@@ -1344,7 +1344,7 @@ const OnboardingScreen = ({ navigation }) => {
         {/* Brand row */}
         <View style={styles.brandRow}>
           <Feather name="check-square" size={20} color={colors.accent} />
-          <Text style={styles.brandName}>TaskFlow</Text>
+          <Text style={styles.brandName}>Planora</Text>
           {isEditing ? (
             <TouchableOpacity
               onPress={() => {

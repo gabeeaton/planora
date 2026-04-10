@@ -241,7 +241,7 @@ const AuthScreen = () => {
               <View style={styles.logoWrap}>
                 <Feather name="check-square" size={32} color={colors.accent} />
               </View>
-              <Text style={styles.brandName}>TaskFlow</Text>
+              <Text style={styles.brandName}>Planora</Text>
             </View>
             <ForgotPasswordScreen
               onBack={() => { setMode("login"); clearErrors(); }}
@@ -264,7 +264,7 @@ const AuthScreen = () => {
             <View style={styles.logoWrap}>
               <Feather name="check-square" size={32} color={colors.accent} />
             </View>
-            <Text style={styles.brandName}>TaskFlow</Text>
+            <Text style={styles.brandName}>Planora</Text>
             <Text style={styles.brandTagline}>Your semester, organized.</Text>
           </View>
 

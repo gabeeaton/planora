@@ -297,7 +297,7 @@ const ProfileScreen = ({ navigation }) => {
           <Row icon="log-out" label="Sign Out" onPress={handleLogout} danger />
         </View>
 
-        <Text style={styles.version}>TaskFlow v1.0.0</Text>
+        <Text style={styles.version}>Planora v1.0.0</Text>
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
