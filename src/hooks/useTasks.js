@@ -85,10 +85,21 @@ export const useTasks = () => {
   const [patterns, setPatterns] = useState(null);
   const [streak, setStreak]     = useState(0);
 
-  // Load persisted streak on mount
+  // Load persisted streak on mount — also resets if user missed a day
   useEffect(() => {
-    loadStreak().then(({ count }) => {
-      if (count > 0) setStreak(count);
+    loadStreak().then(({ count, lastDate }) => {
+      const today     = getTodayString();
+      const yesterday = getYesterdayString();
+      if (lastDate !== today && lastDate !== yesterday) {
+        // Missed at least one day — reset
+        AsyncStorage.multiSet([
+          [STREAK_KEY,      "0"],
+          [STREAK_DATE_KEY, today],
+        ]).catch(() => {});
+        setStreak(0);
+      } else {
+        setStreak(count);
+      }
     });
   }, []);
 
