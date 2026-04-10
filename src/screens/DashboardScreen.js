@@ -27,7 +27,6 @@ import { useSubscription } from "../hooks/useSubscription";
 import TaskCard from "../components/TaskCard";
 import TaskModal from "../components/TaskModal";
 import StatsBar from "../components/StatsBar";
-import ResyncButton from "../components/ResyncButton";
 import WhatDoIDoButton from "../components/WhatDoIDoButton";
 import TodayFocusCard from "../components/TodayFocusCard";
 import { invalidateTodayFocusCache } from "../services/openai";
@@ -89,17 +88,13 @@ const makeStyles = (colors, insets) =>
     },
     streakText: { fontSize: 12, fontWeight: "700", color: colors.medium },
     importBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
+      width: 34, height: 34,
+      alignItems: "center", justifyContent: "center",
       backgroundColor: colors.accentGlow,
       borderRadius: radius.full,
       borderWidth: 1,
       borderColor: colors.accent,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
     },
-    importBtnText: { fontSize: 12, fontWeight: "700", color: colors.accent },
     weeklyBtn: {
       padding: 6,
       backgroundColor: colors.accentGlow,
@@ -116,10 +111,11 @@ const makeStyles = (colors, insets) =>
       alignItems: "center",
       gap: 8,
       borderLeftWidth: 3,
-      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderRadius: radius.md,
       paddingLeft: spacing.sm,
       paddingRight: spacing.md,
-      paddingVertical: 10,
+      paddingVertical: 11,
       marginBottom: spacing.sm,
     },
     insightText: { fontSize: 13, fontWeight: "500", flex: 1, lineHeight: 18 },
@@ -168,8 +164,11 @@ const makeStyles = (colors, insets) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      marginTop: spacing.sm,
-      marginBottom: 6,
+      marginTop: spacing.md,
+      marginBottom: 8,
+      paddingTop: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
     },
     bucketDot: { width: 8, height: 8, borderRadius: 4 },
     bucketLabel: {
@@ -178,8 +177,14 @@ const makeStyles = (colors, insets) =>
       color: colors.textMuted,
       letterSpacing: 0.8,
       textTransform: "uppercase",
+      flex: 1,
     },
-    bucketCount: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+    bucketCount: {
+      fontSize: 11, fontWeight: "700",
+      paddingHorizontal: 7, paddingVertical: 2,
+      borderRadius: radius.full,
+      overflow: "hidden",
+    },
     sectionLabel: {
       fontSize: 11,
       fontWeight: "700",
@@ -590,7 +595,9 @@ const DashboardScreen = ({ navigation }) => {
         <View style={styles.bucketHeader}>
           <View style={[styles.bucketDot, { backgroundColor: color }]} />
           <Text style={[styles.bucketLabel, { color }]}>{label}</Text>
-          <Text style={styles.bucketCount}>({taskList.length})</Text>
+          <Text style={[styles.bucketCount, { color, backgroundColor: color + "18" }]}>
+            {taskList.length}
+          </Text>
         </View>
         {sortByDue(taskList).map((task) =>
           task ? (
@@ -636,8 +643,7 @@ const DashboardScreen = ({ navigation }) => {
             style={styles.importBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Feather name="upload-cloud" size={14} color={colors.accent} />
-            <Text style={styles.importBtnText}>Import</Text>
+            <Feather name="upload-cloud" size={16} color={colors.accent} />
           </TouchableOpacity>
           {hasProAccess && (
             <TouchableOpacity
@@ -669,11 +675,6 @@ const DashboardScreen = ({ navigation }) => {
           completedCount={completedTasks.length}
         />
 
-        {/* Resync — visible once user has tasks, for re-importing updated calendars */}
-        {tasks.length > 0 && !isFirstTime && (
-          <ResyncButton onPress={() => navigation.navigate("SyllabusParser")} />
-        )}
-
         {/* Today's Focus — auto-loads, no button press needed */}
         {tasks.length > 0 && (
           <TodayFocusCard
@@ -701,7 +702,11 @@ const DashboardScreen = ({ navigation }) => {
           <View
             style={[
               styles.insightStrip,
-              { borderLeftColor: behavioralInsight.color },
+              {
+                borderLeftColor: behavioralInsight.color,
+                borderColor: behavioralInsight.color + "33",
+                backgroundColor: behavioralInsight.color + "10",
+              },
             ]}
           >
             <Feather
@@ -724,25 +729,28 @@ const DashboardScreen = ({ navigation }) => {
           style={styles.tabScroll}
           contentContainerStyle={styles.tabContainer}
         >
-          {TABS.map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              onPress={() => setActiveTab(tab)}
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === tab && styles.tabTextActive,
-                ]}
+          {TABS.map((tab) => {
+            const count =
+              tab === "Today"   ? todaysTasks.length :
+              tab === "Pending" ? pendingTasks.length :
+              tab === "Done"    ? completedTasks.length : null;
+            return (
+              <TouchableOpacity
+                key={tab}
+                onPress={() => setActiveTab(tab)}
+                style={[styles.tab, activeTab === tab && styles.tabActive]}
               >
-                {tab}
-                {tab === "Pending" && pendingTasks.length > 0
-                  ? ` (${pendingTasks.length})`
-                  : ""}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.tabText,
+                    activeTab === tab && styles.tabTextActive,
+                  ]}
+                >
+                  {tab}{count !== null && count > 0 ? ` · ${count}` : ""}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {/* Day cycler for Today tab */}
@@ -831,14 +839,10 @@ const DashboardScreen = ({ navigation }) => {
             {buckets.completed.length > 0 && (
               <View style={{ marginTop: spacing.sm }}>
                 <View style={styles.bucketHeader}>
-                  <View
-                    style={[styles.bucketDot, { backgroundColor: colors.low }]}
-                  />
-                  <Text style={[styles.bucketLabel, { color: colors.low }]}>
-                    Completed
-                  </Text>
-                  <Text style={styles.bucketCount}>
-                    ({buckets.completed.length})
+                  <View style={[styles.bucketDot, { backgroundColor: colors.low }]} />
+                  <Text style={[styles.bucketLabel, { color: colors.low }]}>Completed</Text>
+                  <Text style={[styles.bucketCount, { color: colors.low, backgroundColor: colors.low + "18" }]}>
+                    {buckets.completed.length}
                   </Text>
                 </View>
                 {buckets.completed
