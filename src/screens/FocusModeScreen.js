@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { useKeepAwake } from "expo-keep-awake";
 import { spacing, radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useTasks } from "../hooks/useTasks";
@@ -53,22 +54,35 @@ export default function FocusModeScreen({ route, navigation }) {
   const [done, setDone]     = useState(false);
   const [marked, setMarked] = useState(false);
 
-  const pulse  = useRef(new Animated.Value(1)).current;
-  const iv     = useRef(null);
+  // Keep screen awake the entire time Focus Mode is open
+  useKeepAwake();
+
+  const pulse     = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(null);
+  const iv        = useRef(null);
   // Use a ref for brk so the interval closure always sees current value
   const brkRef = useRef(brk);
   useEffect(() => { brkRef.current = brk; }, [brk]);
+
+  // Stop animation and interval on unmount
+  useEffect(() => {
+    return () => {
+      clearInterval(iv.current);
+      pulseAnim.current?.stop();
+    };
+  }, []);
 
   // Timer + pulse animation
   useEffect(() => {
     if (on) {
       // Pulse ring while running
-      Animated.loop(
+      pulseAnim.current = Animated.loop(
         Animated.sequence([
           Animated.timing(pulse, { toValue: 1.04, duration: 1500, useNativeDriver: true }),
           Animated.timing(pulse, { toValue: 1.0,  duration: 1500, useNativeDriver: true }),
         ])
-      ).start();
+      );
+      pulseAnim.current.start();
 
       iv.current = setInterval(() => {
         setSecs((v) => {
@@ -89,7 +103,7 @@ export default function FocusModeScreen({ route, navigation }) {
       }, 1000);
     } else {
       clearInterval(iv.current);
-      pulse.stopAnimation();
+      pulseAnim.current?.stop();
       Animated.spring(pulse, { toValue: 1, useNativeDriver: true }).start();
     }
     return () => clearInterval(iv.current);
