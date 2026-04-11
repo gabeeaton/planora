@@ -1,10 +1,8 @@
 // ============================================================
 // src/screens/PaywallScreen.js
-// Freemium model — monthly + annual options.
-// Wire RevenueCat here for real payments.
 // ============================================================
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, Alert, Linking,
@@ -13,8 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
-import { useAuth } from "../hooks/useAuth";
-import { setProStatus } from "../services/firebase";
+import { getOfferings, purchasePackage, restorePurchases, PRODUCT_IDS } from "../services/purchases";
 
 const FEATURES = [
   { icon: "cpu",           title: "Find My Focus",                 desc: "One-tap AI recommendation based on your patterns and deadlines." },
@@ -108,35 +105,62 @@ const makeStyles = (colors) => StyleSheet.create({
 const PaywallScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState("semester");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [packages, setPackages]         = useState({});
+
+  useEffect(() => {
+    getOfferings().then((pkgs) => {
+      const map = {};
+      pkgs.forEach((pkg) => {
+        if (pkg.product.identifier === PRODUCT_IDS.monthly)  map.monthly  = pkg;
+        if (pkg.product.identifier === PRODUCT_IDS.semester) map.semester = pkg;
+        if (pkg.product.identifier === PRODUCT_IDS.annual)   map.annual   = pkg;
+      });
+      setPackages(map);
+    }).catch(() => {});
+  }, []);
 
   const handleUpgrade = async () => {
-    if (!user) return;
+    const pkg = packages[selectedPlan];
+    if (!pkg) {
+      Alert.alert("Not available", "This plan isn't available right now. Please try again.");
+      return;
+    }
     setLoading(true);
     try {
-      // TODO: Replace with RevenueCat
-      // const pkg = selectedPlan === "annual" ? offerings.annual : offerings.monthly;
-      // await Purchases.purchasePackage(pkg);
-      await setProStatus(user.uid, true);
-      // Also save planType so we know which they picked
-      const { saveUserProfile } = require("../services/firebase");
-      await saveUserProfile(user.uid, { planType: selectedPlan });
+      await purchasePackage(pkg);
       Alert.alert(
         "Welcome to Scholar! 🎉",
         "All AI features are now unlocked.",
         [{ text: "Let's go!", onPress: () => navigation.goBack() }]
       );
-    } catch {
-      Alert.alert("Error", "Something went wrong. Please try again.");
+    } catch (err) {
+      // User cancelled — don't show error
+      if (!err.userCancelled) {
+        Alert.alert("Purchase failed", err.message ?? "Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRestore = () => {
-    Alert.alert("Restore Purchases", "No previous purchases found.\n\nContact support if you believe this is an error.");
+  const handleRestore = async () => {
+    setLoading(true);
+    try {
+      const restored = await restorePurchases();
+      if (restored) {
+        Alert.alert("Restored!", "Your Scholar subscription has been restored.", [
+          { text: "Let's go!", onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        Alert.alert("Nothing to restore", "No active subscription found.\n\nContact hello@planora.app if you need help.");
+      }
+    } catch {
+      Alert.alert("Error", "Could not restore purchases. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -182,9 +206,9 @@ const PaywallScreen = ({ navigation }) => {
         {/* Plan selector */}
         <View style={styles.plansRow}>
           {[
-            { key: "monthly",  label: "Monthly",  sub: "per month",      price: "$4.99",  savings: null,               badge: null },
-            { key: "semester", label: "Semester", sub: "one semester",   price: "$12.99", savings: "Save 13% · $4.33/mo", badge: "Most Popular" },
-            { key: "annual",   label: "Annual",   sub: "per year",       price: "$29.99", savings: "Save 50% · $2.50/mo", badge: "Best Value" },
+            { key: "monthly",  label: "Monthly",   sub: "per month",    price: "$4.99",  savings: null,                badge: null },
+            { key: "semester", label: "6 Months",  sub: "6 months",     price: "$17.99", savings: "Save 40% · $3.00/mo", badge: "Most Popular" },
+            { key: "annual",   label: "Annual",    sub: "per year",     price: "$29.99", savings: "Save 50% · $2.50/mo", badge: "Best Value" },
           ].map((plan) => {
             const active = selectedPlan === plan.key;
             return (
@@ -237,7 +261,7 @@ const PaywallScreen = ({ navigation }) => {
             <>
               <Feather name="zap" size={20} color="#fff" />
               <Text style={styles.ctaBtnText}>
-                {selectedPlan === "annual" ? "Get Scholar — $29.99/year" : selectedPlan === "semester" ? "Get Scholar — $12.99/semester" : "Get Scholar — $4.99/month"}
+                {selectedPlan === "annual" ? "Get Scholar — $29.99/year" : selectedPlan === "semester" ? "Get Scholar — $17.99 / 6 months" : "Get Scholar — $4.99/month"}
               </Text>
             </>
           )}
@@ -251,7 +275,7 @@ const PaywallScreen = ({ navigation }) => {
           {selectedPlan === "annual"
             ? "Billed as $29.99/year. Cancel anytime."
             : selectedPlan === "semester"
-            ? "One-time payment of $12.99 for one semester (~4 months)."
+            ? "Billed as $17.99 for 6 months. Cancel anytime."
             : "Billed monthly at $4.99. Cancel anytime."
           }{" "}
           By continuing you agree to our{" "}

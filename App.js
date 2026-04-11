@@ -5,6 +5,10 @@ import { AuthProvider } from "./src/hooks/useAuth";
 import { ThemeProvider } from "./src/utils/ThemeContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { configurePurchases } from "./src/services/purchases";
+
+// Configure RevenueCat early — before any purchase calls
+configurePurchases(null);
 
 Sentry.init({
   dsn: "https://692a36ec23dd2a1bffca312ca67131a3@o4511198085971968.ingest.us.sentry.io/4511199536676864",
