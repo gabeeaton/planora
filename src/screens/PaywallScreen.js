@@ -11,7 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
-import { getOfferings, purchasePackage, restorePurchases, PRODUCT_IDS } from "../services/purchases";
+import { getOfferings, purchasePackage, restorePurchases } from "../services/purchases";
 
 const FEATURES = [
   { icon: "cpu",           title: "Find My Focus",                 desc: "One-tap AI recommendation based on your patterns and deadlines." },
@@ -110,15 +110,7 @@ const PaywallScreen = ({ navigation }) => {
   const [packages, setPackages]         = useState({});
 
   useEffect(() => {
-    getOfferings().then((pkgs) => {
-      const map = {};
-      pkgs.forEach((pkg) => {
-        if (pkg.product.identifier === PRODUCT_IDS.monthly)  map.monthly  = pkg;
-        if (pkg.product.identifier === PRODUCT_IDS.semester) map.semester = pkg;
-        if (pkg.product.identifier === PRODUCT_IDS.annual)   map.annual   = pkg;
-      });
-      setPackages(map);
-    }).catch(() => {});
+    getOfferings().then(setPackages).catch(() => {});
   }, []);
 
   const handleUpgrade = async () => {

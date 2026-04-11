@@ -38,13 +38,27 @@ export const getIsSubscribed = async () => {
   }
 };
 
-// Returns available packages from RevenueCat
+// Package identifiers in RevenueCat
+export const PACKAGE_IDS = {
+  monthly:  "$rc_monthly",
+  semester: "$rc_six_month",
+  annual:   "$rc_annual",
+};
+
+// Returns available packages from RevenueCat keyed by plan
 export const getOfferings = async () => {
   try {
     const offerings = await Purchases.getOfferings();
-    return offerings.current?.availablePackages ?? [];
+    const pkgs = offerings.current?.availablePackages ?? [];
+    const map = {};
+    pkgs.forEach((pkg) => {
+      if (pkg.identifier === PACKAGE_IDS.monthly)  map.monthly  = pkg;
+      if (pkg.identifier === PACKAGE_IDS.semester) map.semester = pkg;
+      if (pkg.identifier === PACKAGE_IDS.annual)   map.annual   = pkg;
+    });
+    return map;
   } catch {
-    return [];
+    return {};
   }
 };
 
