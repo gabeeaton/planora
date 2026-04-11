@@ -295,7 +295,7 @@ const StatsScreen = () => {
   // ── Empty state ──────────────────────────────────────────────
   if (tasks.length === 0 && completedTasks.length === 0) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
         <View style={styles.header}>
           <View>
             <Text style={styles.headerTitle}>Progress</Text>
@@ -313,7 +313,7 @@ const StatsScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       {/* Header */}
       <View style={styles.header}>
         <View>
