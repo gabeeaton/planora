@@ -7,7 +7,7 @@
 import React, { useState } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert,
+  ScrollView, ActivityIndicator, Alert, Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -254,7 +254,10 @@ const PaywallScreen = ({ navigation }) => {
             ? "One-time payment of $12.99 for one semester (~4 months)."
             : "Billed monthly at $4.99. Cancel anytime."
           }{" "}
-          By continuing you agree to our Terms of Service.
+          By continuing you agree to our{" "}
+          <Text style={{ textDecorationLine: "underline" }} onPress={() => Linking.openURL("https://planoraapp.net/terms")}>Terms of Service</Text>
+          {" "}and{" "}
+          <Text style={{ textDecorationLine: "underline" }} onPress={() => Linking.openURL("https://planoraapp.net/privacy")}>Privacy Policy</Text>.
         </Text>
 
       </ScrollView>

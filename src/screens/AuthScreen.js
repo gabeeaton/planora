@@ -6,7 +6,7 @@ import React, { useState, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  ScrollView, Alert,
+  ScrollView, Alert, Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -390,6 +390,15 @@ const AuthScreen = ({ navigation }) => {
                 <Text style={styles.toggleLink}>{mode === "login" ? "Sign Up" : "Sign In"}</Text>
               </Text>
             </TouchableOpacity>
+
+            {mode === "register" && (
+              <Text style={[styles.toggleText, { textAlign: "center", marginTop: 8 }]}>
+                By signing up you agree to our{" "}
+                <Text style={styles.toggleLink} onPress={() => Linking.openURL("https://planoraapp.net/terms")}>Terms of Service</Text>
+                {" "}and{" "}
+                <Text style={styles.toggleLink} onPress={() => Linking.openURL("https://planoraapp.net/privacy")}>Privacy Policy</Text>.
+              </Text>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
