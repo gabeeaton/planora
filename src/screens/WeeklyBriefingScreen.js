@@ -13,9 +13,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
-import { useTasks }       from "../hooks/useTasks";
-import { useUserProfile } from "../hooks/useUserProfile";
-import { getWeeklyPlan }  from "../services/openai";
+import { useTasks }          from "../hooks/useTasks";
+import { useUserProfile }    from "../hooks/useUserProfile";
+import { useSubscription }   from "../hooks/useSubscription";
+import { getWeeklyPlan }     from "../services/openai";
 
 
 const makeStyles = (colors) => StyleSheet.create({
@@ -92,6 +93,33 @@ const makeStyles = (colors) => StyleSheet.create({
     borderTopWidth: 1, borderTopColor: colors.border,
   },
   regenerateText: { fontSize: 13, color: colors.textMuted, fontWeight: "600" },
+
+  // Upsell state
+  upsellContainer: { alignItems: "center", paddingTop: 60, paddingHorizontal: spacing.lg },
+  upsellIcon: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
+    ...shadows.accent,
+  },
+  upsellTitle:    { fontSize: 22, fontWeight: "800", color: colors.textPrimary, textAlign: "center", letterSpacing: -0.3, marginBottom: 8 },
+  upsellSubtitle: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.xl },
+  upsellBtn: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: colors.accent, borderRadius: radius.md,
+    paddingVertical: 14, paddingHorizontal: spacing.xl,
+    ...shadows.accent,
+  },
+  upsellBtnText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  upsellPreview: {
+    width: "100%", marginTop: spacing.xl,
+    backgroundColor: colors.bgCard, borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
+    padding: spacing.md, opacity: 0.45,
+  },
+  upsellPreviewRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+  upsellPreviewDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
+  upsellPreviewLine: { height: 12, borderRadius: 6, backgroundColor: colors.border, flex: 1 },
   toast: {
     position: "absolute",
     top: 60,
@@ -127,6 +155,7 @@ const WeeklyBriefingScreen = ({ navigation }) => {
   const styles = makeStyles(colors);
   const { tasks, patterns }  = useTasks();
   const { profile }          = useUserProfile();
+  const { isPro }            = useSubscription();
 
   const [plan, setPlan]       = useState(_cachedPlan);
   const [loading, setLoading] = useState(!_cachedPlan);
@@ -155,6 +184,7 @@ const WeeklyBriefingScreen = ({ navigation }) => {
   }, [navigation]);
 
   useEffect(() => {
+    if (!isPro) { setLoading(false); return; }
     // If we have a fresh cache, use it immediately
     if (_cachedPlan && _cacheLoadedAt && (Date.now() - _cacheLoadedAt) < CACHE_TTL_MS) {
       setPlan(_cachedPlan);
@@ -162,7 +192,7 @@ const WeeklyBriefingScreen = ({ navigation }) => {
       return;
     }
     fetchPlan();
-  }, []);
+  }, [isPro]);
 
   const fetchPlan = async () => {
     setLoading(true);
@@ -252,7 +282,34 @@ const WeeklyBriefingScreen = ({ navigation }) => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {loading ? (
+        {!isPro ? (
+          <View style={styles.upsellContainer}>
+            <View style={styles.upsellIcon}>
+              <Feather name="calendar" size={32} color={colors.accent} />
+            </View>
+            <Text style={styles.upsellTitle}>Your AI Weekly Plan</Text>
+            <Text style={styles.upsellSubtitle}>
+              Scholar builds a day-by-day study plan based on your tasks, deadlines, and work habits — and updates it every 24 hours.
+            </Text>
+            <TouchableOpacity
+              style={styles.upsellBtn}
+              onPress={() => navigation.navigate("Paywall")}
+              activeOpacity={0.85}
+            >
+              <Feather name="zap" size={18} color="#fff" />
+              <Text style={styles.upsellBtnText}>Unlock with Scholar</Text>
+            </TouchableOpacity>
+            {/* Blurred preview skeleton */}
+            <View style={styles.upsellPreview}>
+              {[80, 60, 90, 50, 70].map((w, i) => (
+                <View key={i} style={styles.upsellPreviewRow}>
+                  <View style={styles.upsellPreviewDot} />
+                  <View style={[styles.upsellPreviewLine, { maxWidth: `${w}%` }]} />
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.accent} />
             <Text style={styles.loadingText}>Building your plan...</Text>
