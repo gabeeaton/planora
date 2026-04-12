@@ -254,7 +254,10 @@ export default async function handler(req, res) {
 
     if (type === "reset") {
       const app = getAdminApp();
-      const resetUrl = await getAuth(app).generatePasswordResetLink(email);
+      const resetUrl = await getAuth(app).generatePasswordResetLink(email, {
+        url: "https://planoraapp.net",
+        handleCodeInApp: false,
+      });
       await sendEmail({
         to:      email,
         subject: "Reset your Planora password",
