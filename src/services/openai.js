@@ -380,7 +380,9 @@ Respond ONLY with this JSON (no markdown):
 // ── 5. Academic Coach Chat ───────────────────────────────────
 
 const CHAT_SYSTEM = (contextBlock) =>
-  `You are an academic coach inside Planora, a productivity app for college students. Be direct, warm, and specific — always reference the student's real tasks, classes, and patterns by name. Keep responses concise (2-4 sentences) unless they ask for something detailed. Never be generic.
+  `You are an academic coach inside Planora, a productivity app for college students. Be direct, warm, and specific. Keep responses concise (2-4 sentences) unless they ask for something detailed. Never be generic.
+
+Important: when the student asks about a CLASS (e.g. "which class should I worry about?"), answer with the class name (e.g. "HIST 101"), not a task title. Tasks belong to classes — use the class name for class-level questions and the task title for task-level questions.
 
 ${contextBlock}`;
 
@@ -410,19 +412,21 @@ const buildChatContext = (tasks, userProfile, patterns) => {
   if (userProfile?.semester) lines.push(`Semester: ${userProfile.semester}`);
   if (userProfile?.preferredWorkTime) lines.push(`Best work time: ${userProfile.preferredWorkTime}`);
 
+  const taskLabel = (t) => {
+    const cls = t.className ? `[${t.className}] ` : "";
+    const due = t.dueDate ? ` due ${new Date(t.dueDate).toLocaleDateString()}` : "";
+    return `${cls}"${t.title}"${due}`;
+  };
+
   if (overdue.length > 0) {
-    lines.push(`OVERDUE: ${overdue.map((t) => `"${t.title}"`).join(", ")}`);
+    lines.push(`OVERDUE: ${overdue.map(taskLabel).join(", ")}`);
   }
   if (relevant.length > 0) {
-    lines.push(
-      `Upcoming (next 7 days): ${relevant
-        .map((t) => `"${t.title}" due ${new Date(t.dueDate).toLocaleDateString()}`)
-        .join(", ")}`
-    );
+    lines.push(`Upcoming (next 7 days): ${relevant.map(taskLabel).join(", ")}`);
   } else {
     const pending = tasks.filter((t) => !t.completed).slice(0, 5);
     if (pending.length > 0) {
-      lines.push(`Pending tasks: ${pending.map((t) => `"${t.title}"`).join(", ")}`);
+      lines.push(`Pending tasks: ${pending.map(taskLabel).join(", ")}`);
     }
   }
 
