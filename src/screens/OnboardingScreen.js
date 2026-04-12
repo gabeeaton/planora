@@ -979,6 +979,7 @@ const OnboardingScreen = ({ navigation }) => {
         preferredWorkTime: workTime,
         hardestClass: hardestClass ?? null,
         onboardingComplete: true,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       if (!isEditing) {
         data.isPro = false;

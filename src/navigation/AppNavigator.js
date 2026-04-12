@@ -14,6 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth }          from "../hooks/useAuth";
 import { useUserProfile }   from "../hooks/useUserProfile";
+import { saveUserProfile }  from "../services/firebase";
 import DashboardScreen      from "../screens/DashboardScreen";
 import ProfileScreen        from "../screens/ProfileScreen";
 import StatsScreen          from "../screens/StatsScreen";
@@ -115,6 +116,13 @@ const AppNavigator = () => {
       AsyncStorage.setItem("@tf_accent", profile.colorTheme).catch(() => {});
     }
   }, [profile?.colorTheme]);
+
+  // Backfill timezone for existing users who don't have it yet
+  useEffect(() => {
+    if (!user || !profile || profile.timezone) return;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    saveUserProfile(user.uid, { timezone: tz }).catch(() => {});
+  }, [user?.uid, profile?.timezone]);
 
   const loading       = authLoading || (!!user && profileLoading);
   // Wait for Firestore to actually respond before deciding to show onboarding.
