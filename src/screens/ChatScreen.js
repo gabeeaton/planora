@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   FlatList, KeyboardAvoidingView, Platform, ActivityIndicator,
-  Alert,
+  Alert, Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -37,6 +37,61 @@ const STARTERS = [
   "Am I on track to finish everything before finals?",
   "Which class should I be most worried about?",
 ];
+
+// ── Date separator label ──────────────────────────────────────
+const getDateLabel = (ts) => {
+  const msgDate = new Date(ts);
+  const today   = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  const isSameDay = (a, b) =>
+    a.getDate() === b.getDate() &&
+    a.getMonth() === b.getMonth() &&
+    a.getFullYear() === b.getFullYear();
+
+  if (isSameDay(msgDate, today))     return "Today";
+  if (isSameDay(msgDate, yesterday)) return "Yesterday";
+  return msgDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+};
+
+// ── Animated three-dot typing indicator ──────────────────────
+const TypingDots = ({ color }) => {
+  const dots = [useRef(new Animated.Value(0)).current,
+                useRef(new Animated.Value(0)).current,
+                useRef(new Animated.Value(0)).current];
+
+  useEffect(() => {
+    const animations = dots.map((dot, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 150),
+          Animated.timing(dot, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.delay((2 - i) * 150),
+        ])
+      )
+    );
+    animations.forEach((a) => a.start());
+    return () => animations.forEach((a) => a.stop());
+  }, []);
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 4, paddingHorizontal: 2 }}>
+      {dots.map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 7, height: 7, borderRadius: 3.5,
+            backgroundColor: color,
+            opacity: dot,
+            transform: [{ scale: dot.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
+          }}
+        />
+      ))}
+    </View>
+  );
+};
 
 export default function ChatScreen() {
   const { colors }                   = useTheme();
@@ -171,8 +226,32 @@ export default function ChatScreen() {
     }
   }, [messages.length, typing]);
 
-  // ── Render message bubble ──────────────────────────────────
+  // ── Inject date separators into message list ─────────────
+  const displayData = React.useMemo(() => {
+    const result = [];
+    let lastLabel = null;
+    messages.forEach((msg) => {
+      const label = getDateLabel(msg.ts);
+      if (label !== lastLabel) {
+        result.push({ id: `sep-${msg.ts}`, type: "separator", label });
+        lastLabel = label;
+      }
+      result.push(msg);
+    });
+    return result;
+  }, [messages]);
+
+  // ── Render message bubble or date separator ────────────────
   const renderMessage = ({ item }) => {
+    if (item.type === "separator") {
+      return (
+        <View style={styles.dateSepRow}>
+          <View style={styles.dateSepLine} />
+          <Text style={styles.dateSepText}>{item.label}</Text>
+          <View style={styles.dateSepLine} />
+        </View>
+      );
+    }
     const isUser = item.role === "user";
     return (
       <View style={[styles.bubbleRow, isUser && styles.bubbleRowUser]}>
@@ -250,7 +329,7 @@ export default function ChatScreen() {
         ) : (
           <FlatList
             ref={listRef}
-            data={messages}
+            data={displayData}
             keyExtractor={(m) => m.id}
             renderItem={renderMessage}
             contentContainerStyle={styles.list}
@@ -262,7 +341,7 @@ export default function ChatScreen() {
                   <Feather name="cpu" size={14} color={colors.accent} />
                 </View>
                 <View style={[styles.bubble, styles.bubbleAI, styles.typingBubble]}>
-                  <ActivityIndicator size="small" color={colors.accent} />
+                  <TypingDots color={colors.accent} />
                 </View>
               </View>
             ) : null}
@@ -357,6 +436,11 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   starterText: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
 
+  // Date separators
+  dateSepRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 12 },
+  dateSepLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dateSepText: { fontSize: 11, fontWeight: "600", color: colors.textMuted, letterSpacing: 0.5 },
+
   // Messages
   list: { padding: spacing.md, gap: 12, paddingBottom: spacing.md },
   bubbleRow:     { flexDirection: "row", alignItems: "flex-end", gap: 8, marginBottom: 4 },
@@ -376,7 +460,7 @@ const makeStyles = (colors) => StyleSheet.create({
   bubbleTextUser:  { color: "#fff" },
   bubbleTextAI:    { color: colors.textPrimary },
   bubbleTextError: { color: colors.high },
-  typingBubble:    { paddingVertical: 12, paddingHorizontal: 16 },
+  typingBubble:    { paddingVertical: 8, paddingHorizontal: 14 },
 
   limitBanner: {
     flexDirection: "row", alignItems: "center", gap: 6,
