@@ -28,6 +28,7 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  confirmPasswordReset,
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
@@ -46,7 +47,7 @@ try {
 }
 
 export const db = getFirestore(app);
-export { auth };
+export { auth, confirmPasswordReset };
 
 // ── Auth ─────────────────────────────────────────────────────
 

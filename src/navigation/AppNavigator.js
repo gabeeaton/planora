@@ -24,9 +24,19 @@ import WeeklyBriefingScreen from "../screens/WeeklyBriefingScreen";
 import PaywallScreen        from "../screens/PaywallScreen";
 import SyllabusParserScreen from "../screens/SyllabusParserScreen";
 import ICSReviewScreen      from "../screens/ICSReviewScreen";
-import FocusModeScreen     from "../screens/FocusModeScreen";
-import ChatScreen          from "../screens/ChatScreen";
+import FocusModeScreen       from "../screens/FocusModeScreen";
+import ChatScreen            from "../screens/ChatScreen";
+import ResetPasswordScreen   from "../screens/ResetPasswordScreen";
 import { useTheme } from "../utils/ThemeContext";
+
+const linking = {
+  prefixes: ["planora://"],
+  config: {
+    screens: {
+      ResetPassword: "reset-password",
+    },
+  },
+};
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -143,6 +153,7 @@ const AppNavigator = () => {
 
   return (
     <NavigationContainer
+      linking={linking}
       theme={{
         colors: {
           background:   colors.bg,     primary:      colors.accent,
@@ -152,6 +163,8 @@ const AppNavigator = () => {
       }}
     >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {/* Always available — deep link from reset email works even if logged out */}
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ presentation: "modal" }} />
         {!user ? (
           <>
             <Stack.Screen name="Auth" component={AuthScreen} />
