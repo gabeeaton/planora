@@ -181,6 +181,72 @@ export const cancelAllReminders = async () => {
   }
 };
 
+// ── Streak reminder (daily, fires at user's productive hour) ─
+
+const STREAK_NOTIF_KEY = "@planora_streak_notif_id";
+
+const PRODUCTIVE_TIME_HOURS = {
+  morning:   8,
+  afternoon: 13,
+  evening:   18,
+  night:     21,
+};
+
+/**
+ * Schedule (or reschedule) a daily streak reminder at the user's best
+ * productive time. Cancels any previously scheduled one first.
+ *
+ * @param {number} streak    Current streak count (must be > 0)
+ * @param {string} bestTime  "morning" | "afternoon" | "evening" | "night"
+ */
+export const scheduleStreakReminder = async (streak, bestTime) => {
+  if (!streak || streak <= 0) {
+    await cancelStreakReminder();
+    return;
+  }
+
+  const granted = await requestNotificationPermissions();
+  if (!granted) return;
+
+  // Cancel existing before rescheduling
+  await cancelStreakReminder();
+
+  const hour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 18;
+
+  try {
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `🔥 ${streak} day streak — keep it going!`,
+        body:  "Complete a task today so you don't lose your streak.",
+        data:  { type: "streak-reminder" },
+        sound: true,
+      },
+      trigger: {
+        type:    "daily",
+        hour,
+        minute:  0,
+        repeats: true,
+      },
+    });
+    await AsyncStorage.setItem(STREAK_NOTIF_KEY, id).catch(() => {});
+  } catch (err) {
+    console.warn("Failed to schedule streak reminder:", err);
+  }
+};
+
+/**
+ * Cancel the current streak reminder (e.g. streak reset to 0).
+ */
+export const cancelStreakReminder = async () => {
+  try {
+    const id = await AsyncStorage.getItem(STREAK_NOTIF_KEY);
+    if (id) {
+      await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+      await AsyncStorage.removeItem(STREAK_NOTIF_KEY).catch(() => {});
+    }
+  } catch {}
+};
+
 // ── Avoidance alerts (Scholar only) ──────────────────────────
 
 const AVOIDANCE_MAP_KEY = "@planora_avoidance_alerted";

@@ -30,7 +30,7 @@ import StatsBar from "../components/StatsBar";
 import WhatDoIDoButton from "../components/WhatDoIDoButton";
 import TodayFocusCard from "../components/TodayFocusCard";
 import { invalidateTodayFocusCache } from "../services/openai";
-import { checkAndScheduleAvoidanceAlerts } from "../services/notifications";
+import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../services/notifications";
 import NotificationPermissionPrompt, {
   NOTIF_PROMPT_KEY,
 } from "../components/NotificationPermissionPrompt";
@@ -390,6 +390,12 @@ const DashboardScreen = ({ navigation }) => {
     if (!isPro || !patterns?.avoidanceScores?.length) return;
     checkAndScheduleAvoidanceAlerts(patterns.avoidanceScores);
   }, [isPro, patterns?.avoidanceScores]);
+
+  // Streak reminder — reschedule whenever streak or productive time changes
+  useEffect(() => {
+    const bestTime = patterns?.productiveTimeOfDay?.bestTime ?? "evening";
+    scheduleStreakReminder(streak, bestTime);
+  }, [streak, patterns?.productiveTimeOfDay?.bestTime]);
 
   const enrichedTasks = useMemo(() => {
     const gradeMap = {};
