@@ -76,16 +76,18 @@ export const requestNotificationPermissions = async () => {
 
 /**
  * Schedule up to 2 reminders for a task:
- *   1. 24 hours before due date
+ *   1. Day-before reminder — snapped to user's productive hour if possible,
+ *      falls back to due - 24h.
  *   2. 2 hours before due date (HIGH priority only)
  *
  * Returns an object: { id24h, id2h } — store this on the task
  * in Firestore as `notificationIds` so you can cancel later.
  *
- * @param {object} task  - must have: id, title, dueDate, priority
+ * @param {object} task      - must have: id, title, dueDate, priority
+ * @param {string} bestTime  - "morning"|"afternoon"|"evening"|"night" (optional)
  * @returns {Promise<{id24h: string|null, id2h: string|null}>}
  */
-export const scheduleTaskReminder = async (task) => {
+export const scheduleTaskReminder = async (task, bestTime = null) => {
   const result = { id24h: null, id2h: null };
 
   if (!task?.dueDate) return result;
@@ -99,8 +101,20 @@ export const scheduleTaskReminder = async (task) => {
   const granted = await requestNotificationPermissions();
   if (!granted) return result;
 
-  // ── 24-hour reminder ──────────────────────────────────────
-  const remind24h = new Date(due.getTime() - 24 * 60 * 60 * 1000);
+  // ── Day-before reminder ───────────────────────────────────
+  // Try to fire at the user's productive hour on the day before due.
+  // Fall back to due - 24h if the smart time is past or too close to due.
+  let remind24h = new Date(due.getTime() - 24 * 60 * 60 * 1000);
+  if (bestTime && PRODUCTIVE_TIME_HOURS[bestTime] !== undefined) {
+    const smartTime = new Date(due);
+    smartTime.setDate(smartTime.getDate() - 1);
+    smartTime.setHours(PRODUCTIVE_TIME_HOURS[bestTime], 0, 0, 0);
+    // Use smart time only if it's in the future and at least 1h before due
+    if (smartTime > now && smartTime < new Date(due.getTime() - 60 * 60 * 1000)) {
+      remind24h = smartTime;
+    }
+  }
+
   if (remind24h > now) {
     try {
       result.id24h = await Notifications.scheduleNotificationAsync({

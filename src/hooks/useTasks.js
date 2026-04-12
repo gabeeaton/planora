@@ -46,6 +46,13 @@ export const useTasks = () => {
   const tasksRef = useRef([]);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
 
+  // Keep bestTime in a ref so reminder scheduling always uses the latest value
+  // without needing to add patterns to every useCallback dep array
+  const bestTimeRef = useRef(null);
+  useEffect(() => {
+    bestTimeRef.current = patterns?.productiveTimeOfDay?.bestTime ?? null;
+  }, [patterns?.productiveTimeOfDay?.bestTime]);
+
   // Load persisted streak on mount — resets if user missed a day
   useEffect(() => {
     checkAndResetStreak().then(setStreak).catch(() => {});
@@ -103,7 +110,7 @@ export const useTasks = () => {
         const notificationIds = await scheduleTaskReminder({
           id: docRef.id,
           ...taskData,
-        });
+        }, bestTimeRef.current);
         if (notificationIds.id24h || notificationIds.id2h) {
           await updateTask(docRef.id, { notificationIds }).catch(() => {});
         }
@@ -141,7 +148,7 @@ export const useTasks = () => {
         docRefs.map(async (docRef, i) => {
           const task = toCreate[i];
           if (!task.dueDate) return;
-          const notificationIds = await scheduleTaskReminder({ id: docRef.id, ...task });
+          const notificationIds = await scheduleTaskReminder({ id: docRef.id, ...task }, bestTimeRef.current);
           if (notificationIds.id24h || notificationIds.id2h) {
             await updateTask(docRef.id, { notificationIds }).catch(() => {});
           }
@@ -178,7 +185,7 @@ export const useTasks = () => {
               priority: updates.priority ?? currentTask.priority,
               className: updates.className ?? currentTask.className,
               dueDate: updates.dueDate,
-            });
+            }, bestTimeRef.current);
             updates.notificationIds = (notificationIds.id24h || notificationIds.id2h)
               ? notificationIds
               : null;
@@ -235,7 +242,7 @@ export const useTasks = () => {
       } else {
         // Task is being un-completed — reschedule reminder if future due date
         if (task.dueDate && new Date(task.dueDate) > new Date()) {
-          const notificationIds = await scheduleTaskReminder(task);
+          const notificationIds = await scheduleTaskReminder(task, bestTimeRef.current);
           if (notificationIds.id24h || notificationIds.id2h) {
             await updateTask(task.id, { notificationIds }).catch(() => {});
           }
