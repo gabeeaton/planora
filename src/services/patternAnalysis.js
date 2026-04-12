@@ -222,8 +222,16 @@ export const buildPatternContext = (patterns, userProfile = null) => {
   const lines = [];
   const { latenessProfile, productiveTimeOfDay, overallStats, staleTasks, urgentUntouched } = patterns;
 
-  lines.push(`User tendency: ${latenessProfile.label} (avg ${latenessProfile.avgDaysBefore ?? "?"} days before deadline)`);
-  lines.push(`Most productive time: ${productiveTimeOfDay.bestTime}`);
+  // Only report lateness tendency once we have enough data to trust it
+  if (latenessProfile.totalSamples >= 3) {
+    lines.push(`User tendency: ${latenessProfile.label} (avg ${latenessProfile.avgDaysBefore} days before deadline)`);
+  }
+
+  // Only report productive time once we have enough completions to see a real pattern
+  if (productiveTimeOfDay.totalSamples >= 5) {
+    lines.push(`Most productive time: ${productiveTimeOfDay.bestTime}`);
+  }
+
   lines.push(`Currently: ${overallStats.totalPending} pending, ${overallStats.totalOverdue} overdue`);
 
   // Hardest class — AI should be extra proactive about it
@@ -240,11 +248,13 @@ export const buildPatternContext = (patterns, userProfile = null) => {
     lines.push(`URGENT but untouched today: ${urgentUntouched.map((t) => `"${t.title}"`).join(", ")}`);
   }
 
-  const classPatterns = Object.values(patterns.completionByClass);
+  // Only include per-class patterns for classes with enough history to be meaningful
+  const classPatterns = Object.values(patterns.completionByClass).filter((c) => c.completedCount >= 3);
   if (classPatterns.length > 0) {
     lines.push("Per-class patterns:");
     classPatterns.forEach((c) => {
-      const gNote      = c.grade ? ` | grade: ${c.grade}` : "";
+      const hasGrade   = c.grade && c.grade !== "No grade yet";
+      const gNote      = hasGrade ? ` | grade: ${c.grade}` : "";
       const struggling = isStrugglingGrade(c.grade);
       const gWarn      = struggling ? " ⚠️ PRIORITIZE — struggling grade" : "";
       lines.push(`  - ${c.className}: ${c.tendencyLabel}, ${c.lateRate}% late rate${gNote}${gWarn}`);

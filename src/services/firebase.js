@@ -232,6 +232,36 @@ export const subscribeUserProfile = (userId, callback) =>
     callback(snap.exists() ? { id: snap.id, ...snap.data() } : null);
   });
 
+// ── Chat history (Scholar only — cross-device persistence) ───
+
+const CHAT_HISTORY_MAX = 40; // messages stored in Firestore
+
+export const loadChatHistory = async (userId) => {
+  try {
+    const snap = await getDoc(doc(db, "userProfiles", userId));
+    if (!snap.exists()) return [];
+    return snap.data().chatHistory ?? [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveChatHistory = (userId, messages) => {
+  const toStore = messages.slice(-CHAT_HISTORY_MAX);
+  return setDoc(
+    doc(db, "userProfiles", userId),
+    { chatHistory: toStore },
+    { merge: true }
+  ).catch(() => {});
+};
+
+export const clearChatHistory = (userId) =>
+  setDoc(
+    doc(db, "userProfiles", userId),
+    { chatHistory: [] },
+    { merge: true }
+  ).catch(() => {});
+
 // ── Subscription ─────────────────────────────────────────────
 
 export const setProStatus = (userId, isPro) =>

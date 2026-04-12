@@ -23,6 +23,8 @@ import { parseSyllabusText } from "../services/syllabusParser";
 import { parseIcsText, isValidIcs, countIcsEvents } from "../services/icsImport";
 import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuth } from "../hooks/useAuth";
+import { saveUserProfile } from "../services/firebase";
 import { format } from "date-fns";
 
 // ─────────────────────────────────────────────────────────────
@@ -283,6 +285,18 @@ const makeStyles = (colors) =>
       flexDirection: "row", alignItems: "center", gap: 10, ...shadows.accent,
     },
     doneBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+
+    // ── Grade nudge card (on success screen) ──
+    gradeNudgeCard: {
+      flexDirection: "row", alignItems: "center",
+      marginTop: spacing.lg, backgroundColor: colors.bgCard,
+      borderRadius: radius.lg, padding: spacing.md,
+      borderWidth: 1, borderColor: colors.accentGlow,
+      gap: 10, width: "100%",
+    },
+    gradeNudgeLeft:  { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+    gradeNudgeTitle: { fontSize: 13, fontWeight: "700", color: colors.textPrimary },
+    gradeNudgeSub:   { fontSize: 11, color: colors.accent, marginTop: 2 },
   });
 
 const PRIORITY_COLORS = { HIGH: "#FF5C5C", MEDIUM: "#FFB347", LOW: "#5CFF8F" };
@@ -383,6 +397,7 @@ const SyllabusParserScreen = ({ navigation }) => {
   const styles     = makeStyles(colors);
   const { createManyTasks }    = useTasks();
   const { profile }            = useUserProfile();
+  const { user }               = useAuth();
   const classes                = profile?.classes ?? [];
 
   const [activeTab, setActiveTab] = useState("ics");
@@ -394,6 +409,8 @@ const SyllabusParserScreen = ({ navigation }) => {
   const [error,         setError]         = useState(null);
   const [importDone,    setImportDone]    = useState(false);
   const [importCount,   setImportCount]   = useState(0);
+  const [skippedCount,  setSkippedCount]  = useState(0);
+  const [newClassNames, setNewClassNames] = useState([]);
 
   // Syllabus tab
   const [syllabusText,   setSyllabusText]   = useState("");
@@ -432,8 +449,29 @@ const SyllabusParserScreen = ({ navigation }) => {
           ...t,
           dueDate: t.dueDate instanceof Date ? t.dueDate : (t.dueDate ? new Date(t.dueDate) : null),
         }));
-      await createManyTasks(toImport);
-      setImportCount(toImport.length);
+      const result = await createManyTasks(toImport);
+      const created = result?.created ?? toImport.length;
+      const skipped = result?.skipped ?? 0;
+      setImportCount(created);
+      setSkippedCount(skipped);
+
+      // Silently add new classes to profile with "No grade yet"
+      const existingNames = new Set((profile?.classes ?? []).map((c) => c.name));
+      const newNames = [...new Set(toImport.map((t) => t.className).filter(Boolean))]
+        .filter((n) => !existingNames.has(n));
+
+      if (newNames.length > 0) {
+        const newEntries = newNames.map((name, i) => ({
+          id: `${Date.now()}${i}`,
+          name,
+          creditHours: "3",
+          grade: "No grade yet",
+        }));
+        const merged = [...(profile?.classes ?? []), ...newEntries];
+        saveUserProfile(user.uid, { classes: merged }).catch(() => {});
+        setNewClassNames(newNames);
+      }
+
       setImportDone(true);
     } catch {
       setError("Failed to import tasks. Please try again.");
@@ -561,12 +599,32 @@ const SyllabusParserScreen = ({ navigation }) => {
             {importCount} task{importCount !== 1 ? "s" : ""} added!
           </Text>
           <Text style={styles.successSubtitle}>
-            Your semester is loaded. The AI now has your full schedule to plan around.
+            {skippedCount > 0
+              ? `${skippedCount} duplicate${skippedCount !== 1 ? "s" : ""} skipped. Your semester is loaded.`
+              : "Your semester is loaded. The AI now has your full schedule to plan around."
+            }
           </Text>
           <TouchableOpacity style={styles.doneBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.doneBtnText}>Back to Dashboard</Text>
             <Feather name="arrow-right" size={16} color="#fff" />
           </TouchableOpacity>
+
+          {newClassNames.length > 0 && (
+            <TouchableOpacity
+              style={styles.gradeNudgeCard}
+              onPress={() => navigation.navigate("Profile")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.gradeNudgeLeft}>
+                <Feather name="award" size={15} color={colors.accent} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.gradeNudgeTitle}>Add grades for your classes</Text>
+                  <Text style={styles.gradeNudgeSub}>Helps the AI prioritize correctly → Profile</Text>
+                </View>
+              </View>
+              <Feather name="chevron-right" size={15} color={colors.accent} />
+            </TouchableOpacity>
+          )}
         </View>
       </SafeAreaView>
     );

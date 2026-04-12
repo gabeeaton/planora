@@ -42,7 +42,15 @@ const makeStyles = (colors) => StyleSheet.create({
     ...shadows.accent,
   },
   heroTitle:    { fontSize: 26, fontWeight: "800", color: colors.textPrimary, textAlign: "center", letterSpacing: -0.5, marginBottom: 8 },
-  heroSubtitle: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22 },
+  heroSubtitle: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.sm },
+  heroBadge: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: colors.accentGlow, borderRadius: radius.full,
+    paddingHorizontal: 12, paddingVertical: 5,
+    borderWidth: 1, borderColor: colors.accent,
+  },
+  heroBadgeText: { fontSize: 12, color: colors.accent, fontWeight: "700" },
+  featuresLabel: { ...typography.label, color: colors.textMuted, marginBottom: spacing.sm, paddingLeft: 2 },
 
   featuresCard: {
     backgroundColor: colors.bgCard, borderRadius: radius.lg,
@@ -69,7 +77,7 @@ const makeStyles = (colors) => StyleSheet.create({
   planCardActive: { borderColor: colors.accent, ...shadows.accent },
   planBadge: {
     backgroundColor: colors.accent, borderRadius: radius.full,
-    paddingHorizontal: 8, paddingVertical: 3, marginLeft: spacing.sm,
+    paddingHorizontal: 8, paddingVertical: 3, marginLeft: spacing.sm, alignSelf: "center",
   },
   planBadgeText:   { fontSize: 9, color: "#fff", fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" },
   planLabel:       { fontSize: 16, color: colors.textPrimary, fontWeight: "700" },
@@ -91,11 +99,12 @@ const makeStyles = (colors) => StyleSheet.create({
   ctaBtn: {
     backgroundColor: colors.accent, borderRadius: radius.md,
     paddingVertical: 16, flexDirection: "row", alignItems: "center",
-    justifyContent: "center", gap: 10, marginBottom: spacing.sm,
+    justifyContent: "center", gap: 10, marginBottom: 6,
     ...shadows.accent,
   },
   ctaBtnDisabled: { opacity: 0.6 },
   ctaBtnText:     { color: "#fff", fontSize: 17, fontWeight: "800" },
+  ctaNote:        { fontSize: 12, color: colors.textMuted, textAlign: "center", marginBottom: spacing.sm },
 
   restoreBtn:     { alignItems: "center", paddingVertical: 8 },
   restoreBtnText: { fontSize: 13, color: colors.textMuted },
@@ -175,9 +184,14 @@ const PaywallScreen = ({ navigation }) => {
           <Text style={styles.heroSubtitle}>
             Planora is free to use forever. Scholar unlocks AI features that learn how you work and tell you exactly what to do.
           </Text>
+          <View style={styles.heroBadge}>
+            <Feather name="check" size={12} color={colors.accent} />
+            <Text style={styles.heroBadgeText}>Cancel anytime · No commitment</Text>
+          </View>
         </View>
 
         {/* Features */}
+        <Text style={styles.featuresLabel}>WHAT'S INCLUDED</Text>
         <View style={styles.featuresCard}>
           {FEATURES.map((f, i) => (
             <View key={f.title}>
@@ -196,6 +210,7 @@ const PaywallScreen = ({ navigation }) => {
         </View>
 
         {/* Plan selector */}
+        <Text style={styles.featuresLabel}>CHOOSE YOUR PLAN</Text>
         <View style={styles.plansRow}>
           {[
             { key: "monthly",  label: "Monthly",   sub: "per month",    price: "$4.99",  savings: null,                badge: null },
@@ -258,6 +273,8 @@ const PaywallScreen = ({ navigation }) => {
             </>
           )}
         </TouchableOpacity>
+
+        <Text style={styles.ctaNote}>No commitment — cancel anytime in the App Store</Text>
 
         <TouchableOpacity onPress={handleRestore} style={styles.restoreBtn}>
           <Text style={styles.restoreBtnText}>Restore purchases</Text>

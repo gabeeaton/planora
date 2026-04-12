@@ -23,7 +23,6 @@ import { Feather } from "@expo/vector-icons";
 import { useTasks } from "../hooks/useTasks";
 import { useAuth } from "../hooks/useAuth";
 import { useUserProfile } from "../hooks/useUserProfile";
-import { useSubscription } from "../hooks/useSubscription";
 import TaskCard from "../components/TaskCard";
 import TaskModal from "../components/TaskModal";
 import StatsBar from "../components/StatsBar";
@@ -39,10 +38,7 @@ import { Share } from "react-native";
 import {
   format,
   addDays,
-  subDays,
   isToday,
-  isTomorrow,
-  isYesterday,
   differenceInCalendarDays,
 } from "date-fns";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -134,45 +130,25 @@ const makeStyles = (colors, insets) =>
     },
     insightText: { fontSize: 13, fontWeight: "500", flex: 1, lineHeight: 18 },
 
-    tabScroll: { marginBottom: spacing.sm },
-    tabContainer: { gap: 6, paddingRight: spacing.md },
-    tab: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: radius.full,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.bgCard,
-    },
-    tabActive: {
-      backgroundColor: colors.accentGlow,
-      borderColor: colors.accent,
-    },
-    tabText: { fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
-    tabTextActive: { color: colors.accent },
-
-    dayCycler: {
+    segmentedControl: {
       flexDirection: "row",
-      alignItems: "center",
       backgroundColor: colors.bgCard,
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
       marginBottom: spacing.md,
-      overflow: "hidden",
+      padding: 3,
     },
-    dayCyclerBtn: { padding: spacing.md },
-    dayCyclerCenter: {
+    segment: {
       flex: 1,
+      paddingVertical: 7,
       alignItems: "center",
-      paddingVertical: spacing.sm,
+      justifyContent: "center",
+      borderRadius: radius.sm,
     },
-    dayCyclerLabel: {
-      fontSize: 15,
-      fontWeight: "700",
-      color: colors.textPrimary,
-    },
-    dayCyclerDate: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+    segmentActive: { backgroundColor: colors.accent },
+    segmentText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
+    segmentTextActive: { color: "#fff" },
 
     bucketHeader: {
       flexDirection: "row",
@@ -316,14 +292,7 @@ const makeStyles = (colors, insets) =>
     },
   });
 
-const TABS = ["All", "Today", "Pending", "Done"];
-
-const getDayLabel = (date) => {
-  if (isToday(date)) return "Today";
-  if (isTomorrow(date)) return "Tomorrow";
-  if (isYesterday(date)) return "Yesterday";
-  return format(date, "EEE, MMM d");
-};
+const TABS = ["All", "Today", "Done"];
 
 const bucketTasks = (tasks) => {
   const now = new Date();
@@ -374,7 +343,6 @@ const DashboardScreen = ({ navigation }) => {
 
   const { user } = useAuth();
   const { profile } = useUserProfile();
-  const { hasProAccess } = useSubscription();
   const {
     tasks,
     pendingTasks,
@@ -396,7 +364,6 @@ const DashboardScreen = ({ navigation }) => {
   const [aiAnnotatedTasks, setAiAnnotatedTasks] = useState([]);
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
   const [now, setNow] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState(new Date());
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
 
   useEffect(() => {
@@ -414,13 +381,6 @@ const DashboardScreen = ({ navigation }) => {
       })
       .catch(() => {});
   }, [tasks.length > 0, loading]);
-
-  const cycleDay = (direction) => {
-    setSelectedDay((prev) =>
-      direction === "next" ? addDays(prev, 1) : subDays(prev, 1)
-    );
-    setActiveTab("Today");
-  };
 
   const enrichedTasks = useMemo(() => {
     const gradeMap = {};
@@ -462,27 +422,28 @@ const DashboardScreen = ({ navigation }) => {
     );
     switch (activeTab) {
       case "Today":
-        return sortByDue(
-          filtered.filter((t) => {
-            const d = safeDate(t.dueDate);
-            if (!d) return false;
-            return (
-              d.getDate() === selectedDay.getDate() &&
-              d.getMonth() === selectedDay.getMonth() &&
-              d.getFullYear() === selectedDay.getFullYear()
-            );
-          })
-        );
-      case "Pending":
-        return sortByDue(filtered.filter((t) => !t.completed));
+        return sortByDue(filtered.filter((t) => {
+          const d = safeDate(t.dueDate);
+          return d ? isToday(d) : false;
+        }));
       case "Done":
         return enrichedTasks.filter((t) => t.completed);
       default:
         return sortByDue(filtered);
     }
-  }, [enrichedTasks, activeTab, selectedDay]);
+  }, [enrichedTasks, activeTab]);
 
   const buckets = useMemo(() => bucketTasks(enrichedTasks), [enrichedTasks]);
+
+  const nextUpTask = useMemo(() => {
+    const now = new Date();
+    return sortByDue(
+      pendingTasks.filter((t) => {
+        const d = safeDate(t.dueDate);
+        return d && d > now && !isToday(d);
+      })
+    )[0] ?? null;
+  }, [pendingTasks]);
 
   const behavioralInsight = useMemo(() => {
     if (!patterns) return null;
@@ -603,9 +564,7 @@ const DashboardScreen = ({ navigation }) => {
   });
   const handleFocusTask = (task) => {
     if (!task) return;
-    hasProAccess
-      ? navigation.navigate("FocusMode", { task: serializeTask(task) })
-      : navigation.navigate("Paywall");
+    navigation.navigate("FocusMode", { task: serializeTask(task) });
   };
 
   const greeting = () => {
@@ -669,22 +628,20 @@ const DashboardScreen = ({ navigation }) => {
               </Text>
             </View>
           )}
-<TouchableOpacity
+          <TouchableOpacity
             onPress={() => navigation.navigate("SyllabusParser")}
             style={styles.importBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Feather name="upload-cloud" size={16} color={colors.accent} />
           </TouchableOpacity>
-          {hasProAccess && (
-            <TouchableOpacity
-              onPress={() => navigation.navigate("WeeklyBriefing")}
-              style={styles.weeklyBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="calendar" size={16} color={colors.accent} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={() => navigation.navigate("WeeklyBriefing")}
+            style={styles.weeklyBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="calendar" size={16} color={colors.accent} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -754,69 +711,24 @@ const DashboardScreen = ({ navigation }) => {
         )}
 
         {/* Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabScroll}
-          contentContainerStyle={styles.tabContainer}
-        >
+        <View style={styles.segmentedControl}>
           {TABS.map((tab) => {
             const count =
-              tab === "Today"   ? todaysTasks.length :
-              tab === "Pending" ? pendingTasks.length :
-              tab === "Done"    ? completedTasks.length : null;
+              tab === "Today" ? todaysTasks.length :
+              tab === "Done"  ? completedTasks.length : null;
             return (
               <TouchableOpacity
                 key={tab}
                 onPress={() => setActiveTab(tab)}
-                style={[styles.tab, activeTab === tab && styles.tabActive]}
+                style={[styles.segment, activeTab === tab && styles.segmentActive]}
               >
-                <Text
-                  style={[
-                    styles.tabText,
-                    activeTab === tab && styles.tabTextActive,
-                  ]}
-                >
+                <Text style={[styles.segmentText, activeTab === tab && styles.segmentTextActive]}>
                   {tab}{count !== null && count > 0 ? ` · ${count}` : ""}
                 </Text>
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
-
-        {/* Day cycler for Today tab */}
-        {activeTab === "Today" && (
-          <View style={styles.dayCycler}>
-            <TouchableOpacity
-              onPress={() => cycleDay("prev")}
-              style={styles.dayCyclerBtn}
-            >
-              <Feather
-                name="chevron-left"
-                size={18}
-                color={colors.textPrimary}
-              />
-            </TouchableOpacity>
-            <View style={styles.dayCyclerCenter}>
-              <Text style={styles.dayCyclerLabel}>
-                {getDayLabel(selectedDay)}
-              </Text>
-              <Text style={styles.dayCyclerDate}>
-                {format(selectedDay, "MMMM d, yyyy")}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => cycleDay("next")}
-              style={styles.dayCyclerBtn}
-            >
-              <Feather
-                name="chevron-right"
-                size={18}
-                color={colors.textPrimary}
-              />
-            </TouchableOpacity>
-          </View>
-        )}
+        </View>
 
         {/* Task list */}
         {loading && tasks.length === 0 ? (
@@ -866,7 +778,7 @@ const DashboardScreen = ({ navigation }) => {
             {renderBucket("Due Today", buckets.dueToday, colors.medium)}
             {renderBucket("This Week", buckets.thisWeek, colors.accent)}
             {renderBucket("Later", buckets.later, colors.textMuted)}
-            {renderBucket("No Due Date", buckets.noDate, colors.textMuted)}
+            {renderBucket("Someday", buckets.noDate, colors.textMuted)}
             {buckets.completed.length > 0 && (
               <View style={{ marginTop: spacing.sm }}>
                 <View style={styles.bucketHeader}>
@@ -920,14 +832,16 @@ const DashboardScreen = ({ navigation }) => {
               {activeTab === "Done"
                 ? "Nothing completed yet"
                 : activeTab === "Today"
-                ? `Nothing due ${getDayLabel(selectedDay).toLowerCase()}`
+                ? "Nothing due today"
                 : "All clear!"}
             </Text>
             <Text style={styles.emptySubtitle}>
               {activeTab === "Done"
                 ? "Check off tasks and they'll appear here."
                 : activeTab === "Today"
-                ? "Enjoy the breather — or get ahead on upcoming work."
+                ? nextUpTask
+                  ? `Next up: "${nextUpTask.title}" — due ${format(safeDate(nextUpTask.dueDate), "MMM d")}`
+                  : "You're ahead of schedule."
                 : "No pending tasks. Tap + to add one."}
             </Text>
           </View>

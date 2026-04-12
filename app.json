@@ -6,24 +6,39 @@
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.planora.app",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"],
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "NSUserTrackingUsageDescription": "Planora does not track you across other apps or websites."
       },
       "scheme": "planora"
     },
     "android": {
       "package": "com.planora.app",
-      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE", "POST_NOTIFICATIONS"],
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
-          "data": [{ "scheme": "planora" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "planora"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -37,16 +52,17 @@
           "defaultChannel": "task-reminders",
           "sounds": []
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "extra": {
-      "firebaseApiKey":            "$FIREBASE_API_KEY",
-      "firebaseAuthDomain":        "$FIREBASE_AUTH_DOMAIN",
-      "firebaseProjectId":         "$FIREBASE_PROJECT_ID",
-      "firebaseStorageBucket":     "$FIREBASE_STORAGE_BUCKET",
+      "firebaseApiKey": "$FIREBASE_API_KEY",
+      "firebaseAuthDomain": "$FIREBASE_AUTH_DOMAIN",
+      "firebaseProjectId": "$FIREBASE_PROJECT_ID",
+      "firebaseStorageBucket": "$FIREBASE_STORAGE_BUCKET",
       "firebaseMessagingSenderId": "$FIREBASE_MESSAGING_SENDER_ID",
-      "firebaseAppId":             "$FIREBASE_APP_ID",
-      "openaiApiKey":              "$OPENAI_API_KEY"
+      "firebaseAppId": "$FIREBASE_APP_ID",
+      "openaiApiKey": "$OPENAI_API_KEY"
     }
   }
 }

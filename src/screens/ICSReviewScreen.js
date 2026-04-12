@@ -7,7 +7,7 @@
 import React, { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator,
+  ScrollView, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -15,6 +15,9 @@ import { format } from "date-fns";
 import { spacing, radius, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useTasks } from "../hooks/useTasks";
+import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuth } from "../hooks/useAuth";
+import { saveUserProfile } from "../services/firebase";
 
 const PRIORITY_META = {
   HIGH:   { color: "#FF5C5C", label: "High" },
@@ -99,16 +102,48 @@ const makeStyles = (colors) => StyleSheet.create({
     borderWidth: 1, borderColor: colors.border,
   },
   summaryText: { ...typography.body, color: colors.textPrimary, flex: 1 },
+
+  // Grade prompt
+  gradeOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  gradeSheet: {
+    backgroundColor: colors.bgCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingBottom: 36, maxHeight: "85%",
+  },
+  gradeSheetHandle: {
+    width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border,
+    alignSelf: "center", marginTop: 10, marginBottom: 4,
+  },
+  gradeSheetHeader: {
+    paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  gradeSheetTitle: { fontSize: 17, fontWeight: "800", color: colors.textPrimary, marginBottom: 4 },
+  gradeSheetSub:   { fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
+  gradeClassItem:  { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  gradeClassName:  { fontSize: 14, fontWeight: "700", color: colors.textPrimary, marginBottom: 10 },
+  gradeChipsRow:   { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  gradeChip:         { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.bg },
+  gradeChipSelected: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
+  gradeChipText:         { fontSize: 13, fontWeight: "700", color: colors.textMuted },
+  gradeChipTextSelected: { color: colors.accent },
+  gradeActions:    { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: 10 },
+  gradeSaveBtn:    { backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 14, alignItems: "center" },
+  gradeSaveBtnText:{ color: "#fff", fontSize: 15, fontWeight: "700" },
+  gradeSkipBtn:    { alignItems: "center", paddingVertical: 10 },
+  gradeSkipText:   { fontSize: 13, color: colors.textMuted },
 });
 
 const ICSReviewScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const { createManyTasks } = useTasks();
+  const { createManyTasks }    = useTasks();
+  const { profile }            = useUserProfile();
+  const { user }               = useAuth();
 
   const initial = (route.params?.tasks ?? []).map((t, i) => ({ ...t, _key: i, _removed: false }));
   const [items, setItems]   = useState(initial);
   const [loading, setLoading] = useState(false);
+
 
   const update = (key, field, value) =>
     setItems((prev) => prev.map((t) => t._key === key ? { ...t, [field]: value } : t));
@@ -124,18 +159,49 @@ const ICSReviewScreen = ({ route, navigation }) => {
     }
     setLoading(true);
     try {
-      await createManyTasks(
-        activeItems.map(({ title, dueDate, dueTime, priority, className, description }) => ({
-          title: title.trim(),
-          description: description ?? null,
-          dueDate:  dueDate  ?? null,
-          dueTime:  dueTime  ?? null,
-          priority: priority ?? "MEDIUM",
-          className: className?.trim() || null,
-        }))
-      );
+      const toImport = activeItems.map(({ title, dueDate, dueTime, priority, className, description, canvasId }) => ({
+        title: title.trim(),
+        description: description ?? null,
+        dueDate:  dueDate  ?? null,
+        dueTime:  dueTime  ?? null,
+        priority: priority ?? "MEDIUM",
+        className: className?.trim() || null,
+        ...(canvasId ? { canvasId } : {}),
+      }));
+
+      const result = await createManyTasks(toImport);
+      const created = result?.created ?? toImport.length;
+      const skipped = result?.skipped ?? 0;
+
+      // Silently add new classes to profile with "No grade yet"
+      const existingNames = new Set((profile?.classes ?? []).map((c) => c.name));
+      const newNames = [...new Set(toImport.map((t) => t.className).filter(Boolean))]
+        .filter((n) => !existingNames.has(n));
+
+      if (newNames.length > 0) {
+        const newEntries = newNames.map((name, i) => ({
+          id: `${Date.now()}${i}`,
+          name,
+          creditHours: "3",
+          grade: "No grade yet",
+        }));
+        saveUserProfile(user.uid, { classes: [...(profile?.classes ?? []), ...newEntries] }).catch(() => {});
+      }
+
+      const msg = skipped > 0
+        ? `${created} task${created !== 1 ? "s" : ""} added. ${skipped} duplicate${skipped !== 1 ? "s" : ""} skipped.`
+        : `${created} task${created !== 1 ? "s" : ""} added to your list.`;
+
       navigation.popToTop();
-      Alert.alert("Imported!", `${activeItems.length} tasks added to your list.`);
+
+      if (newNames.length > 0) {
+        Alert.alert("Imported!", msg, [
+          { text: "Add Grades", onPress: () => navigation.navigate("Profile") },
+          { text: "Done", style: "cancel" },
+        ]);
+      } else {
+        Alert.alert("Imported!", msg);
+      }
     } catch (err) {
       Alert.alert("Import failed", err.message);
     } finally {

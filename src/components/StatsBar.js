@@ -17,7 +17,7 @@ const StatsBar = ({ todayCount, pendingCount, completedCount }) => {
         <View style={[styles.iconWrap, { backgroundColor: colors.medium + "18" }]}>
           <Feather name="sun" size={16} color={colors.medium} />
         </View>
-        <Text style={[styles.value, { color: colors.textPrimary }]}>{todayCount}</Text>
+        <Text style={[styles.value, { color: todayCount > 0 ? colors.medium : colors.textPrimary }]}>{todayCount}</Text>
         <Text style={[styles.label, { color: colors.textSecondary }]}>Today</Text>
       </View>
 
@@ -28,7 +28,7 @@ const StatsBar = ({ todayCount, pendingCount, completedCount }) => {
         <View style={[styles.iconWrap, { backgroundColor: colors.accent + "18" }]}>
           <Feather name="clock" size={16} color={colors.accent} />
         </View>
-        <Text style={[styles.value, { color: colors.textPrimary }]}>{pendingCount}</Text>
+        <Text style={[styles.value, { color: pendingCount > 0 ? colors.accent : colors.textPrimary }]}>{pendingCount}</Text>
         <Text style={[styles.label, { color: colors.textSecondary }]}>Pending</Text>
       </View>
 
@@ -39,7 +39,7 @@ const StatsBar = ({ todayCount, pendingCount, completedCount }) => {
         <View style={[styles.iconWrap, { backgroundColor: colors.low + "18" }]}>
           <Feather name="check-circle" size={16} color={colors.low} />
         </View>
-        <Text style={[styles.value, { color: colors.textPrimary }]}>{completedCount}</Text>
+        <Text style={[styles.value, { color: completedCount > 0 ? colors.low : colors.textPrimary }]}>{completedCount}</Text>
         <Text style={[styles.label, { color: colors.textSecondary }]}>Done</Text>
       </View>
     </View>

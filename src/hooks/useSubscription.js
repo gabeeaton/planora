@@ -33,7 +33,7 @@ export const useSubscription = () => {
       setRcSubscribed(info.entitlements.active[ENTITLEMENT_ID] !== undefined);
     });
 
-    return () => listener.remove();
+    return () => { if (typeof listener === "function") listener(); else listener?.remove?.(); };
   }, [user?.uid]);
 
   const loading = profileLoading || rcLoading;

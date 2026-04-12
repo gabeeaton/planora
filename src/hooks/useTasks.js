@@ -7,7 +7,7 @@
 //   - removeTask: cancels reminders on delete
 // ============================================================
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   subscribeTasks, addTask, updateTask,
@@ -41,6 +41,10 @@ export const useTasks = () => {
   const [error, setError]       = useState(null);
   const [patterns, setPatterns] = useState(null);
   const [streak, setStreak]     = useState(0);
+
+  // Keep a ref so createManyTasks can read current tasks without stale closure
+  const tasksRef = useRef([]);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
 
   // Load persisted streak on mount — resets if user missed a day
   useEffect(() => {
@@ -120,11 +124,22 @@ export const useTasks = () => {
   const createManyTasks = useCallback(async (tasksArray) => {
     if (!user) throw new Error("Not logged in.");
     try {
-      const docRefs = await Promise.all(tasksArray.map((t) => addTask(user.uid, t)));
+      // Deduplicate Canvas re-imports: skip tasks whose canvasId already exists
+      const existingCanvasIds = new Set(
+        tasksRef.current.filter((t) => t.canvasId).map((t) => String(t.canvasId))
+      );
+      const toCreate = tasksArray.filter(
+        (t) => !t.canvasId || !existingCanvasIds.has(String(t.canvasId))
+      );
+      const skipped = tasksArray.length - toCreate.length;
+
+      if (toCreate.length === 0) return { created: 0, skipped };
+
+      const docRefs = await Promise.all(toCreate.map((t) => addTask(user.uid, t)));
 
       Promise.all(
         docRefs.map(async (docRef, i) => {
-          const task = tasksArray[i];
+          const task = toCreate[i];
           if (!task.dueDate) return;
           const notificationIds = await scheduleTaskReminder({ id: docRef.id, ...task });
           if (notificationIds.id24h || notificationIds.id2h) {
@@ -133,6 +148,7 @@ export const useTasks = () => {
         })
       ).catch(() => {});
 
+      return { created: toCreate.length, skipped };
     } catch (err) {
       const msg = err.message || "Failed to import tasks.";
       setError(msg);

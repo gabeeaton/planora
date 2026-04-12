@@ -162,7 +162,7 @@ export const getTodayFocus = async (tasks, userProfile, patterns) => {
   const classes =
     userProfile?.classes
       ?.map(
-        (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade ?? "?"})`
+        (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade && c.grade !== "No grade yet" ? c.grade : "none yet"})`
       )
       .join(", ") ?? "Not specified";
 
@@ -237,7 +237,7 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
       ?.map(
         (c) =>
           `${c.name} (${c.creditHours} credits, current grade: ${
-            c.grade ?? "unknown"
+            c.grade && c.grade !== "No grade yet" ? c.grade : "none yet"
           })`
       )
       .join(", ") ?? "Not specified";
@@ -295,7 +295,7 @@ export const getWeeklyPlan = async (tasks, userProfile, patterns) => {
   const classes =
     userProfile?.classes
       ?.map(
-        (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade ?? "?"})`
+        (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade && c.grade !== "No grade yet" ? c.grade : "none yet"})`
       )
       .join("\n  ") ?? "Not specified";
   const preferredTime = userProfile?.preferredWorkTime ?? "not specified";
@@ -358,11 +358,15 @@ Respond ONLY with this JSON (no markdown):
     const result = safeParseJSON(content.trim());
 
     // Post-process: validate task titles actually exist
-    const validTitles = new Set(pending.map((t) => t.title));
+    // Normalize both sides so minor AI variations (case, whitespace) don't strip everything
+    const normalize = (s) => s?.trim().toLowerCase() ?? "";
+    const validTitlesNorm = new Map(pending.map((t) => [normalize(t.title), t.title]));
     if (result.days) {
       result.days = result.days.map((day) => ({
         ...day,
-        tasks: (day.tasks ?? []).filter((title) => validTitles.has(title)),
+        tasks: (day.tasks ?? [])
+          .map((title) => validTitlesNorm.get(normalize(title)) ?? null)
+          .filter(Boolean),
       }));
     }
 
@@ -400,7 +404,7 @@ const buildChatContext = (tasks, userProfile, patterns) => {
   lines.push(`Today: ${today()}`);
 
   const classes = userProfile?.classes
-    ?.map((c) => `${c.name} (${c.creditHours}cr, grade:${c.grade ?? "?"})`)
+    ?.map((c) => `${c.name} (${c.creditHours}cr, grade:${c.grade && c.grade !== "No grade yet" ? c.grade : "none yet"})`)
     .join(", ");
   if (classes) lines.push(`Classes: ${classes}`);
   if (userProfile?.semester) lines.push(`Semester: ${userProfile.semester}`);
@@ -468,7 +472,9 @@ export const sendChatMessage = async (
     return content.trim();
   } catch (err) {
     console.error("sendChatMessage failed:", err);
-    throw new Error(friendlyError(err));
+    const error = new Error(friendlyError(err));
+    error.limitReached = err?.limitReached ?? false;
+    throw error;
   }
 };
 

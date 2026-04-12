@@ -86,6 +86,12 @@ const makeStyles = (colors) => StyleSheet.create({
     ...typography.bodySmall, color: colors.accent, marginTop: 4, fontStyle: "italic",
     borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8,
   },
+  regenerateRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 6, paddingVertical: 14, marginTop: spacing.sm,
+    borderTopWidth: 1, borderTopColor: colors.border,
+  },
+  regenerateText: { fontSize: 13, color: colors.textMuted, fontWeight: "600" },
   toast: {
     position: "absolute",
     top: 60,
@@ -114,7 +120,7 @@ const makeStyles = (colors) => StyleSheet.create({
 let _cachedPlan      = null;
 let _cacheLoadedAt   = null;
 let _pendingPromise  = null;
-const CACHE_TTL_MS   = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL_MS   = 24 * 60 * 60 * 1000; // 24 hours
 
 const WeeklyBriefingScreen = ({ navigation }) => {
   const { colors } = useTheme();
@@ -316,6 +322,11 @@ const WeeklyBriefingScreen = ({ navigation }) => {
                 {day.note && <Text style={styles.dayNote}>{day.note}</Text>}
               </View>
             ))}
+
+            <TouchableOpacity style={styles.regenerateRow} onPress={handleRefresh} disabled={loading}>
+              <Feather name="refresh-cw" size={13} color={colors.textMuted} />
+              <Text style={styles.regenerateText}>Regenerate plan</Text>
+            </TouchableOpacity>
 
             <View style={{ height: 40 }} />
           </>

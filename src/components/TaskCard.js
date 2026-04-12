@@ -75,8 +75,15 @@ const makeStyles = (colors) => StyleSheet.create({
   footer:     { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   dueDateRow: { flexDirection: "row", alignItems: "center" },
   dueDate:    { ...typography.bodySmall, color: colors.textSecondary, marginLeft: 4 },
-  actions:    { flexDirection: "row", gap: spacing.sm },
+  actions:    { flexDirection: "row", gap: spacing.sm, alignItems: "center" },
   actionBtn:  { padding: 4 },
+  focusChip: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: colors.accentGlow, borderRadius: radius.full,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderWidth: 1, borderColor: colors.accent,
+  },
+  focusChipText: { fontSize: 11, color: colors.accent, fontWeight: "600" },
 });
 
 const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = false }) => {
@@ -203,6 +210,12 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = fal
                 </View>
               ) : <View />}
               <View style={styles.actions}>
+                {onFocus && !task.completed && (
+                  <TouchableOpacity onPress={() => onFocus(task)} style={styles.focusChip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Feather name="clock" size={10} color={colors.accent} />
+                    <Text style={styles.focusChipText}>Focus · 25m</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity onPress={() => onEdit(task)} style={styles.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Feather name="edit-2" size={14} color={colors.textMuted} />
                 </TouchableOpacity>

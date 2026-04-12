@@ -1,6 +1,8 @@
 // ============================================================
 // src/screens/ChatScreen.js
-// Academic coach chat — gpt-4o-mini, local history via AsyncStorage
+// Academic coach chat — gpt-4o-mini
+// Free users: AsyncStorage only (device-local)
+// Scholar users: Firestore-backed history (cross-device, persistent)
 // ============================================================
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -9,14 +11,17 @@ import {
   FlatList, KeyboardAvoidingView, Platform, ActivityIndicator,
   Alert,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../utils/ThemeContext";
 import { useAuth } from "../hooks/useAuth";
 import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useSubscription } from "../hooks/useSubscription";
 import { sendChatMessage } from "../services/openai";
+import { loadChatHistory, saveChatHistory, clearChatHistory } from "../services/firebase";
 import { spacing, radius, typography } from "../utils/theme";
 
 const HISTORY_KEY = (uid) => `@planora_chat_${uid}`;
@@ -32,10 +37,11 @@ const STARTERS = [
 
 export default function ChatScreen() {
   const { colors }                   = useTheme();
-  const insets                       = useSafeAreaInsets();
+  const navigation                   = useNavigation();
   const { user }                     = useAuth();
   const { tasks, patterns }          = useTasks();
   const { profile }                  = useUserProfile();
+  const { isPro }                    = useSubscription();
   const styles                       = makeStyles(colors);
 
   const [messages, setMessages]      = useState([]); // { id, role, text, ts }
@@ -47,21 +53,37 @@ export default function ChatScreen() {
   const inputRef = useRef(null);
 
   // ── Load history ───────────────────────────────────────────
+  // Scholar: Firestore (cross-device). Free: AsyncStorage (device-local).
   useEffect(() => {
     if (!user) return;
-    AsyncStorage.getItem(HISTORY_KEY(user.uid))
-      .then((raw) => {
+    const load = async () => {
+      try {
+        if (isPro) {
+          const firestoreMsgs = await loadChatHistory(user.uid);
+          if (firestoreMsgs.length > 0) {
+            setMessages(firestoreMsgs);
+            setHistLoaded(true);
+            return;
+          }
+        }
+        // Fallback to AsyncStorage (free users, or Scholar with no Firestore history yet)
+        const raw = await AsyncStorage.getItem(HISTORY_KEY(user.uid));
         if (raw) setMessages(JSON.parse(raw));
-      })
-      .catch(() => {})
-      .finally(() => setHistLoaded(true));
-  }, [user]);
+      } catch {
+        // ignore
+      } finally {
+        setHistLoaded(true);
+      }
+    };
+    load();
+  }, [user?.uid, isPro]);
 
   // ── Persist history ────────────────────────────────────────
   useEffect(() => {
     if (!user || !historyLoaded) return;
     const toStore = messages.slice(-MAX_STORED);
     AsyncStorage.setItem(HISTORY_KEY(user.uid), JSON.stringify(toStore)).catch(() => {});
+    if (isPro) saveChatHistory(user.uid, toStore);
   }, [messages, historyLoaded]);
 
   // ── Send message ───────────────────────────────────────────
@@ -90,6 +112,10 @@ export default function ChatScreen() {
       const aiMsg = { id: (Date.now() + 1).toString(), role: "assistant", text: reply, ts: Date.now() };
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err) {
+      if (err?.limitReached) {
+        navigation.navigate("Paywall");
+        return;
+      }
       const errMsg = { id: (Date.now() + 1).toString(), role: "assistant", text: err.message ?? "Something went wrong. Try again.", ts: Date.now(), isError: true };
       setMessages((prev) => [...prev, errMsg]);
     } finally {
@@ -105,6 +131,7 @@ export default function ChatScreen() {
         text: "Clear", style: "destructive", onPress: () => {
           setMessages([]);
           AsyncStorage.removeItem(HISTORY_KEY(user.uid)).catch(() => {});
+          if (isPro) clearChatHistory(user.uid);
         },
       },
     ]);
@@ -145,14 +172,19 @@ export default function ChatScreen() {
   };
 
   const isEmpty = messages.length === 0 && !typing;
+  const firstName = profile?.name?.split(" ")[0] ?? null;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       {/* Header */}
       <View style={styles.header}>
+        <View style={styles.headerAvatar}>
+          <Feather name="cpu" size={18} color={colors.accent} />
+          <View style={styles.onlineDot} />
+        </View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Academic Coach</Text>
-          <Text style={styles.headerSub}>Powered by AI · knows your tasks</Text>
+          <Text style={styles.headerSub}>Knows your tasks, classes & deadlines</Text>
         </View>
         {messages.length > 0 && (
           <TouchableOpacity onPress={clearChat} style={styles.clearBtn}>
@@ -164,7 +196,7 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={60}
       >
         {/* Empty state with starters */}
         {isEmpty ? (
@@ -172,15 +204,18 @@ export default function ChatScreen() {
             <View style={styles.emptyIcon}>
               <Feather name="cpu" size={32} color={colors.accent} />
             </View>
-            <Text style={styles.emptyTitle}>Your Academic Coach</Text>
+            <Text style={styles.emptyTitle}>
+              {firstName ? `Hi ${firstName}! 👋` : "Your Academic Coach"}
+            </Text>
             <Text style={styles.emptySub}>
-              Ask me anything about your workload, study strategy, or which class needs attention.
+              {firstName
+                ? "Ask me anything about your workload, upcoming deadlines, or which class needs attention right now."
+                : "Ask me anything about your workload, study strategy, or which class needs attention."}
             </Text>
             <View style={styles.starters}>
               {STARTERS.map((s) => (
                 <TouchableOpacity key={s} style={styles.starterBtn} onPress={() => send(s)}>
                   <Text style={styles.starterText}>{s}</Text>
-                  <Feather name="arrow-right" size={13} color={colors.accent} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -208,7 +243,7 @@ export default function ChatScreen() {
         )}
 
         {/* Input bar */}
-        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={styles.inputBar}>
           <TextInput
             ref={inputRef}
             style={styles.input}
@@ -245,35 +280,44 @@ const makeStyles = (colors) => StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.border,
     gap: 10,
   },
+  headerAvatar: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: colors.accentGlow, borderWidth: 1.5, borderColor: colors.accent,
+    alignItems: "center", justifyContent: "center",
+  },
+  onlineDot: {
+    position: "absolute", bottom: 1, right: 1,
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: "#5CFF8F", borderWidth: 1.5, borderColor: colors.bg,
+  },
   backBtn:      { padding: 4 },
   headerCenter: { flex: 1 },
-  headerTitle:  { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
+  headerTitle:  { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
   headerSub:    { fontSize: 11, color: colors.textMuted, marginTop: 1 },
   clearBtn:     { padding: 4 },
 
   // Empty state
   emptyWrap: {
     flex: 1, alignItems: "center", justifyContent: "center",
-    paddingHorizontal: spacing.xl, paddingBottom: 80,
+    paddingHorizontal: spacing.xl, paddingBottom: 40,
   },
   emptyIcon: {
-    width: 64, height: 64, borderRadius: 32,
+    width: 56, height: 56, borderRadius: 28,
     backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
+    alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
   },
-  emptyTitle: { fontSize: 20, fontWeight: "800", color: colors.textPrimary, marginBottom: spacing.xs, textAlign: "center" },
-  emptySub:   { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.lg },
-  starters:   { width: "100%", gap: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: "800", color: colors.textPrimary, marginBottom: spacing.xs, textAlign: "center" },
+  emptySub:   { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.md },
+  starters:   { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   starterBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: colors.bgCard, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, paddingVertical: 12,
+    backgroundColor: colors.bgCard, borderRadius: radius.full,
+    paddingHorizontal: 14, paddingVertical: 9,
     borderWidth: 1, borderColor: colors.border,
   },
-  starterText: { fontSize: 14, color: colors.textPrimary, flex: 1, marginRight: 8 },
+  starterText: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
 
   // Messages
-  list: { padding: spacing.md, gap: 12, paddingBottom: 8 },
+  list: { padding: spacing.md, gap: 12, paddingBottom: spacing.md },
   bubbleRow:     { flexDirection: "row", alignItems: "flex-end", gap: 8, marginBottom: 4 },
   bubbleRowUser: { flexDirection: "row-reverse" },
   avatar: {
@@ -295,8 +339,8 @@ const makeStyles = (colors) => StyleSheet.create({
 
   // Input bar
   inputBar: {
-    flexDirection: "row", alignItems: "flex-end", gap: 8,
-    paddingHorizontal: spacing.md, paddingTop: 10,
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: spacing.md, paddingVertical: 14,
     borderTopWidth: 1, borderTopColor: colors.border,
     backgroundColor: colors.bg,
   },

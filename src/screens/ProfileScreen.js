@@ -42,7 +42,7 @@ const WORK_TIMES = [
   "Evening (5pm–9pm)",
   "Night (9pm+)",
 ];
-const GRADES     = ["A", "B", "C", "D", "Not sure"];
+const GRADES     = ["A", "B", "C", "D", "F", "No grade yet"];
 const CREDIT_OPTS = ["1", "2", "3", "4", "5+"];
 
 // ── Styles ────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ const makeStyles = (colors) => StyleSheet.create({
   upgradeCard: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md,
-    marginBottom: spacing.md, borderWidth: 1,
+    marginBottom: spacing.md, borderWidth: 1.5,
   },
   upgradeLeft:     { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
   upgradeTitle:    { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
@@ -111,9 +111,14 @@ const makeStyles = (colors) => StyleSheet.create({
   rowValue:      { fontSize: 13, color: colors.textSecondary },
   divider:       { height: 1, backgroundColor: colors.border, marginLeft: 56 },
 
-  classRow:  { paddingHorizontal: spacing.md, paddingVertical: 12 },
-  className: { fontSize: 14, fontWeight: "600", color: colors.textPrimary },
-  classMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  classRow:      { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: 12, gap: 10 },
+  classRowInfo:  { flex: 1 },
+  className:     { fontSize: 14, fontWeight: "600", color: colors.textPrimary },
+  classMeta:     { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  gradeChip: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.full, borderWidth: 1,
+  },
+  gradeChipText: { fontSize: 11, fontWeight: "700" },
 
   version: { textAlign: "center", fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
 
@@ -243,7 +248,7 @@ const ProfileScreen = ({ navigation }) => {
   const openClasses = () => {
     const existing = (profile?.classes ?? []).map((c) => ({ ...c }));
     if (existing.length === 0) {
-      existing.push({ id: Date.now().toString(), name: "", creditHours: "3", grade: "B" });
+      existing.push({ id: Date.now().toString(), name: "", creditHours: "3", grade: "No grade yet" });
     }
     setEditClasses(existing);
     setModal("classes");
@@ -252,7 +257,7 @@ const ProfileScreen = ({ navigation }) => {
   const addClassRow = () => {
     setEditClasses((prev) => [
       ...prev,
-      { id: Date.now().toString(), name: "", creditHours: "3", grade: "B" },
+      { id: Date.now().toString(), name: "", creditHours: "3", grade: "No grade yet" },
     ]);
   };
 
@@ -335,7 +340,7 @@ const ProfileScreen = ({ navigation }) => {
         {/* Upgrade banner */}
         {!isPro && (
           <TouchableOpacity
-            style={[styles.upgradeCard, { borderColor: ac.accentGlow, ...ac.accentShadow }]}
+            style={[styles.upgradeCard, { borderColor: ac.accent, ...ac.accentShadow }]}
             onPress={() => navigation.navigate("Paywall")}
             activeOpacity={0.85}
           >
@@ -388,15 +393,30 @@ const ProfileScreen = ({ navigation }) => {
           <>
             <SectionHeader title="Your Classes" />
             <View style={styles.card}>
-              {profile.classes.map((cls, i) => (
-                <View key={cls.id ?? i}>
-                  {i > 0 && <View style={styles.divider} />}
-                  <View style={styles.classRow}>
-                    <Text style={styles.className}>{cls.name}</Text>
-                    <Text style={styles.classMeta}>{cls.creditHours} credits · Grade: {cls.grade ?? "?"}</Text>
+              {profile.classes.map((cls, i) => {
+                const grade = cls.grade === "No grade yet" ? null : (cls.grade ?? null);
+                const gradeColor = grade === "A" ? "#5CFF8F" : grade === "B" ? colors.accent : grade === "C" ? "#FFB347" : grade === "D" || grade === "F" ? colors.high : null;
+                return (
+                  <View key={cls.id ?? i}>
+                    {i > 0 && <View style={styles.divider} />}
+                    <View style={styles.classRow}>
+                      <View style={styles.classRowInfo}>
+                        <Text style={styles.className}>{cls.name}</Text>
+                        <Text style={styles.classMeta}>{cls.creditHours} credits</Text>
+                      </View>
+                      {grade && gradeColor ? (
+                        <View style={[styles.gradeChip, { borderColor: gradeColor + "66", backgroundColor: gradeColor + "18" }]}>
+                          <Text style={[styles.gradeChipText, { color: gradeColor }]}>{grade}</Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.gradeChip, { borderColor: colors.border, backgroundColor: "transparent" }]}>
+                          <Text style={[styles.gradeChipText, { color: colors.textMuted }]}>—</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </>
         )}

@@ -1,6 +1,6 @@
 // ============================================================
-// src/screens/FocusModeScreen.js  (Pro feature)
-// Full-screen Pomodoro. Long-press any task card to enter.
+// src/screens/FocusModeScreen.js
+// Full-screen Pomodoro. Tap the play button on any task card to enter.
 // navigation.navigate("FocusMode", { task })
 //
 // FIXES:
@@ -60,6 +60,7 @@ export default function FocusModeScreen({ route, navigation }) {
   const pulse     = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(null);
   const iv        = useRef(null);
+  const mounted   = useRef(true);
   // Use a ref for brk so the interval closure always sees current value
   const brkRef = useRef(brk);
   useEffect(() => { brkRef.current = brk; }, [brk]);
@@ -67,6 +68,7 @@ export default function FocusModeScreen({ route, navigation }) {
   // Stop animation and interval on unmount
   useEffect(() => {
     return () => {
+      mounted.current = false;
       clearInterval(iv.current);
       pulseAnim.current?.stop();
     };
@@ -85,9 +87,11 @@ export default function FocusModeScreen({ route, navigation }) {
       pulseAnim.current.start();
 
       iv.current = setInterval(() => {
+        if (!mounted.current) return;
         setSecs((v) => {
           if (v <= 1) {
             clearInterval(iv.current);
+            if (!mounted.current) return 0;
             setOn(false);
             if (!brkRef.current) {
               setN((x) => x + 1);
@@ -113,7 +117,7 @@ export default function FocusModeScreen({ route, navigation }) {
     if (marked) return;
     setMarked(true);
     try { if (task) await completeTask(task); } catch {}
-    navigation.goBack();
+    if (mounted.current) navigation.goBack();
   };
 
   const leave = () => {

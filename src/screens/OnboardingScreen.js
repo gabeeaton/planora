@@ -459,7 +459,7 @@ const WORK_TIMES = [
   "Evening (5pm–9pm)",
   "Night (9pm+)",
 ];
-const GRADES = ["A", "B", "C", "D", "Not sure"];
+const GRADES = ["A", "B", "C", "D", "F", "No grade yet"];
 const CREDIT_OPTS = ["1", "2", "3", "4", "5+"];
 const STEP_COUNT = 4;
 
@@ -902,7 +902,7 @@ const OnboardingScreen = ({ navigation }) => {
 
   // Step 1 — classes
   const [classes, setClasses] = useState([
-    { id: generateId(), name: "", creditHours: "3", grade: "B" },
+    { id: generateId(), name: "", creditHours: "3", grade: "No grade yet" },
   ]);
 
   // Step 2 — work time preferences
@@ -921,7 +921,7 @@ const OnboardingScreen = ({ navigation }) => {
               ...c,
               creditHours: String(c.creditHours ?? 3),
             }))
-          : [{ id: generateId(), name: "", creditHours: "3", grade: "B" }]
+          : [{ id: generateId(), name: "", creditHours: "3", grade: "No grade yet" }]
       );
       setWorkTime(profile.preferredWorkTime ?? null);
       setHardestClass(profile.hardestClass ?? null);
@@ -943,7 +943,7 @@ const OnboardingScreen = ({ navigation }) => {
   const addClass = () =>
     setClasses((p) => [
       ...p,
-      { id: generateId(), name: "", creditHours: "3", grade: "B" },
+      { id: generateId(), name: "", creditHours: "3", grade: "No grade yet" },
     ]);
   const removeClass = (id) => setClasses((p) => p.filter((c) => c.id !== id));
   const updateClass = (id, field, value) =>
@@ -952,10 +952,10 @@ const OnboardingScreen = ({ navigation }) => {
     );
 
   const canAdvance = () => {
-    if (step_n === 0) return !!semester;
+    if (step_n === 0) return !!semester || isEditing; // editing: allow even if semester was cleared
     if (step_n === 1) return true; // import optional
     if (step_n === 2) return true; // classes optional
-    if (step_n === 3) return !!workTime;
+    if (step_n === 3) return !!workTime || isEditing; // editing: work time already set previously
     return false;
   };
 

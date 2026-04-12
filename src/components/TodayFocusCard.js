@@ -12,12 +12,12 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import {
-  View, Text, StyleSheet, ActivityIndicator, Animated,
+  View, Text, StyleSheet, ActivityIndicator, Animated, TouchableOpacity,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { spacing, radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
-import { getTodayFocus } from "../services/openai";
+import { getTodayFocus, invalidateTodayFocusCache } from "../services/openai";
 
 // Strip any [ID:xxxx] or [id:xxxx] tokens the model echoed back
 const cleanText = (str) => {
@@ -68,6 +68,12 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 10,
   },
   shimmerText: { fontSize: 13, color: colors.textMuted, fontStyle: "italic" },
+  errorRow: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
+  },
+  errorText: { fontSize: 13, color: colors.textMuted, flex: 1 },
+  retryText: { fontSize: 13, color: colors.accent, fontWeight: "600" },
 });
 
 const PRIORITY_COLORS = { HIGH: "#FF5C5C", MEDIUM: "#FFB347", LOW: "#5CFF8F" };
@@ -78,21 +84,34 @@ const TodayFocusCard = ({ tasks, userProfile, patterns }) => {
 
   const [focus, setFocus]     = useState(null);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed]   = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
+  const load = () => {
     const pending = tasks.filter((t) => !t.completed);
     if (pending.length === 0) return;
     setLoading(true);
+    setFailed(false);
     getTodayFocus(tasks, userProfile, patterns)
       .then((data) => {
-        setFocus(data);
         if (data) {
+          setFocus(data);
           Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+        } else {
+          setFailed(true);
         }
       })
       .finally(() => setLoading(false));
-  }, []); // Only on mount — cache handles repeat renders
+  };
+
+  useEffect(() => { load(); }, []); // Only on mount — cache handles repeat renders
+
+  const retry = () => {
+    invalidateTodayFocusCache();
+    fadeAnim.setValue(0);
+    setFocus(null);
+    load();
+  };
 
   // Resolve task IDs → actual task objects
   const focusTasks = focus?.taskIds
@@ -108,6 +127,20 @@ const TodayFocusCard = ({ tasks, userProfile, patterns }) => {
         <View style={styles.shimmer}>
           <ActivityIndicator size={14} color={colors.accent} />
           <Text style={styles.shimmerText}>Finding your focus for today...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (failed) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.errorRow}>
+          <Feather name="wifi-off" size={14} color={colors.textMuted} />
+          <Text style={styles.errorText}>Couldn't load today's focus</Text>
+          <TouchableOpacity onPress={retry}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
