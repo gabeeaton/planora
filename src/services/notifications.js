@@ -197,7 +197,7 @@ export const cancelAllReminders = async () => {
 
 // ── Streak reminder (daily, fires at user's productive hour) ─
 
-const STREAK_NOTIF_KEY = "@planora_streak_notif_id";
+const streakNotifKey = (uid) => `@planora_streak_notif_id_${uid}`;
 
 const PRODUCTIVE_TIME_HOURS = {
   morning:   8,
@@ -212,10 +212,12 @@ const PRODUCTIVE_TIME_HOURS = {
  *
  * @param {number} streak    Current streak count (must be > 0)
  * @param {string} bestTime  "morning" | "afternoon" | "evening" | "night"
+ * @param {string} uid       Firebase user ID (keeps keys user-specific)
  */
-export const scheduleStreakReminder = async (streak, bestTime) => {
+export const scheduleStreakReminder = async (streak, bestTime, uid) => {
+  if (!uid) return;
   if (!streak || streak <= 0) {
-    await cancelStreakReminder();
+    await cancelStreakReminder(uid);
     return;
   }
 
@@ -223,7 +225,7 @@ export const scheduleStreakReminder = async (streak, bestTime) => {
   if (!granted) return;
 
   // Cancel existing before rescheduling
-  await cancelStreakReminder();
+  await cancelStreakReminder(uid);
 
   const hour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 18;
 
@@ -242,22 +244,33 @@ export const scheduleStreakReminder = async (streak, bestTime) => {
         repeats: true,
       },
     });
-    await AsyncStorage.setItem(STREAK_NOTIF_KEY, id).catch(() => {});
+    await AsyncStorage.setItem(streakNotifKey(uid), id).catch(() => {});
   } catch (err) {
     console.warn("Failed to schedule streak reminder:", err);
   }
 };
 
 /**
- * Cancel the current streak reminder (e.g. streak reset to 0).
+ * Cancel the streak reminder for a specific user.
  */
-export const cancelStreakReminder = async () => {
+export const cancelStreakReminder = async (uid) => {
   try {
-    const id = await AsyncStorage.getItem(STREAK_NOTIF_KEY);
+    const key = uid ? streakNotifKey(uid) : null;
+    const id  = key ? await AsyncStorage.getItem(key) : null;
     if (id) {
       await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
-      await AsyncStorage.removeItem(STREAK_NOTIF_KEY).catch(() => {});
+      await AsyncStorage.removeItem(key).catch(() => {});
     }
+  } catch {}
+};
+
+/**
+ * Cancel ALL scheduled local notifications — call on sign-out to prevent
+ * stale notifications from a previous account firing on the next user.
+ */
+export const cancelAllNotifications = async () => {
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
   } catch {}
 };
 

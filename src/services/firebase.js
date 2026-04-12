@@ -66,7 +66,11 @@ export const registerUser = async (email, password) => {
   return cred;
 };
 
-export const logoutUser = () => signOut(auth);
+export const logoutUser = async () => {
+  const { cancelAllNotifications } = await import("./notifications");
+  await cancelAllNotifications().catch(() => {});
+  return signOut(auth);
+};
 
 export const resetPassword = async (email) => {
   const { VERCEL_API_URL } = await import("../config");

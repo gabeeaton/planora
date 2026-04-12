@@ -412,8 +412,8 @@ const DashboardScreen = ({ navigation }) => {
   // Streak reminder — reschedule whenever streak or productive time changes
   useEffect(() => {
     const bestTime = patterns?.productiveTimeOfDay?.bestTime ?? "evening";
-    scheduleStreakReminder(streak, bestTime);
-  }, [streak, patterns?.productiveTimeOfDay?.bestTime]);
+    scheduleStreakReminder(streak, bestTime, user?.uid);
+  }, [streak, patterns?.productiveTimeOfDay?.bestTime, user?.uid]);
 
   const enrichedTasks = useMemo(() => {
     const gradeMap = {};
