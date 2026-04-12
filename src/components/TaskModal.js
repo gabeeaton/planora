@@ -129,6 +129,11 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   calExportText:    { flex: 1, fontSize: 13, fontWeight: "500" },
 
+  customClassInput: {
+    backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.accent,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    color: colors.textPrimary, fontSize: 15, marginTop: 8,
+  },
   errorRow:         { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 6 },
   errorText:        { color: colors.high, fontSize: 13 },
   saveBtn: {
@@ -199,12 +204,17 @@ const openInGoogleCalendar = async (task) => {
   }
 };
 
+const GRADES       = ["A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D", "F", "No grade yet"];
+const CREDIT_OPTS  = ["1", "2", "3", "4", "5+"];
+const generateId   = () => Math.random().toString(36).slice(2, 10);
+
 const TaskModal = ({ visible, task, onClose, onSave }) => {
   const { colors } = useTheme();
   const styles  = makeStyles(colors);
-  const { profile }  = useUserProfile();
+  const { profile, updateProfile } = useUserProfile();
   const classes      = profile?.classes ?? [];
 
+  // ── Task form state ──────────────────────────────────────
   const [title, setTitle]                   = useState("");
   const [description, setDescription]       = useState("");
   const [priority, setPriority]             = useState("MEDIUM");
@@ -213,11 +223,19 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [classId, setClassId]               = useState(null);
   const [className, setClassName]           = useState(null);
+  const [customClassName, setCustomClassName] = useState("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const [recurrence, setRecurrence]         = useState(null);
   const [customDays, setCustomDays]         = useState([]);
   const [weeklyDay, setWeeklyDay]           = useState(1); // Mon default
   const [saving, setSaving]                 = useState(false);
   const [error, setError]                   = useState("");
+
+  // ── Save-class prompt state (step 2) ─────────────────────
+  const [modalStep, setModalStep]           = useState("form"); // "form" | "save-class"
+  const [pendingClassName, setPendingClassName] = useState("");
+  const [newClassGrade, setNewClassGrade]   = useState("No grade yet");
+  const [newClassCredits, setNewClassCredits] = useState("3");
 
   useEffect(() => {
     if (task) {
@@ -248,12 +266,23 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
       setRecurrence(null); setCustomDays([]); setWeeklyDay(1);
     }
     setShowTimePicker(false);
+    setCustomClassName("");
+    setShowCustomInput(false);
+    setModalStep("form");
+    setPendingClassName("");
+    setNewClassGrade("No grade yet");
+    setNewClassCredits("3");
     setError("");
   }, [task, visible]);
 
   const selectClass = (cls) => {
     if (classId === cls.id) { setClassId(null); setClassName(null); }
-    else                     { setClassId(cls.id); setClassName(cls.name); }
+    else { setClassId(cls.id); setClassName(cls.name); setShowCustomInput(false); setCustomClassName(""); }
+  };
+
+  const handleOtherChip = () => {
+    setClassId(null); setClassName(null);
+    setShowCustomInput((v) => !v);
   };
 
   const selectRecurrence = (option) => {
@@ -287,6 +316,11 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
 
   const handleSave = async () => {
     if (!title.trim()) { setError("Task title is required"); return; }
+
+    // Resolve final class — chip selection takes priority over typed input
+    const finalClassName = classId ? className : (customClassName.trim() || null);
+    const finalClassId   = classId ?? null;
+
     setSaving(true); setError("");
     try {
       await onSave({
@@ -295,15 +329,43 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
         priority,
         dueDate:     dueDate || null,
         dueTime:     dueDate ? dueTime : null,
-        classId:     classId   ?? null,
-        className:   className ?? null,
+        classId:     finalClassId,
+        className:   finalClassName,
         recurrence:  buildRecurrence(),
       });
-      onClose();
+
+      // If they typed a class name not already in profile, offer to save it
+      const isNewClass = finalClassName && !finalClassId &&
+        !classes.some((c) => c.name.trim().toLowerCase() === finalClassName.toLowerCase());
+
+      if (isNewClass) {
+        setPendingClassName(finalClassName);
+        setModalStep("save-class");
+      } else {
+        onClose();
+      }
     } catch (err) {
       setError(err.message || "Failed to save task");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveClass = async () => {
+    setSaving(true);
+    try {
+      const newClass = {
+        id: generateId(),
+        name: pendingClassName,
+        grade: newClassGrade,
+        creditHours: newClassCredits,
+      };
+      await updateProfile({ classes: [...classes, newClass] });
+    } catch {
+      // non-fatal — task is already saved
+    } finally {
+      setSaving(false);
+      onClose();
     }
   };
 
@@ -318,7 +380,9 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>{task ? "Edit Task" : "New Task"}</Text>
+            <Text style={styles.headerTitle}>
+              {modalStep === "save-class" ? "Save Class" : task ? "Edit Task" : "New Task"}
+            </Text>
             <View style={styles.headerRight}>
               {task && task.dueDate && (
                 <TouchableOpacity
@@ -336,7 +400,64 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingRight: 8 }}>
+            {modalStep === "save-class" ? (
+              <>
+                <Text style={[styles.label, { marginBottom: 4, marginTop: 4, fontSize: 13, textTransform: "none", letterSpacing: 0, color: colors.textSecondary }]}>
+                  Task saved! Want to add{" "}
+                  <Text style={{ color: colors.accent, fontWeight: "700" }}>{pendingClassName}</Text>
+                  {" "}to your classes for grade tracking?
+                </Text>
 
+                <View style={[styles.field, { marginTop: 16 }]}>
+                  <Text style={styles.label}>GRADE</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.classRow}>
+                      {GRADES.map((g) => (
+                        <TouchableOpacity
+                          key={g}
+                          onPress={() => setNewClassGrade(g)}
+                          style={[styles.classChip, newClassGrade === g && { backgroundColor: colors.accentGlow, borderColor: colors.accent }]}
+                        >
+                          <Text style={[styles.classChipText, newClassGrade === g && { color: colors.accent }]}>{g}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.label}>CREDIT HOURS</Text>
+                  <View style={styles.classRow}>
+                    {CREDIT_OPTS.map((c) => (
+                      <TouchableOpacity
+                        key={c}
+                        onPress={() => setNewClassCredits(c)}
+                        style={[styles.classChip, newClassCredits === c && { backgroundColor: colors.accentGlow, borderColor: colors.accent }]}
+                      >
+                        <Text style={[styles.classChipText, newClassCredits === c && { color: colors.accent }]}>{c}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleSaveClass}
+                  style={[styles.saveBtn, { backgroundColor: colors.accent, marginTop: 8 }, saving && { opacity: 0.6 }]}
+                  disabled={saving}
+                >
+                  <Feather name="check" size={18} color="#fff" />
+                  <Text style={styles.saveBtnText}>{saving ? "Saving..." : "Save to Classes"}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={onClose}
+                  style={[styles.saveBtn, { backgroundColor: "transparent", marginTop: 4 }]}
+                >
+                  <Text style={[styles.saveBtnText, { color: colors.textMuted }]}>Skip</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+            <>
             {/* Title */}
             <View style={styles.field}>
               <Text style={styles.label}>TASK TITLE *</Text>
@@ -366,32 +487,52 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
             </View>
 
             {/* Class selector */}
-            {classes.length > 0 && (
-              <View style={styles.field}>
-                <Text style={styles.label}>CLASS</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.classRow}>
-                    {classes.map((cls) => {
-                      const selected = classId === cls.id;
-                      return (
-                        <TouchableOpacity
-                          key={cls.id}
-                          onPress={() => selectClass(cls)}
-                          style={[
-                            styles.classChip,
-                            selected && { backgroundColor: colors.accentGlow, borderColor: colors.accent },
-                          ]}
-                        >
-                          <Text style={[styles.classChipText, selected && { color: colors.accent }]}>
-                            {cls.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
-              </View>
-            )}
+            <View style={styles.field}>
+              <Text style={styles.label}>CLASS</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.classRow}>
+                  {classes.map((cls) => {
+                    const selected = classId === cls.id;
+                    return (
+                      <TouchableOpacity
+                        key={cls.id}
+                        onPress={() => selectClass(cls)}
+                        style={[
+                          styles.classChip,
+                          selected && { backgroundColor: colors.accentGlow, borderColor: colors.accent },
+                        ]}
+                      >
+                        <Text style={[styles.classChipText, selected && { color: colors.accent }]}>
+                          {cls.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {/* "Other..." chip — always shown so user can type a class */}
+                  <TouchableOpacity
+                    onPress={handleOtherChip}
+                    style={[
+                      styles.classChip,
+                      showCustomInput && { backgroundColor: colors.accentGlow, borderColor: colors.accent },
+                    ]}
+                  >
+                    <Text style={[styles.classChipText, showCustomInput && { color: colors.accent }]}>
+                      {classes.length === 0 ? "Type class name..." : "Other..."}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+              {(showCustomInput || classes.length === 0) && (
+                <TextInput
+                  style={[styles.input, { marginTop: 8 }]}
+                  placeholder="Class name (e.g. HIST 101)"
+                  placeholderTextColor={colors.textMuted}
+                  value={customClassName}
+                  onChangeText={setCustomClassName}
+                  autoCapitalize="words"
+                />
+              )}
+            </View>
 
             {/* Priority */}
             <View style={styles.field}>
@@ -579,6 +720,8 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                 {saving ? "Saving..." : task ? "Save Changes" : "Create Task"}
               </Text>
             </TouchableOpacity>
+            </>
+            )}
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
