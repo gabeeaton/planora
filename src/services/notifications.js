@@ -15,6 +15,7 @@
 
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ── Global handler — show banners while app is foregrounded ──
 Notifications.setNotificationHandler({
@@ -52,6 +53,13 @@ export const requestNotificationPermissions = async () => {
       await Notifications.setNotificationChannelAsync("weekly-summary", {
         name:        "Weekly Summary",
         importance:  Notifications.AndroidImportance.DEFAULT,
+        sound:       true,
+      });
+      await Notifications.setNotificationChannelAsync("avoidance-alerts", {
+        name:        "Avoidance Alerts",
+        importance:  Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor:  "#6C63FF",
         sound:       true,
       });
     }
@@ -170,6 +178,73 @@ export const cancelAllReminders = async () => {
     await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (err) {
     console.warn("Failed to cancel all reminders:", err);
+  }
+};
+
+// ── Avoidance alerts (Scholar only) ──────────────────────────
+
+const AVOIDANCE_MAP_KEY = "@planora_avoidance_alerted";
+const todayDateStr = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+/**
+ * For each avoided task that qualifies, fire a local notification once per day.
+ * Caller is responsible for the Scholar gate — this function has no Pro check.
+ *
+ * @param {Array} avoidanceScores  Output of getAvoidanceScores()
+ */
+export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores) => {
+  if (!avoidanceScores?.length) return;
+
+  const granted = await requestNotificationPermissions();
+  if (!granted) return;
+
+  // Load dedup map { taskId: "YYYY-MM-DD" }
+  let alerted = {};
+  try {
+    const raw = await AsyncStorage.getItem(AVOIDANCE_MAP_KEY);
+    if (raw) alerted = JSON.parse(raw);
+  } catch {}
+
+  const today = todayDateStr();
+  let changed = false;
+
+  for (const item of avoidanceScores) {
+    const { taskId, title, className, isBeingAvoided, daysSinceTouched, daysUntilDue } = item;
+    if (!isBeingAvoided) continue;
+    if (daysUntilDue !== null && daysUntilDue > 4) continue; // only nudge when it matters
+    if (alerted[taskId] === today) continue; // already fired today
+
+    const classLabel = className ? `${className} — ` : "";
+    const dueLabel   = daysUntilDue !== null
+      ? daysUntilDue === 0 ? " It's due today."
+      : daysUntilDue === 1 ? " It's due tomorrow."
+      : ` Due in ${daysUntilDue} days.`
+      : "";
+
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Don't forget this one 👀",
+          body:  `${classLabel}"${title}" hasn't been touched in ${daysSinceTouched} days.${dueLabel}`,
+          data:  { type: "avoidance-alert", taskId },
+          sound: true,
+        },
+        trigger: { type: "timeInterval", seconds: 5 },
+      });
+      alerted[taskId] = today;
+      changed = true;
+    } catch (err) {
+      console.warn("Failed to schedule avoidance alert:", err);
+    }
+  }
+
+  if (changed) {
+    // Prune entries older than 2 days to keep the map small
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    const cutoff = twoDaysAgo.toISOString().slice(0, 10);
+    Object.keys(alerted).forEach((k) => { if (alerted[k] < cutoff) delete alerted[k]; });
+    AsyncStorage.setItem(AVOIDANCE_MAP_KEY, JSON.stringify(alerted)).catch(() => {});
   }
 };
 

@@ -23,12 +23,14 @@ import { Feather } from "@expo/vector-icons";
 import { useTasks } from "../hooks/useTasks";
 import { useAuth } from "../hooks/useAuth";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useSubscription } from "../hooks/useSubscription";
 import TaskCard from "../components/TaskCard";
 import TaskModal from "../components/TaskModal";
 import StatsBar from "../components/StatsBar";
 import WhatDoIDoButton from "../components/WhatDoIDoButton";
 import TodayFocusCard from "../components/TodayFocusCard";
 import { invalidateTodayFocusCache } from "../services/openai";
+import { checkAndScheduleAvoidanceAlerts } from "../services/notifications";
 import NotificationPermissionPrompt, {
   NOTIF_PROMPT_KEY,
 } from "../components/NotificationPermissionPrompt";
@@ -343,6 +345,7 @@ const DashboardScreen = ({ navigation }) => {
 
   const { user } = useAuth();
   const { profile } = useUserProfile();
+  const { isPro } = useSubscription();
   const {
     tasks,
     pendingTasks,
@@ -381,6 +384,12 @@ const DashboardScreen = ({ navigation }) => {
       })
       .catch(() => {});
   }, [tasks.length > 0, loading]);
+
+  // Avoidance alerts — Scholar only, fires at most once per task per day
+  useEffect(() => {
+    if (!isPro || !patterns?.avoidanceScores?.length) return;
+    checkAndScheduleAvoidanceAlerts(patterns.avoidanceScores);
+  }, [isPro, patterns?.avoidanceScores]);
 
   const enrichedTasks = useMemo(() => {
     const gradeMap = {};
