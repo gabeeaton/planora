@@ -10,8 +10,22 @@
 //   VERCEL_API_URL      — used to build unsubscribe links (optional)
 // ============================================================
 
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+
 const RESEND_URL  = "https://api.resend.com/emails";
 const FROM        = "Planora <hello@planoraapp.net>";
+
+function getAdminApp() {
+  if (getApps().length > 0) return getApps()[0];
+  return initializeApp({
+    credential: cert({
+      projectId:   process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    }),
+  });
+}
 
 async function sendEmail({ to, subject, html }) {
   const res = await fetch(RESEND_URL, {
@@ -98,6 +112,53 @@ function welcomeHtml(name) {
 </html>`;
 }
 
+// ── Email templates ───────────────────────────────────────────
+
+function verifyHtml(verifyUrl) {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9f9f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+
+        <tr><td style="background:#6C63FF;padding:32px 40px;text-align:center;">
+          <p style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Planora</p>
+          <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.8);">Your AI Academic Coach</p>
+        </td></tr>
+
+        <tr><td style="padding:40px;text-align:center;">
+          <div style="width:64px;height:64px;border-radius:32px;background:rgba(108,99,255,0.1);border:2px solid #6C63FF;display:inline-flex;align-items:center;justify-content:center;margin-bottom:24px;">
+            <span style="font-size:28px;">✉️</span>
+          </div>
+          <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;">Verify your email</h1>
+          <p style="margin:0 0 32px;font-size:15px;line-height:1.6;color:#555;">
+            Tap the button below to verify your email address and activate your Planora account.
+          </p>
+
+          <a href="${verifyUrl}" style="display:inline-block;background:#6C63FF;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
+            Verify my email
+          </a>
+
+          <p style="margin:32px 0 0;font-size:13px;color:#aaa;line-height:1.6;">
+            If you didn't create a Planora account, you can ignore this email.<br>
+            This link expires in 24 hours.
+          </p>
+        </td></tr>
+
+        <tr><td style="padding:24px 40px;background:#f9f9f9;text-align:center;border-top:1px solid #eee;">
+          <p style="margin:0;font-size:11px;color:#aaa;">Planora · planoraapp.net</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
 // ── Handler ───────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -123,6 +184,19 @@ export default async function handler(req, res) {
         to:      email,
         subject: "Welcome to Planora 👋",
         html:    welcomeHtml(name),
+      });
+      return res.status(200).json({ ok: true });
+    }
+
+    if (type === "verify") {
+      const app = getAdminApp();
+      const verifyUrl = await getAuth(app).generateEmailVerificationLink(email, {
+        url: "https://planoraapp.net/verify",
+      });
+      await sendEmail({
+        to:      email,
+        subject: "Verify your Planora email",
+        html:    verifyHtml(verifyUrl),
       });
       return res.status(200).json({ ok: true });
     }

@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useAuth } from "../hooks/useAuth";
 import { resetPassword } from "../services/firebase";
+import { VERCEL_API_URL } from "../config";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 
@@ -223,6 +224,15 @@ const AuthScreen = ({ navigation }) => {
         await login(email.trim(), password);
       } else {
         await register(email.trim(), password);
+        // Send branded verification email via Resend — non-blocking
+        fetch(`${VERCEL_API_URL}/api/email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-secret": process.env.EXPO_PUBLIC_EMAIL_API_SECRET ?? "",
+          },
+          body: JSON.stringify({ type: "verify", email: email.trim() }),
+        }).catch(() => {});
         navigation.navigate("EmailVerification", { email: email.trim() });
       }
     } catch (err) {

@@ -31,7 +31,6 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  sendEmailVerification,
 } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FIREBASE_CONFIG } from "../config";
@@ -63,13 +62,6 @@ export const loginUser = async (email, password) => {
 
 export const registerUser = async (email, password) => {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
-  try {
-    await sendEmailVerification(cred.user, {
-      url: "https://planoraapp.net/verify",
-    });
-  } catch (err) {
-    console.warn("Verification email failed (will retry on next login):", err);
-  }
   await signOut(auth);
   return cred;
 };
