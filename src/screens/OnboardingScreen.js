@@ -32,6 +32,7 @@ import { useTasks } from "../hooks/useTasks";
 import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
+import { VERCEL_API_URL } from "../config";
 import { parseSyllabusText } from "../services/syllabusParser";
 import {
   parseIcsText,
@@ -984,8 +985,22 @@ const OnboardingScreen = ({ navigation }) => {
       if (!isEditing) {
         data.isPro = false;
         data.createdAt = new Date().toISOString();
+        data.welcomeEmailSent = true;
       }
       await saveUserProfile(user.uid, data);
+
+      // Send welcome email on first-time onboarding — non-blocking
+      if (!isEditing && user?.email) {
+        fetch(`${VERCEL_API_URL}/api/email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-secret": process.env.EXPO_PUBLIC_EMAIL_API_SECRET ?? "",
+          },
+          body: JSON.stringify({ type: "welcome", email: user.email, name: name.trim() || null }),
+        }).catch(() => {});
+      }
+
       if (isEditing && navigation.canGoBack()) {
         navigation.goBack();
       } else {
