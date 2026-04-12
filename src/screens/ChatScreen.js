@@ -5,6 +5,9 @@
 // Scholar users: Firestore-backed history (cross-device, persistent), unlimited
 // ============================================================
 
+// ── Demo mode (set true for screenshots/TikTok, false for production) ──
+const DEMO_MODE = false;
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -99,10 +102,21 @@ export default function ChatScreen() {
   const { user }                     = useAuth();
   const { tasks, patterns }          = useTasks();
   const { profile }                  = useUserProfile();
-  const { isPro }                    = useSubscription();
+  const { isPro: realIsPro }         = useSubscription();
   const styles                       = makeStyles(colors);
 
-  const [messages, setMessages]      = useState([]); // { id, role, text, ts }
+  const isPro = DEMO_MODE ? true : realIsPro;
+
+  const DEMO_MESSAGES = [
+    { id: "dm1", role: "user",      text: "I'm feeling overwhelmed — help me prioritize.",                                                                                                                                                                                          ts: Date.now() - 5 * 60000 },
+    { id: "dm2", role: "assistant", text: "I get it — let's break this down. Based on your tasks, your most urgent is the Orgo midterm tomorrow. I'd block 2 hours tonight just for that. After that, your HIST 110 essay is due in 2 days — outline it first thing tomorrow morning so it doesn't sneak up on you.",  ts: Date.now() - 4 * 60000 },
+    { id: "dm3", role: "user",      text: "What about my math problem set?",                                                                                                                                                                                                         ts: Date.now() - 3 * 60000 },
+    { id: "dm4", role: "assistant", text: "MATH 240 is due in 3 days so you have a bit of breathing room. I'd tackle it Wednesday after you've submitted the history essay. You tend to do your best focused work in the afternoon — save the problem set for then.",                ts: Date.now() - 2 * 60000 },
+    { id: "dm5", role: "user",      text: "Which class should I be most worried about?",                                                                                                                                                                                             ts: Date.now() - 1 * 60000 },
+    { id: "dm6", role: "assistant", text: "CHEM 201 — you have both a midterm and a lab report due within 5 days. It's your highest-stakes class right now. If you can get ahead on the reading tonight after your study session, you'll be in a much better spot by the weekend.", ts: Date.now()              },
+  ];
+
+  const [messages, setMessages]      = useState(DEMO_MODE ? DEMO_MESSAGES : []); // { id, role, text, ts }
   const [input, setInput]            = useState("");
   const [typing, setTyping]          = useState(false);
   const [historyLoaded, setHistLoaded] = useState(false);
