@@ -30,7 +30,6 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendPasswordResetEmail,
 } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FIREBASE_CONFIG } from "../config";
@@ -68,7 +67,18 @@ export const registerUser = async (email, password) => {
 
 export const logoutUser = () => signOut(auth);
 
-export const resetPassword = (email) => sendPasswordResetEmail(auth, email);
+export const resetPassword = async (email) => {
+  const { VERCEL_API_URL } = await import("../config");
+  const res = await fetch(`${VERCEL_API_URL}/api/email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-secret": process.env.EXPO_PUBLIC_EMAIL_API_SECRET ?? "",
+    },
+    body: JSON.stringify({ type: "reset", email }),
+  });
+  if (!res.ok) throw new Error("Failed to send reset email");
+};
 
 export const onAuthChange = (cb) => onAuthStateChanged(auth, cb);
 

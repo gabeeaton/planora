@@ -162,6 +162,54 @@ function verifyHtml(verifyUrl) {
 </html>`;
 }
 
+function resetHtml(resetUrl) {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9f9f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+
+        <tr><td style="background:#6C63FF;padding:32px 40px;text-align:center;">
+          <p style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Planora</p>
+          <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.8);">Your AI Academic Coach</p>
+        </td></tr>
+
+        <tr><td style="padding:40px;text-align:center;">
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+            <tr><td width="64" height="64" align="center" valign="middle"
+              style="border-radius:32px;background:rgba(108,99,255,0.1);border:2px solid #6C63FF;font-size:28px;line-height:64px;">
+              🔑
+            </td></tr>
+          </table>
+          <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;">Reset your password</h1>
+          <p style="margin:0 0 32px;font-size:15px;line-height:1.6;color:#555;">
+            Tap the button below to choose a new password for your Planora account.
+          </p>
+
+          <a href="${resetUrl}" style="display:inline-block;background:#6C63FF;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
+            Reset password
+          </a>
+
+          <p style="margin:32px 0 0;font-size:13px;color:#aaa;line-height:1.6;">
+            If you didn't request a password reset, you can ignore this email.<br>
+            This link expires in 1 hour.
+          </p>
+        </td></tr>
+
+        <tr><td style="padding:24px 40px;background:#f9f9f9;text-align:center;border-top:1px solid #eee;">
+          <p style="margin:0;font-size:11px;color:#aaa;">Planora · planoraapp.net</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
 // ── Handler ───────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -200,6 +248,17 @@ export default async function handler(req, res) {
         to:      email,
         subject: "Verify your Planora email",
         html:    verifyHtml(verifyUrl),
+      });
+      return res.status(200).json({ ok: true });
+    }
+
+    if (type === "reset") {
+      const app = getAdminApp();
+      const resetUrl = await getAuth(app).generatePasswordResetLink(email);
+      await sendEmail({
+        to:      email,
+        subject: "Reset your Planora password",
+        html:    resetHtml(resetUrl),
       });
       return res.status(200).json({ ok: true });
     }
