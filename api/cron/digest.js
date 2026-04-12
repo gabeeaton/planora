@@ -133,23 +133,6 @@ function digestHtml(name, tasks) {
   };
 }
 
-// ── Timezone group matching ───────────────────────────────────
-// Maps IANA timezone strings to US timezone groups.
-// Defaults to ET for unknown/missing timezones.
-const TZ_MATCHERS = {
-  ET: (tz) => !tz || tz.includes("New_York") || tz.includes("Detroit") || tz.includes("Indiana") || tz.includes("Kentucky"),
-  CT: (tz) => tz?.includes("Chicago") || tz?.includes("Menominee") || tz?.includes("Knox") || tz?.includes("Tell_City"),
-  MT: (tz) => tz?.includes("Denver") || tz?.includes("Boise") || tz?.includes("Phoenix") || tz?.includes("Shiprock"),
-  PT: (tz) => tz?.includes("Los_Angeles") || tz?.includes("Anchorage") || tz?.includes("Juneau"),
-};
-
-const inTzGroup = (userTz, group) => {
-  // If no timezone stored, fall back to ET (largest US college population)
-  const tz = userTz || null;
-  if (group === "ET" && !tz) return true;
-  return TZ_MATCHERS[group]?.(tz) ?? false;
-};
-
 // ── Handler ───────────────────────────────────────────────────
 export default async function handler(req, res) {
   // Vercel cron sends Authorization: Bearer <CRON_SECRET>
@@ -157,12 +140,6 @@ export default async function handler(req, res) {
   const token      = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!token || token !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  // Which timezone group to process — passed as query param e.g. ?tz=ET
-  const tzGroup = req.query?.tz ?? "ET";
-  if (!TZ_MATCHERS[tzGroup]) {
-    return res.status(400).json({ error: `Unknown tz group: ${tzGroup}` });
   }
 
   const app = getAdminApp();
@@ -178,9 +155,8 @@ export default async function handler(req, res) {
       const uid     = doc.id;
       const profile = doc.data();
 
-      // Skip if opted out or not in this timezone group
+      // Skip if opted out
       if (profile.digestOptOut) { skipped++; continue; }
-      if (!inTzGroup(profile.timezone, tzGroup)) { skipped++; continue; }
 
       // Get email from Firebase Auth
       let email;
@@ -218,7 +194,7 @@ export default async function handler(req, res) {
       await new Promise((r) => setTimeout(r, 100));
     }
 
-    console.log(`Digest [${tzGroup}]: ${sent} sent, ${skipped} skipped, ${errors} errors`);
+    console.log(`Digest: ${sent} sent, ${skipped} skipped, ${errors} errors`);
     return res.status(200).json({ ok: true, sent, skipped, errors });
   } catch (err) {
     console.error("Digest cron failed:", err);
