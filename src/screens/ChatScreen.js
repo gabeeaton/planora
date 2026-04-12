@@ -1,8 +1,8 @@
 // ============================================================
 // src/screens/ChatScreen.js
 // Academic coach chat — gpt-4o-mini
-// Free users: AsyncStorage only (device-local)
-// Scholar users: Firestore-backed history (cross-device, persistent)
+// Free users: AsyncStorage only, 3 messages/day limit
+// Scholar users: Firestore-backed history (cross-device, persistent), unlimited
 // ============================================================
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -24,8 +24,11 @@ import { sendChatMessage } from "../services/openai";
 import { loadChatHistory, saveChatHistory, clearChatHistory } from "../services/firebase";
 import { spacing, radius, typography } from "../utils/theme";
 
-const HISTORY_KEY = (uid) => `@planora_chat_${uid}`;
-const MAX_STORED  = 60; // messages kept in AsyncStorage
+const HISTORY_KEY     = (uid) => `@planora_chat_${uid}`;
+const MAX_STORED      = 60; // messages kept in AsyncStorage
+const FREE_DAILY_LIMIT = 3;
+const todayKey        = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+const COUNT_KEY       = (uid) => `@planora_chat_count_${uid}_${todayKey()}`;
 
 // ── Suggested starter prompts ─────────────────────────────────
 const STARTERS = [
@@ -48,6 +51,7 @@ export default function ChatScreen() {
   const [input, setInput]            = useState("");
   const [typing, setTyping]          = useState(false);
   const [historyLoaded, setHistLoaded] = useState(false);
+  const [dailyCount, setDailyCount]  = useState(0);
 
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -86,10 +90,33 @@ export default function ChatScreen() {
     if (isPro) saveChatHistory(user.uid, toStore);
   }, [messages, historyLoaded]);
 
+  // ── Load daily message count (free users only) ────────────
+  useEffect(() => {
+    if (!user || isPro) return;
+    AsyncStorage.getItem(COUNT_KEY(user.uid))
+      .then((val) => setDailyCount(val ? parseInt(val, 10) : 0))
+      .catch(() => {});
+  }, [user?.uid, isPro]);
+
   // ── Send message ───────────────────────────────────────────
   const send = useCallback(async (text) => {
     const trimmed = text.trim();
     if (!trimmed || typing) return;
+
+    // Free user daily limit
+    if (!isPro) {
+      const current = parseInt(
+        (await AsyncStorage.getItem(COUNT_KEY(user.uid)).catch(() => "0")) ?? "0",
+        10
+      );
+      if (current >= FREE_DAILY_LIMIT) {
+        navigation.navigate("Paywall");
+        return;
+      }
+      const next = current + 1;
+      await AsyncStorage.setItem(COUNT_KEY(user.uid), String(next)).catch(() => {});
+      setDailyCount(next);
+    }
 
     const userMsg = { id: Date.now().toString(), role: "user", text: trimmed, ts: Date.now() };
     setMessages((prev) => [...prev, userMsg]);
@@ -121,7 +148,7 @@ export default function ChatScreen() {
     } finally {
       setTyping(false);
     }
-  }, [typing, messages, tasks, profile, patterns]);
+  }, [typing, messages, tasks, profile, patterns, isPro]);
 
   // ── Clear chat ─────────────────────────────────────────────
   const clearChat = () => {
@@ -242,8 +269,21 @@ export default function ChatScreen() {
           />
         )}
 
+        {/* Free user limit banner */}
+        {!isPro && dailyCount >= FREE_DAILY_LIMIT && (
+          <TouchableOpacity style={styles.limitBanner} onPress={() => navigation.navigate("Paywall")} activeOpacity={0.85}>
+            <Feather name="zap" size={13} color={colors.accent} />
+            <Text style={styles.limitBannerText}>
+              Daily limit reached · <Text style={{ fontWeight: "800" }}>Upgrade to Scholar</Text> for unlimited
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Input bar */}
         <View style={styles.inputBar}>
+          {!isPro && dailyCount < FREE_DAILY_LIMIT && (
+            <Text style={styles.limitHint}>{FREE_DAILY_LIMIT - dailyCount} left today</Text>
+          )}
           <TextInput
             ref={inputRef}
             style={styles.input}
@@ -256,13 +296,14 @@ export default function ChatScreen() {
             returnKeyType="send"
             onSubmitEditing={() => send(input)}
             blurOnSubmit
+            editable={isPro || dailyCount < FREE_DAILY_LIMIT}
           />
           <TouchableOpacity
-            style={[styles.sendBtn, (!input.trim() || typing) && styles.sendBtnDisabled]}
+            style={[styles.sendBtn, (!input.trim() || typing || (!isPro && dailyCount >= FREE_DAILY_LIMIT)) && styles.sendBtnDisabled]}
             onPress={() => send(input)}
-            disabled={!input.trim() || typing}
+            disabled={!input.trim() || typing || (!isPro && dailyCount >= FREE_DAILY_LIMIT)}
           >
-            <Feather name="send" size={18} color={!input.trim() || typing ? colors.textMuted : "#fff"} />
+            <Feather name="send" size={18} color={!input.trim() || typing || (!isPro && dailyCount >= FREE_DAILY_LIMIT) ? colors.textMuted : "#fff"} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -336,6 +377,18 @@ const makeStyles = (colors) => StyleSheet.create({
   bubbleTextAI:    { color: colors.textPrimary },
   bubbleTextError: { color: colors.high },
   typingBubble:    { paddingVertical: 12, paddingHorizontal: 16 },
+
+  limitBanner: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: spacing.md, paddingVertical: 10,
+    backgroundColor: colors.accentGlow,
+    borderTopWidth: 1, borderTopColor: colors.accent + "44",
+  },
+  limitBannerText: { fontSize: 13, color: colors.accent, flex: 1 },
+  limitHint: {
+    position: "absolute", top: -18, right: spacing.md + 50,
+    fontSize: 10, color: colors.textMuted, fontWeight: "600",
+  },
 
   // Input bar
   inputBar: {
