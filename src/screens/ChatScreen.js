@@ -6,7 +6,7 @@
 // ============================================================
 
 // ── Demo mode (set true for screenshots/TikTok, false for production) ──
-const DEMO_MODE = false;
+const DEMO_MODE = true;
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
@@ -128,7 +128,7 @@ export default function ChatScreen() {
   // ── Load history ───────────────────────────────────────────
   // Scholar: Firestore (cross-device). Free: AsyncStorage (device-local).
   useEffect(() => {
-    if (!user) return;
+    if (!user || DEMO_MODE) { setHistLoaded(true); return; }
     const load = async () => {
       try {
         if (isPro) {
