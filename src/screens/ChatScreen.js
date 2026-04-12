@@ -6,7 +6,7 @@
 // ============================================================
 
 // ── Demo mode (set true for screenshots/TikTok, false for production) ──
-const DEMO_MODE = true;
+const DEMO_MODE = false;
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
@@ -130,6 +130,17 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!user || DEMO_MODE) { setHistLoaded(true); return; }
     const load = async () => {
+      // Clear demo messages if they were accidentally saved
+      const raw = await AsyncStorage.getItem(HISTORY_KEY(user.uid)).catch(() => null);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.some((m) => m.id?.startsWith("dm"))) {
+          await AsyncStorage.removeItem(HISTORY_KEY(user.uid)).catch(() => {});
+          if (isPro) await clearChatHistory(user.uid).catch(() => {});
+          setHistLoaded(true);
+          return;
+        }
+      }
       try {
         if (isPro) {
           const firestoreMsgs = await loadChatHistory(user.uid);
@@ -153,7 +164,7 @@ export default function ChatScreen() {
 
   // ── Persist history ────────────────────────────────────────
   useEffect(() => {
-    if (!user || !historyLoaded) return;
+    if (!user || !historyLoaded || DEMO_MODE) return;
     const toStore = messages.slice(-MAX_STORED);
     AsyncStorage.setItem(HISTORY_KEY(user.uid), JSON.stringify(toStore)).catch(() => {});
     if (isPro) saveChatHistory(user.uid, toStore);
