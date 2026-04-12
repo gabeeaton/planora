@@ -206,6 +206,7 @@ Respond ONLY with this JSON, no markdown:
     return result;
   } catch (err) {
     console.error("getTodayFocus failed:", err);
+    if (err?.limitReached) return { limitReached: true };
     return null; // Fails silently — card just won't show
   }
 };

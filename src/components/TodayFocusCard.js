@@ -82,9 +82,10 @@ const TodayFocusCard = ({ tasks, userProfile, patterns }) => {
   const { colors } = useTheme();
   const styles     = makeStyles(colors);
 
-  const [focus, setFocus]     = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed]   = useState(false);
+  const [focus, setFocus]         = useState(null);
+  const [loading, setLoading]     = useState(false);
+  const [failed, setFailed]       = useState(false);
+  const [limitReached, setLimit]  = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const load = () => {
@@ -94,7 +95,9 @@ const TodayFocusCard = ({ tasks, userProfile, patterns }) => {
     setFailed(false);
     getTodayFocus(tasks, userProfile, patterns)
       .then((data) => {
-        if (data) {
+        if (data?.limitReached) {
+          setLimit(true);
+        } else if (data) {
           setFocus(data);
           Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }).start();
         } else {
@@ -110,6 +113,7 @@ const TodayFocusCard = ({ tasks, userProfile, patterns }) => {
     invalidateTodayFocusCache();
     fadeAnim.setValue(0);
     setFocus(null);
+    setLimit(false);
     load();
   };
 
@@ -127,6 +131,17 @@ const TodayFocusCard = ({ tasks, userProfile, patterns }) => {
         <View style={styles.shimmer}>
           <ActivityIndicator size={14} color={colors.accent} />
           <Text style={styles.shimmerText}>Finding your focus for today...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (limitReached) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.errorRow}>
+          <Feather name="zap-off" size={14} color={colors.textMuted} />
+          <Text style={styles.errorText}>Daily AI limit reached — resets tomorrow</Text>
         </View>
       </View>
     );
