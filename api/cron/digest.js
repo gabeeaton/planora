@@ -46,8 +46,16 @@ async function sendEmail({ to, subject, html }) {
 }
 
 // ── Task helpers ──────────────────────────────────────────────
-const dayLabel = (dueDate) => {
-  const due   = new Date(dueDate);
+
+// Firestore Admin SDK returns Timestamps as { _seconds, _nanoseconds } objects
+const toDate = (val) => {
+  if (!val) return null;
+  if (val._seconds !== undefined) return new Date(val._seconds * 1000);
+  if (val.toDate) return val.toDate();
+  return new Date(val);
+};
+
+const dayLabel = (due) => {
   const now   = new Date();
   const diff  = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
   if (diff <= 0)  return "overdue";
@@ -59,10 +67,10 @@ const dayLabel = (dueDate) => {
 // ── Digest email template ─────────────────────────────────────
 function digestHtml(name, tasks) {
   const first    = name?.split(" ")[0] ?? "there";
-  const overdue  = tasks.filter((t) => t.dueDate && new Date(t.dueDate) < new Date());
+  const overdue  = tasks.filter((t) => t.dueDate && toDate(t.dueDate) < new Date());
   const thisWeek = tasks.filter((t) => {
     if (!t.dueDate) return false;
-    const d = new Date(t.dueDate);
+    const d = toDate(t.dueDate);
     const now = new Date();
     return d >= now && d <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   });
@@ -77,7 +85,7 @@ function digestHtml(name, tasks) {
         <td style="padding-left:10px;">
           <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#1a1a2e;">${t.title}</p>
           <p style="margin:0;font-size:12px;color:#999;">
-            ${t.className ? `${t.className} · ` : ""}${t.dueDate ? dayLabel(t.dueDate) : "no due date"}
+            ${t.className ? `${t.className} · ` : ""}${t.dueDate ? dayLabel(toDate(t.dueDate)) : "no due date"}
           </p>
         </td>
       </tr></table>
