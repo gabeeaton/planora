@@ -130,9 +130,12 @@ function verifyHtml(verifyUrl) {
         </td></tr>
 
         <tr><td style="padding:40px;text-align:center;">
-          <div style="width:64px;height:64px;border-radius:32px;background:rgba(108,99,255,0.1);border:2px solid #6C63FF;display:inline-flex;align-items:center;justify-content:center;margin-bottom:24px;">
-            <span style="font-size:28px;">✉️</span>
-          </div>
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+            <tr><td width="64" height="64" align="center" valign="middle"
+              style="border-radius:32px;background:rgba(108,99,255,0.1);border:2px solid #6C63FF;font-size:28px;line-height:64px;">
+              ✉️
+            </td></tr>
+          </table>
           <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;">Verify your email</h1>
           <p style="margin:0 0 32px;font-size:15px;line-height:1.6;color:#555;">
             Tap the button below to verify your email address and activate your Planora account.
