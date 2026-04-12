@@ -7,6 +7,9 @@
 //   - Weekly plan entry point kept in header
 // ============================================================
 
+// ── Demo mode (set true for screenshots/TikTok, false for production) ──
+const DEMO_MODE = false;
+
 import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
@@ -344,22 +347,37 @@ const DashboardScreen = ({ navigation }) => {
   const styles = useMemo(() => makeStyles(colors, insets), [colors, insets]);
 
   const { user } = useAuth();
-  const { profile } = useUserProfile();
-  const { isPro } = useSubscription();
-  const {
-    tasks,
-    pendingTasks,
-    completedTasks,
-    todaysTasks,
-    patterns,
-    loading,
-    streak,
-    createTask,
-    editTask,
-    completeTask,
-    removeTask,
-    clearCompleted,
-  } = useTasks();
+  const { profile: realProfile } = useUserProfile();
+  const { isPro: realIsPro } = useSubscription();
+  const realTasks = useTasks();
+
+  // ── Demo data ────────────────────────────────────────────────
+  const DEMO_TASKS = [
+    { id: "d1", title: "Study for Organic Chemistry midterm", className: "CHEM 201", dueDate: new Date(Date.now() + 1 * 86400000), completed: false, priority: "HIGH",   aiPriority: "HIGH"   },
+    { id: "d2", title: "Write 5-page essay on the Civil War", className: "HIST 110", dueDate: new Date(Date.now() + 2 * 86400000), completed: false, priority: "HIGH",   aiPriority: "HIGH"   },
+    { id: "d3", title: "Problem Set 4 — Linear Algebra",      className: "MATH 240", dueDate: new Date(Date.now() + 3 * 86400000), completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },
+    { id: "d4", title: "Read chapters 7–9 for lecture",       className: "PSYC 101", dueDate: new Date(Date.now() + 4 * 86400000), completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },
+    { id: "d5", title: "Lab report — titration experiment",   className: "CHEM 201", dueDate: new Date(Date.now() + 5 * 86400000), completed: false, priority: "LOW",    aiPriority: "LOW"    },
+    { id: "d6", title: "Spanish composition draft",           className: "SPAN 102", dueDate: new Date(Date.now() + 6 * 86400000), completed: false, priority: "LOW",    aiPriority: "LOW"    },
+    { id: "d7", title: "Quiz review — macro economics",       className: "ECON 101", dueDate: new Date(Date.now() + 1 * 86400000), completed: true,  priority: "MEDIUM", aiPriority: "MEDIUM" },
+    { id: "d8", title: "Group project slides",                className: "BUS 210",  dueDate: new Date(Date.now() - 1 * 86400000), completed: true,  priority: "HIGH",   aiPriority: "HIGH"   },
+  ];
+  const DEMO_PROFILE = { name: "Alex Johnson", semester: "Spring 2025", classes: [], isPro: true };
+
+  const profile       = DEMO_MODE ? DEMO_PROFILE : realProfile;
+  const isPro         = DEMO_MODE ? true : realIsPro;
+  const tasks         = DEMO_MODE ? DEMO_TASKS : realTasks.tasks;
+  const pendingTasks  = DEMO_MODE ? DEMO_TASKS.filter(t => !t.completed) : realTasks.pendingTasks;
+  const completedTasks = DEMO_MODE ? DEMO_TASKS.filter(t => t.completed) : realTasks.completedTasks;
+  const todaysTasks   = DEMO_MODE ? DEMO_TASKS.filter(t => !t.completed).slice(0, 3) : realTasks.todaysTasks;
+  const patterns      = DEMO_MODE ? null : realTasks.patterns;
+  const loading       = DEMO_MODE ? false : realTasks.loading;
+  const streak        = DEMO_MODE ? 7 : realTasks.streak;
+  const createTask    = DEMO_MODE ? () => {} : realTasks.createTask;
+  const editTask      = DEMO_MODE ? () => {} : realTasks.editTask;
+  const completeTask  = DEMO_MODE ? () => {} : realTasks.completeTask;
+  const removeTask    = DEMO_MODE ? () => {} : realTasks.removeTask;
+  const clearCompleted = DEMO_MODE ? () => {} : realTasks.clearCompleted;
 
   const [activeTab, setActiveTab] = useState("All");
   const [modalVisible, setModalVisible] = useState(false);

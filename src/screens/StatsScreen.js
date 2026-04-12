@@ -2,6 +2,9 @@
 // src/screens/StatsScreen.js
 // ============================================================
 
+// ── Demo mode (set true for screenshots/TikTok, false for production) ──
+const DEMO_MODE = false;
+
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -207,8 +210,32 @@ const makeStyles = (colors) => StyleSheet.create({
 const StatsScreen = () => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const { tasks, completedTasks, streak } = useTasks();
-  const { profile } = useUserProfile();
+  const realTasks = useTasks();
+  const { profile: realProfile } = useUserProfile();
+
+  // ── Demo data ────────────────────────────────────────────────
+  const DEMO_COMPLETED = [
+    { id: "c1", title: "Calc problem set", className: "MATH 240", completed: true, completedAt: subDays(new Date(), 0) },
+    { id: "c2", title: "History reading",  className: "HIST 110", completed: true, completedAt: subDays(new Date(), 0) },
+    { id: "c3", title: "Chem lab report",  className: "CHEM 201", completed: true, completedAt: subDays(new Date(), 1) },
+    { id: "c4", title: "Spanish essay",    className: "SPAN 102", completed: true, completedAt: subDays(new Date(), 1) },
+    { id: "c5", title: "Econ quiz prep",   className: "ECON 101", completed: true, completedAt: subDays(new Date(), 2) },
+    { id: "c6", title: "Psych reading",    className: "PSYC 101", completed: true, completedAt: subDays(new Date(), 3) },
+    { id: "c7", title: "Bus project",      className: "BUS 210",  completed: true, completedAt: subDays(new Date(), 4) },
+    { id: "c8", title: "Calc exam review", className: "MATH 240", completed: true, completedAt: subDays(new Date(), 5) },
+    { id: "c9", title: "Chem prelab",      className: "CHEM 201", completed: true, completedAt: subDays(new Date(), 6) },
+  ];
+  const DEMO_PENDING = [
+    { id: "p1", title: "Orgo midterm study", className: "CHEM 201", completed: false, dueDate: new Date(Date.now() + 1 * 86400000) },
+    { id: "p2", title: "Civil War essay",    className: "HIST 110", completed: false, dueDate: new Date(Date.now() + 2 * 86400000) },
+    { id: "p3", title: "Linear algebra PS",  className: "MATH 240", completed: false, dueDate: new Date(Date.now() + 3 * 86400000) },
+    { id: "p4", title: "PSYC chapters 7-9",  className: "PSYC 101", completed: false, dueDate: new Date(Date.now() + 4 * 86400000) },
+  ];
+
+  const tasks          = DEMO_MODE ? [...DEMO_COMPLETED, ...DEMO_PENDING] : realTasks.tasks;
+  const completedTasks = DEMO_MODE ? DEMO_COMPLETED : realTasks.completedTasks;
+  const streak         = DEMO_MODE ? 7 : realTasks.streak;
+  const profile        = DEMO_MODE ? { name: "Alex Johnson", semester: "Spring 2025" } : realProfile;
   const today = new Date();
 
   const totalCompleted = completedTasks.length;
