@@ -185,7 +185,7 @@ const ICSReviewScreen = ({ route, navigation }) => {
           creditHours: "3",
           grade: "No grade yet",
         }));
-        saveUserProfile(user.uid, { classes: [...(profile?.classes ?? []), ...newEntries] }).catch(() => {});
+        await saveUserProfile(user.uid, { classes: [...(profile?.classes ?? []), ...newEntries] });
       }
 
       const msg = skipped > 0

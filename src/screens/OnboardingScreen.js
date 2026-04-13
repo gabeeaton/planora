@@ -602,8 +602,11 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
       setImportCount(toImport.length);
       setImportDone(true);
       onImported(toImport.length);
-      if (manualClassName.trim() && onClassDetected) {
-        onClassDetected(manualClassName.trim());
+      // Notify parent of every unique class name found in imported tasks
+      if (onClassDetected) {
+        const detectedNames = [...new Set(toImport.map((t) => t.className).filter(Boolean))];
+        detectedNames.forEach((name) => onClassDetected(name));
+        if (manualClassName.trim()) onClassDetected(manualClassName.trim());
       }
     } catch {
       setError("Import failed. You can try again from the dashboard.");

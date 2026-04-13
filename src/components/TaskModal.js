@@ -14,6 +14,7 @@ import { useTheme } from "../utils/ThemeContext";
 import { format } from "date-fns";
 import DatePicker from "./DatePicker";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useTasks } from "../hooks/useTasks";
 import { getRecurrenceLabel } from "../services/recurringTasks";
 
 
@@ -212,7 +213,16 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
   const { colors } = useTheme();
   const styles  = makeStyles(colors);
   const { profile, updateProfile } = useUserProfile();
-  const classes      = profile?.classes ?? [];
+  const { tasks } = useTasks();
+
+  // Merge profile classes with class names from existing tasks
+  // (catches classes imported before the profile-save fix)
+  const profileClasses = profile?.classes ?? [];
+  const profileClassNames = new Set(profileClasses.map((c) => c.name));
+  const extraTaskClasses = [...new Set((tasks ?? []).map((t) => t.className).filter(Boolean))]
+    .filter((name) => !profileClassNames.has(name))
+    .map((name) => ({ id: name, name }));
+  const classes = [...profileClasses, ...extraTaskClasses];
 
   // ── Task form state ──────────────────────────────────────
   const [title, setTitle]                   = useState("");

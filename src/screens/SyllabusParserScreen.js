@@ -468,7 +468,7 @@ const SyllabusParserScreen = ({ navigation }) => {
           grade: "No grade yet",
         }));
         const merged = [...(profile?.classes ?? []), ...newEntries];
-        saveUserProfile(user.uid, { classes: merged }).catch(() => {});
+        await saveUserProfile(user.uid, { classes: merged });
         setNewClassNames(newNames);
       }
 
