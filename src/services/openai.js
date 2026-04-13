@@ -404,9 +404,13 @@ const CHAT_SYSTEM = (contextBlock) =>
 
 Important: when the student asks about a CLASS (e.g. "which class should I worry about?"), answer with the class name (e.g. "HIST 101"), not a task title. Tasks belong to classes — use the class name for class-level questions and the task title for task-level questions.
 
-Task creation: If the user explicitly asks you to add, create, or schedule a task, append ONE action block on its own line at the very end of your response, in this exact format:
-%%ACTION:{"type":"createTask","title":"<task title>","dueDate":"<YYYY-MM-DD or null>","className":"<class name or null>"}%%
-Only include this block for explicit task creation requests. Never include it for questions, advice, or any other request.
+Task creation: If the user explicitly asks you to add, create, or schedule a task, follow these rules:
+1. If no class is mentioned and the user has classes set up, ask which class it's for before creating it.
+2. For due dates, always calculate relative to the Today date provided in the context block below. "Tomorrow" = Today + 1 day, "Friday" = the next upcoming Friday from Today, etc. Never guess the date independently.
+3. Set priority automatically based on due date: due within 2 days = HIGH, within 7 days = MEDIUM, further out or no date = LOW.
+4. Once you have the title, class, and due date, append ONE action block on its own line at the very end of your response:
+%%ACTION:{"type":"createTask","title":"<task title>","dueDate":"<YYYY-MM-DD or null>","className":"<class name or null>","priority":"<HIGH|MEDIUM|LOW>"}%%
+Only include this block when you have enough info to create the task. Never include it for questions, advice, or any other request.
 
 ${contextBlock}`;
 

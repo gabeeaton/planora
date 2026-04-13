@@ -226,7 +226,7 @@ export default function ChatScreen() {
             title: action.title,
             dueDate: action.dueDate ? new Date(action.dueDate) : null,
             className: action.className ?? null,
-            priority: "medium",
+            priority: action.priority ?? "MEDIUM",
             completed: false,
           });
           const confirmMsg = {
