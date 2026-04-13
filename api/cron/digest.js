@@ -65,7 +65,7 @@ const dayLabel = (due) => {
 };
 
 // ── Digest email template ─────────────────────────────────────
-function digestHtml(name, tasks) {
+function digestHtml(name, tasks, uid) {
   const first    = name?.split(" ")[0] ?? "there";
   const overdue  = tasks.filter((t) => t.dueDate && toDate(t.dueDate) < new Date());
   const thisWeek = tasks.filter((t) => {
@@ -130,7 +130,10 @@ function digestHtml(name, tasks) {
         </td></tr>
 
         <tr><td style="padding:20px 40px;background:#f9f9f9;border-top:1px solid #eee;text-align:center;">
-          <p style="margin:0;font-size:11px;color:#aaa;">Planora · planoraapp.net</p>
+          <p style="margin:0 0 6px;font-size:11px;color:#aaa;">Planora · planoraapp.net</p>
+          <p style="margin:0;font-size:11px;">
+            <a href="https://taskflow-mocha-theta.vercel.app/api/unsubscribe?uid=${uid}" style="color:#aaa;">Unsubscribe from daily emails</a>
+          </p>
         </td></tr>
 
       </table>
@@ -190,7 +193,7 @@ export default async function handler(req, res) {
 
       // Build and send digest
       try {
-        const { subject, html } = digestHtml(profile.name, tasks);
+        const { subject, html } = digestHtml(profile.name, tasks, uid);
         await sendEmail({ to: email, subject, html });
         sent++;
       } catch (err) {

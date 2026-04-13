@@ -19,6 +19,10 @@
     "api/verified.js": {
       "memory": 128,
       "maxDuration": 5
+    },
+    "api/unsubscribe.js": {
+      "memory": 128,
+      "maxDuration": 10
     }
   },
   "crons": [
