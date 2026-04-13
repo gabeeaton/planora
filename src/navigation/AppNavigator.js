@@ -20,7 +20,6 @@ import ProfileScreen        from "../screens/ProfileScreen";
 import StatsScreen          from "../screens/StatsScreen";
 import AuthScreen, { EmailVerificationScreen } from "../screens/AuthScreen";
 import OnboardingScreen     from "../screens/OnboardingScreen";
-import WeeklyBriefingScreen from "../screens/WeeklyBriefingScreen";
 import PaywallScreen        from "../screens/PaywallScreen";
 import SyllabusParserScreen from "../screens/SyllabusParserScreen";
 import ICSReviewScreen      from "../screens/ICSReviewScreen";
@@ -175,7 +174,6 @@ const AppNavigator = () => {
         ) : (
           <>
             <Stack.Screen name="Main"           component={MainTabs} />
-            <Stack.Screen name="WeeklyBriefing" component={WeeklyBriefingScreen} />
             <Stack.Screen name="Onboarding"     component={OnboardingScreen} />
             <Stack.Screen name="ResetPassword"  component={ResetPasswordScreen} options={{ presentation: "modal" }} />
             <Stack.Screen name="ICSReview"      component={ICSReviewScreen} />

@@ -97,13 +97,6 @@ const makeStyles = (colors, insets) =>
       borderWidth: 1,
       borderColor: colors.accent,
     },
-    weeklyBtn: {
-      padding: 6,
-      backgroundColor: colors.accentGlow,
-      borderRadius: radius.full,
-      borderWidth: 1,
-      borderColor: colors.accent,
-    },
     clearBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -667,13 +660,6 @@ const DashboardScreen = ({ navigation }) => {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Feather name="upload-cloud" size={16} color={colors.accent} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => navigation.navigate("WeeklyBriefing")}
-            style={styles.weeklyBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name="calendar" size={16} color={colors.accent} />
           </TouchableOpacity>
         </View>
       </View>
