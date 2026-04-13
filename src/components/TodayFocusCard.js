@@ -78,7 +78,7 @@ const makeStyles = (colors) => StyleSheet.create({
 
 const PRIORITY_COLORS = { HIGH: "#FF5C5C", MEDIUM: "#FFB347", LOW: "#5CFF8F" };
 
-const TodayFocusCard = ({ tasks, userProfile, patterns }) => {
+const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
   const { colors } = useTheme();
   const styles     = makeStyles(colors);
 
@@ -117,10 +117,10 @@ const TodayFocusCard = ({ tasks, userProfile, patterns }) => {
     load();
   };
 
-  // Resolve task IDs → actual task objects
+  // Resolve task IDs → actual task objects (skip completed)
   const focusTasks = focus?.taskIds
     ? focus.taskIds
-        .map((id) => tasks.find((t) => t.id === id))
+        .map((id) => tasks.find((t) => t.id === id && !t.completed))
         .filter(Boolean)
         .slice(0, 3)
     : [];
@@ -185,7 +185,12 @@ const TodayFocusCard = ({ tasks, userProfile, patterns }) => {
         // Clean the task title too — model occasionally echoes [ID:x] in it
         const title = cleanText(task.title) || task.title;
         return (
-          <View key={task.id} style={[styles.taskRow, isLast && styles.taskRowLast]}>
+          <TouchableOpacity
+            key={task.id}
+            style={[styles.taskRow, isLast && styles.taskRowLast]}
+            onPress={() => onTaskHighlight?.(task.id)}
+            activeOpacity={onTaskHighlight ? 0.6 : 1}
+          >
             <View style={[styles.taskDot, chipColor && { backgroundColor: chipColor }]} />
             <View style={{ flex: 1 }}>
               <Text style={styles.taskTitle} numberOfLines={2}>{title}</Text>
@@ -196,7 +201,7 @@ const TodayFocusCard = ({ tasks, userProfile, patterns }) => {
                 <Text style={[styles.taskChipText, { color: chipColor }]}>{priority}</Text>
               </View>
             ) : null}
-          </View>
+          </TouchableOpacity>
         );
       })}
     </Animated.View>

@@ -64,6 +64,7 @@ const makeStyles = (colors) => StyleSheet.create({
     borderRadius: radius.md, paddingHorizontal: spacing.md, paddingLeft: 44,
     paddingVertical: 14, color: colors.textPrimary, fontSize: 15,
   },
+  inputFocused: { borderColor: colors.accent, backgroundColor: colors.bgElevated },
   inputError: { borderColor: colors.high },
   inputIcon:  { position: "absolute", left: 14, top: 16, zIndex: 1 },
   eyeBtn:     { position: "absolute", right: 14, top: 16, zIndex: 1 },
@@ -127,8 +128,8 @@ const friendlyAuthError = (err) => {
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
 // ── Password Reset Screen ─────────────────────────────────────
-const ForgotPasswordScreen = ({ onBack, colors, styles }) => {
-  const [email, setEmail]     = useState("");
+const ForgotPasswordScreen = ({ onBack, colors, styles, initialEmail }) => {
+  const [email, setEmail]     = useState(initialEmail ?? "");
   const [loading, setLoading] = useState(false);
   const [sent, setSent]       = useState(false);
   const [error, setError]     = useState("");
@@ -224,6 +225,7 @@ const AuthScreen = ({ navigation }) => {
   const [emailError, setEmailError]             = useState("");
   const [passwordError, setPasswordError]       = useState("");
   const [confirmError, setConfirmError]         = useState("");
+  const [focusedField, setFocusedField]         = useState(null);
 
   const passwordRef = useRef(null);
   const confirmRef  = useRef(null);
@@ -289,6 +291,7 @@ const AuthScreen = ({ navigation }) => {
               onBack={() => { setMode("login"); clearErrors(); }}
               colors={colors}
               styles={styles}
+              initialEmail={email}
             />
           </ScrollView>
         </KeyboardAvoidingView>
@@ -312,7 +315,7 @@ const AuthScreen = ({ navigation }) => {
               </View>
             </View>
             <Text style={styles.brandName}>Planora</Text>
-            <Text style={styles.brandTagline}>Your semester, organized.</Text>
+            <Text style={styles.brandTagline}>Find your focus.</Text>
           </View>
 
           {/* Divider */}
@@ -332,7 +335,7 @@ const AuthScreen = ({ navigation }) => {
                 style={styles.inputIcon}
               />
               <TextInput
-                style={[styles.input, emailError && styles.inputError]}
+                style={[styles.input, focusedField === "email" && styles.inputFocused, emailError && styles.inputError]}
                 placeholder="Email address"
                 placeholderTextColor={colors.textMuted}
                 value={email}
@@ -340,6 +343,8 @@ const AuthScreen = ({ navigation }) => {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 returnKeyType="next"
+                onFocus={() => setFocusedField("email")}
+                onBlur={() => setFocusedField(null)}
                 onSubmitEditing={() => passwordRef.current?.focus()}
               />
             </View>
@@ -356,13 +361,15 @@ const AuthScreen = ({ navigation }) => {
               />
               <TextInput
                 ref={passwordRef}
-                style={[styles.input, { paddingRight: 44 }, passwordError && styles.inputError]}
+                style={[styles.input, { paddingRight: 44 }, focusedField === "password" && styles.inputFocused, passwordError && styles.inputError]}
                 placeholder="Password"
                 placeholderTextColor={colors.textMuted}
                 value={password}
                 onChangeText={(v) => { setPassword(v); if (passwordError) setPasswordError(""); if (error) setError(""); }}
                 secureTextEntry={!showPassword}
                 returnKeyType={mode === "login" ? "done" : "next"}
+                onFocus={() => setFocusedField("password")}
+                onBlur={() => setFocusedField(null)}
                 onSubmitEditing={mode === "login" ? handleSubmit : () => confirmRef.current?.focus()}
               />
               <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.eyeBtn}>
@@ -383,13 +390,15 @@ const AuthScreen = ({ navigation }) => {
                 />
                 <TextInput
                   ref={confirmRef}
-                  style={[styles.input, confirmError && styles.inputError]}
+                  style={[styles.input, focusedField === "confirm" && styles.inputFocused, confirmError && styles.inputError]}
                   placeholder="Confirm password"
                   placeholderTextColor={colors.textMuted}
                   value={confirmPassword}
                   onChangeText={(v) => { setConfirmPassword(v); if (confirmError) setConfirmError(""); }}
                   secureTextEntry={!showPassword}
                   returnKeyType="done"
+                  onFocus={() => setFocusedField("confirm")}
+                  onBlur={() => setFocusedField(null)}
                   onSubmitEditing={handleSubmit}
                 />
               </View>
@@ -413,7 +422,7 @@ const AuthScreen = ({ navigation }) => {
           >
             {loading
               ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.submitText}>{mode === "login" ? "Sign In" : "Create Account"}</Text>
+              : <Text style={styles.submitText}>{mode === "login" ? "Sign In" : "Sign Up"}</Text>
             }
           </TouchableOpacity>
 
@@ -463,7 +472,7 @@ export const EmailVerificationScreen = ({ navigation, route }) => {
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
         <View style={{
           width: 80, height: 80, borderRadius: 40,
-          backgroundColor: "rgba(144,96,232,0.12)",
+          backgroundColor: colors.accentGlow,
           borderWidth: 2, borderColor: colors.accent,
           alignItems: "center", justifyContent: "center",
           marginBottom: 24,

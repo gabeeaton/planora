@@ -4,13 +4,12 @@
 //   - Replaced AISummaryCard with AIActionsCard (no more Summarize)
 //   - TodayFocusCard cache invalidated when tasks change
 //   - Focus mode hint removed (redundant — long press hint on TaskCard)
-//   - Weekly plan entry point kept in header
 // ============================================================
 
 // ── Demo mode (set true for screenshots/TikTok, false for production) ──
 const DEMO_MODE = false;
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -380,6 +379,25 @@ const DashboardScreen = ({ navigation }) => {
   const [now, setNow] = useState(new Date());
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
 
+  const scrollRef      = useRef(null);
+  const scrollOffsetY  = useRef(0);
+  const taskViewRefs   = useRef({});
+
+  // Scroll to a task when it's highlighted from the Focus card
+  useEffect(() => {
+    if (!highlightedTaskId) return;
+    const taskRef = taskViewRefs.current[highlightedTaskId];
+    if (!taskRef || !scrollRef.current) return;
+    setTimeout(() => {
+      taskRef.measureInWindow((_, taskAbsY) => {
+        scrollRef.current.measureInWindow((__, svAbsY) => {
+          const targetY = scrollOffsetY.current + (taskAbsY - svAbsY) - 120;
+          scrollRef.current.scrollTo({ y: Math.max(0, targetY), animated: true });
+        });
+      });
+    }, 50);
+  }, [highlightedTaskId]);
+
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
@@ -668,15 +686,16 @@ const DashboardScreen = ({ navigation }) => {
         </View>
         {sortByDue(taskList).map((task) =>
           task ? (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onToggle={handleToggle}
-              onEdit={handleEditTask}
-              onDelete={handleDeleteTask}
-              onFocus={handleFocusTask}
-              highlighted={task.id === highlightedTaskId}
-            />
+            <View key={task.id} ref={(r) => { if (r) taskViewRefs.current[task.id] = r; }}>
+              <TaskCard
+                task={task}
+                onToggle={handleToggle}
+                onEdit={handleEditTask}
+                onDelete={handleDeleteTask}
+                onFocus={handleFocusTask}
+                highlighted={task.id === highlightedTaskId}
+              />
+            </View>
           ) : null
         )}
       </View>
@@ -715,9 +734,12 @@ const DashboardScreen = ({ navigation }) => {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={(e) => { scrollOffsetY.current = e.nativeEvent.contentOffset.y; }}
         refreshControl={
           <RefreshControl
             refreshing={loading && tasks.length === 0}
@@ -738,6 +760,7 @@ const DashboardScreen = ({ navigation }) => {
             tasks={tasks}
             userProfile={profile}
             patterns={patterns}
+            onTaskHighlight={setHighlightedTaskId}
           />
         )}
 
@@ -838,7 +861,7 @@ const DashboardScreen = ({ navigation }) => {
             </View>
             <Text style={styles.allDoneTitle}>All done! 🎉</Text>
             <Text style={styles.allDoneSubtitle}>
-              Nothing pending. Add something new or check your weekly plan.
+              Nothing pending. Add something new or ask your coach for help.
             </Text>
           </View>
         ) : activeTab === "All" ? (

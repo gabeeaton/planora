@@ -75,7 +75,7 @@ function welcomeHtml(name) {
             ${[
               ["📚", "Add your classes", "Set up your classes in Profile so the AI can factor in grades and credit hours."],
               ["📋", "Import your syllabus", "Tap the upload icon on the dashboard to import your Canvas calendar or syllabus."],
-              ["🎯", "Find My Focus", "Tap \"What do I do right now?\" and the AI will tell you exactly what to work on."],
+              ["🎯", "Find My Focus", "Tap \"Find my focus\" and the AI will tell you exactly what to work on right now."],
             ].map(([icon, title, desc]) => `
             <tr><td style="padding:12px 0;border-bottom:1px solid #f0f0f0;">
               <table cellpadding="0" cellspacing="0"><tr>
@@ -126,7 +126,7 @@ function verifyHtml(verifyUrl) {
 
         <tr><td style="background:#9060E8;padding:32px 40px;text-align:center;">
           <p style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Planora</p>
-          <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.8);">Your AI Academic Coach</p>
+          <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.8);">Find your focus.</p>
         </td></tr>
 
         <tr><td style="padding:40px;text-align:center;">
@@ -136,9 +136,9 @@ function verifyHtml(verifyUrl) {
               ✉️
             </td></tr>
           </table>
-          <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;">Verify your email</h1>
+          <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;">One tap to get started</h1>
           <p style="margin:0 0 32px;font-size:15px;line-height:1.6;color:#555;">
-            Tap the button below to verify your email address and activate your Planora account.
+            Confirm your email to activate your Planora account and meet your AI academic coach.
           </p>
 
           <a href="${verifyUrl}" style="display:inline-block;background:#9060E8;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
@@ -246,7 +246,7 @@ export default async function handler(req, res) {
       });
       await sendEmail({
         to:      email,
-        subject: "Verify your Planora email",
+        subject: "Almost there — confirm your Planora account",
         html:    verifyHtml(verifyUrl),
       });
       return res.status(200).json({ ok: true });
@@ -260,7 +260,7 @@ export default async function handler(req, res) {
       const resetUrl = `https://taskflow-mocha-theta.vercel.app/api/reset-redirect?oobCode=${encodeURIComponent(oobCode)}`;
       await sendEmail({
         to:      email,
-        subject: "Reset your Planora password",
+        subject: "Reset your password — Planora",
         html:    resetHtml(resetUrl),
       });
       return res.status(200).json({ ok: true });

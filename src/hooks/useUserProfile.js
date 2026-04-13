@@ -25,7 +25,8 @@ export const useUserProfile = () => {
 
     const unsubscribe = subscribeUserProfile(user.uid, (freshProfile) => {
       setProfile(freshProfile);
-      if (freshProfile) cacheUserProfile(freshProfile);
+      // Always sync cache — if no profile exists, clear any stale cache from a previous account
+      cacheUserProfile(freshProfile ?? null);
       setLoading(false);
       setFirestoreReady(true);
     });

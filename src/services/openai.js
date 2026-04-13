@@ -304,100 +304,7 @@ Respond ONLY with this JSON, no markdown:
   }
 };
 
-// ── 3. Weekly Plan ───────────────────────────────────────────
-
-export const getWeeklyPlan = async (tasks, userProfile, patterns) => {
-  const pending = tasks.filter((t) => !t.completed);
-  const patternCtx = patterns
-    ? buildPatternContext(patterns, userProfile)
-    : "No pattern data yet.";
-  const taskList = formatTaskList(pending);
-  const classes =
-    userProfile?.classes
-      ?.map(
-        (c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade && c.grade !== "No grade yet" ? c.grade : "none yet"})`
-      )
-      .join("\n  ") ?? "Not specified";
-  const preferredTime = userProfile?.preferredWorkTime ?? "not specified";
-
-  const exactTitles = pending
-    .slice(0, APP_CONFIG.maxTasksForAI)
-    .map((t) => `"${t.title}"`)
-    .join(", ");
-
-  const prompt = `You are an academic planner. Build a realistic 7-day study plan for a college student.
-
-TODAY: ${today()}
-PREFERRED STUDY TIME: ${preferredTime}
-
-CLASSES:
-  ${classes}
-
-BEHAVIORAL PATTERNS:
-${patternCtx}
-
-TASKS TO SCHEDULE:
-${taskList}
-
-STRICT RULES:
-1. Each day's task list must contain ONLY exact task titles from this list: ${exactTitles}
-2. NEVER invent chapter numbers, page numbers, reading assignments, or subtasks.
-3. NEVER suggest tasks not in the list above.
-4. If a task has a due date, schedule it on or before that date.
-5. Front-load tasks for classes where the student has a late pattern.
-6. Maximum 3 tasks per day.
-7. If no tasks fit a day naturally, leave it as a rest day (empty tasks array).
-8. The "note" field should be a brief specific coach tip, not generic advice.
-
-Respond ONLY with this JSON (no markdown):
-{
-  "headline": "One encouraging sentence about their week",
-  "keyInsight": "One behavioral insight referencing a specific class or habit",
-  "days": [
-    {
-      "day": "Monday",
-      "date": "Feb 24",
-      "tasks": ["exact task title from list"],
-      "note": "Optional short coach tip"
-    }
-  ],
-  "warnings": ["Any overdue or at-risk items with specific due dates"]
-}`;
-
-  try {
-    const content = await callProxy({
-      model: APP_CONFIG.gptModel,
-      messages: [
-        { role: "system", content: BASE_SYSTEM },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.3,
-      max_tokens: 1200,
-    });
-
-    const result = safeParseJSON(content.trim());
-
-    // Post-process: validate task titles actually exist
-    // Normalize both sides so minor AI variations (case, whitespace) don't strip everything
-    const normalize = (s) => s?.trim().toLowerCase() ?? "";
-    const validTitlesNorm = new Map(pending.map((t) => [normalize(t.title), t.title]));
-    if (result.days) {
-      result.days = result.days.map((day) => ({
-        ...day,
-        tasks: (day.tasks ?? [])
-          .map((title) => validTitlesNorm.get(normalize(title)) ?? null)
-          .filter(Boolean),
-      }));
-    }
-
-    return result;
-  } catch (err) {
-    console.error("getWeeklyPlan failed:", err);
-    throw new Error(friendlyError(err));
-  }
-};
-
-// ── 5. Academic Coach Chat ───────────────────────────────────
+// ── 3. Academic Coach Chat ───────────────────────────────────
 
 const CHAT_SYSTEM = (contextBlock) =>
   `You are an academic coach inside Planora, a productivity app for college students. Be direct, warm, and specific. Keep responses concise (2-4 sentences) unless they ask for something detailed. Never be generic.
@@ -407,7 +314,7 @@ Important: when the student asks about a CLASS (e.g. "which class should I worry
 Task creation: If the user explicitly asks you to add, create, or schedule a task, follow these rules:
 1. If no class is mentioned and the user has classes set up, ask which class it's for before creating it.
 2. For due dates, always calculate relative to the Today date provided in the context block below. "Tomorrow" = Today + 1 day, "Friday" = the next upcoming Friday from Today, etc. Never guess the date independently.
-3. Set priority automatically based on due date: due within 2 days = HIGH, within 7 days = MEDIUM, further out or no date = LOW.
+3. Set priority automatically based on due date: due today or tomorrow = HIGH, due within 7 days = MEDIUM, further out or no due date = LOW.
 4. Once you have the title, class, and due date, append ONE action block on its own line at the very end of your response:
 %%ACTION:{"type":"createTask","title":"<task title>","dueDate":"<YYYY-MM-DD or null>","className":"<class name or null>","priority":"<HIGH|MEDIUM|LOW>"}%%
 Only include this block when you have enough info to create the task. Never include it for questions, advice, or any other request.
@@ -546,7 +453,7 @@ Tasks:
 ${taskList}
 
 Rules:
-- HIGH: Due within 2 days, or student historically struggles with this class
+- HIGH: Due today or tomorrow, or student historically struggles with this class
 - MEDIUM: Due within a week, or moderate importance
 - LOW: No deadline, or low stakes
 

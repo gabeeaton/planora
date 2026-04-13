@@ -9,6 +9,8 @@ export const COLOR_THEMES = {
   green:  { key: "green",  label: "Green",  accent: "#10B981", accentLight: "#34D399", accentGlowDark: "rgba(16,185,129,0.18)",  accentGlowLight: "rgba(16,185,129,0.12)"  },
   pink:   { key: "pink",   label: "Pink",   accent: "#EC4899", accentLight: "#F472B6", accentGlowDark: "rgba(236,72,153,0.18)",  accentGlowLight: "rgba(236,72,153,0.12)"  },
   orange: { key: "orange", label: "Orange", accent: "#F97316", accentLight: "#FB923C", accentGlowDark: "rgba(249,115,22,0.18)",  accentGlowLight: "rgba(249,115,22,0.12)"  },
+  yellow: { key: "yellow", label: "Yellow", accent: "#EAB308", accentLight: "#FACC15", accentGlowDark: "rgba(234,179,8,0.18)",   accentGlowLight: "rgba(234,179,8,0.12)"   },
+  red:    { key: "red",    label: "Red",    accent: "#EF4444", accentLight: "#F87171", accentGlowDark: "rgba(239,68,68,0.18)",   accentGlowLight: "rgba(239,68,68,0.12)"   },
 };
 
 const DARK_BASE = {

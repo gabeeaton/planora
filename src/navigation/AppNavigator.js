@@ -139,7 +139,8 @@ const AppNavigator = () => {
   // Once we see onboardingComplete:true, latch it for the session so a
   // momentary Firestore null (cache miss) never bounces the user back to onboarding.
   const onboardedRef = useRef(false);
-  if (profile?.onboardingComplete === true) onboardedRef.current = true;
+  // Only latch after Firestore confirms — prevents stale cache from a prior account locking the flag
+  if (firestoreReady && profile?.onboardingComplete === true) onboardedRef.current = true;
 
   const shouldOnboard = !!user && !loading && firestoreReady && !onboardedRef.current && profile?.onboardingComplete !== true;
 
