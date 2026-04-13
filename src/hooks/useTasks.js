@@ -131,12 +131,17 @@ export const useTasks = () => {
   const createManyTasks = useCallback(async (tasksArray) => {
     if (!user) throw new Error("Not logged in.");
     try {
-      // Deduplicate Canvas re-imports: skip tasks whose canvasId already exists
+      // Deduplicate re-imports: skip tasks whose canvasId or icsUid already exists
       const existingCanvasIds = new Set(
         tasksRef.current.filter((t) => t.canvasId).map((t) => String(t.canvasId))
       );
+      const existingIcsUids = new Set(
+        tasksRef.current.filter((t) => t.icsUid).map((t) => String(t.icsUid))
+      );
       const toCreate = tasksArray.filter(
-        (t) => !t.canvasId || !existingCanvasIds.has(String(t.canvasId))
+        (t) =>
+          (!t.canvasId || !existingCanvasIds.has(String(t.canvasId))) &&
+          (!t.icsUid   || !existingIcsUids.has(String(t.icsUid)))
       );
       const skipped = tasksArray.length - toCreate.length;
 

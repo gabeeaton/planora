@@ -270,7 +270,13 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const saveClasses = async () => {
-    const valid = editClasses.filter((c) => c.name.trim().length > 0);
+    const seen = new Set();
+    const valid = editClasses.filter((c) => {
+      const name = c.name.trim();
+      if (!name || seen.has(name.toLowerCase())) return false;
+      seen.add(name.toLowerCase());
+      return true;
+    });
     await saveUserProfile(user.uid, { classes: valid });
     setModal(null);
   };

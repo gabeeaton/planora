@@ -9,7 +9,7 @@
 //   - Import step has "Skip for now" so it's never a blocker
 // ============================================================
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -33,7 +33,7 @@ import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
 import { VERCEL_API_URL } from "../config";
-import { parseSyllabusText } from "../services/syllabusParser";
+// syllabusParser removed — ICS-only import
 import {
   parseIcsText,
   isValidIcs,
@@ -219,39 +219,6 @@ const makeStyles = (colors) =>
       justifyContent: "center",
       marginBottom: spacing.md,
       ...shadows.accent,
-    },
-    importTabRow: {
-      flexDirection: "row",
-      backgroundColor: colors.bgCard,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      marginBottom: spacing.md,
-      overflow: "hidden",
-    },
-    importTab: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 11,
-    },
-    importTabActive: { backgroundColor: colors.accent },
-    importTabText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
-    importTabTextActive: { color: "#fff" },
-
-    syllabusInput: {
-      backgroundColor: colors.bgInput,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.md,
-      padding: 14,
-      color: colors.textPrimary,
-      fontSize: 14,
-      minHeight: 140,
-      textAlignVertical: "top",
-      marginBottom: spacing.sm,
     },
     parseBtn: {
       backgroundColor: colors.accent,
@@ -467,42 +434,17 @@ const STEP_COUNT = 4;
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // ── Import Step Sub-component ─────────────────────────────────
-const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
+const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors }) => {
   const { createManyTasks } = useTasks();
-  const [activeTab, setActiveTab] = useState("ics");
-  const [syllabusText, setSyllabusText] = useState("");
-  const [manualClassName, setManualClassName] = useState("");
-  const [parsing, setParsing] = useState(false);
   const [icsUrl, setIcsUrl] = useState("");
   const [icsLoading, setIcsLoading] = useState(false);
   const [icsText, setIcsText] = useState(null);
-  const [icsEventCount, setIcsEventCount] = useState(0);
   const [parsedTasks, setParsedTasks] = useState(null);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState(null);
+  const [loadedFromUrl, setLoadedFromUrl] = useState(null);
   const [importDone, setImportDone] = useState(false);
   const [importCount, setImportCount] = useState(0);
-
-  const handleParseSyllabus = async () => {
-    if (!syllabusText.trim()) return;
-    setError(null);
-    setParsing(true);
-    try {
-      const className = manualClassName.trim() || null;
-      const tasks = await parseSyllabusText(syllabusText, className);
-      if (tasks.length === 0) {
-        setError(
-          "No assignments found. Try pasting just the schedule section."
-        );
-        return;
-      }
-      setParsedTasks(tasks);
-    } catch (err) {
-      setError(err.message ?? "Parsing failed. Try again.");
-    } finally {
-      setParsing(false);
-    }
-  };
 
   const parseAndSet = (text) => {
     try {
@@ -527,16 +469,14 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       if (!isValidIcs(text)) {
-        setError(
-          "That URL didn't return a valid calendar. Make sure you copied the full feed URL from Canvas."
-        );
+        setError("That URL didn't return a valid calendar. Make sure you copied the full feed URL from Canvas.");
         return;
       }
+      setIcsText(text);
+      setLoadedFromUrl(url);
       parseAndSet(text);
     } catch {
-      setError(
-        "Couldn't load that URL. Make sure it starts with https:// — replace webcal:// if needed."
-      );
+      setError("Couldn't load that URL. Make sure it starts with https:// — replace webcal:// if needed.");
     } finally {
       setIcsLoading(false);
     }
@@ -561,26 +501,13 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
         setError("This doesn't look like a valid .ics file.");
         return;
       }
+      setIcsText(text);
+      setLoadedFromUrl(null);
       parseAndSet(text);
     } catch {
       setError("Couldn't read that file.");
     } finally {
       setIcsLoading(false);
-    }
-  };
-
-  const handleParseIcs = () => {
-    if (!icsText) return;
-    setError(null);
-    try {
-      const tasks = parseIcsText(icsText);
-      if (tasks.length === 0) {
-        setError("No upcoming assignments found in this calendar.");
-        return;
-      }
-      setParsedTasks(tasks);
-    } catch {
-      setError("Couldn't parse this file. Try exporting again.");
     }
   };
 
@@ -591,22 +518,15 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
     try {
       const toImport = parsedTasks.map((t) => ({
         ...t,
-        dueDate:
-          t.dueDate instanceof Date
-            ? t.dueDate
-            : t.dueDate
-            ? new Date(t.dueDate)
-            : null,
+        dueDate: t.dueDate instanceof Date ? t.dueDate : (t.dueDate ? new Date(t.dueDate) : null),
       }));
       await createManyTasks(toImport);
-      setImportCount(toImport.length);
-      setImportDone(true);
       onImported(toImport.length);
+      if (loadedFromUrl && onUrlSaved) onUrlSaved(loadedFromUrl);
       // Notify parent of every unique class name found in imported tasks
       if (onClassDetected) {
         const detectedNames = [...new Set(toImport.map((t) => t.className).filter(Boolean))];
         detectedNames.forEach((name) => onClassDetected(name));
-        if (manualClassName.trim()) onClassDetected(manualClassName.trim());
       }
     } catch {
       setError("Import failed. You can try again from the dashboard.");
@@ -696,114 +616,15 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
 
   return (
     <View>
-      {/* Tabs */}
-      <View style={styles.importTabRow}>
-        {[
-          { key: "ics", icon: "calendar", label: "Calendar" },
-          { key: "syllabus", icon: "file-text", label: "Syllabus" },
-        ].map((t) => (
-          <TouchableOpacity
-            key={t.key}
-            style={[
-              styles.importTab,
-              activeTab === t.key && styles.importTabActive,
-            ]}
-            onPress={() => {
-              setActiveTab(t.key);
-              setError(null);
-            }}
-          >
-            <Feather
-              name={t.icon}
-              size={14}
-              color={activeTab === t.key ? "#fff" : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.importTabText,
-                activeTab === t.key && styles.importTabTextActive,
-              ]}
-            >
-              {t.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Syllabus tab */}
-      {activeTab === "syllabus" && (
-        <>
-          <View style={styles.infoCard}>
-            <Feather name="info" size={13} color={colors.accent} />
-            <Text style={styles.infoText}>
-              Paste your syllabus below — or just the assignments section. The
-              AI extracts every deadline automatically.
-            </Text>
-          </View>
-
-          <View style={{ marginBottom: spacing.sm }}>
-            <Text style={styles.fieldLabel}>CLASS NAME (optional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. HIST 201 — World History"
-              placeholderTextColor={colors.textMuted}
-              value={manualClassName}
-              onChangeText={setManualClassName}
-            />
-          </View>
-
-          <TextInput
-            style={styles.syllabusInput}
-            placeholder={
-              "Paste your syllabus here…\n\nEven just the assignments section works."
-            }
-            placeholderTextColor={colors.textMuted}
-            value={syllabusText}
-            onChangeText={(v) => {
-              setSyllabusText(v);
-              setError(null);
-            }}
-            multiline
-            textAlignVertical="top"
-          />
-
-          {error && (
-            <View style={styles.errorRow}>
-              <Feather name="alert-circle" size={13} color={colors.high} />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={[
-              styles.parseBtn,
-              (parsing || !syllabusText.trim()) && styles.parseBtnDisabled,
-            ]}
-            onPress={handleParseSyllabus}
-            disabled={parsing || !syllabusText.trim()}
-          >
-            {parsing ? (
-              <ActivityIndicator size={15} color="#fff" />
-            ) : (
-              <Feather name="cpu" size={15} color="#fff" />
-            )}
-            <Text style={styles.parseBtnText}>
-              {parsing ? "Analyzing..." : "Extract Tasks with AI"}
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
-
-      {/* Calendar / ICS tab */}
-      {activeTab === "ics" && (
-        <>
-          <View style={styles.infoCard}>
-            <Feather name="zap" size={13} color={colors.accent} />
-            <Text style={styles.infoText}>
-              <Text style={styles.infoLink}>Paste your Canvas feed URL </Text>
-              for the fastest setup — no file download needed.
-            </Text>
-          </View>
+      {/* ICS / Calendar import */}
+      <>
+        <View style={styles.infoCard}>
+          <Feather name="zap" size={13} color={colors.accent} />
+          <Text style={styles.infoText}>
+            <Text style={styles.infoLink}>Paste your school calendar URL </Text>
+            for the fastest setup — works with Canvas, Brightspace, Blackboard, and Moodle.
+          </Text>
+        </View>
 
           <View style={styles.urlInputWrap}>
             <TextInput
@@ -878,7 +699,6 @@ const ImportStep = ({ onImported, onClassDetected, styles, colors }) => {
           )}
 
         </>
-      )}
     </View>
   );
 };
@@ -931,6 +751,11 @@ const OnboardingScreen = ({ navigation }) => {
       setHardestClass(profile.hardestClass ?? null);
     }
   }, []);
+
+  const handleUrlSaved = useCallback(async (url) => {
+    if (!url || !user) return;
+    await saveUserProfile(user.uid, { icsUrl: url }).catch(() => {});
+  }, [user]);
 
   const handleClassDetected = (name) => {
     setClasses((prev) => {
@@ -1212,7 +1037,7 @@ const OnboardingScreen = ({ navigation }) => {
         <Text style={[styles.stepSubtitle, { textAlign: "center" }]}>
           {importedCount > 0
             ? `${importedCount} tasks imported. The AI has your full schedule.`
-            : "Import from your syllabus or Canvas calendar. You can also skip this and add tasks manually."}
+            : "Import from your Canvas, Brightspace, Blackboard, or Moodle calendar. You can also skip this and add tasks manually."}
         </Text>
       </View>
 
@@ -1220,6 +1045,7 @@ const OnboardingScreen = ({ navigation }) => {
         <ImportStep
           onImported={(count) => setImportedCount(count)}
           onClassDetected={handleClassDetected}
+          onUrlSaved={handleUrlSaved}
           styles={styles}
           colors={colors}
         />
