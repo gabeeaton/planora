@@ -473,16 +473,13 @@ const DashboardScreen = ({ navigation }) => {
 
   const behavioralInsight = useMemo(() => {
     if (!patterns) return null;
-    const { urgentUntouched, staleTasks, latenessProfile, overallStats } =
-      patterns;
+    const { urgentUntouched, staleTasks, latenessProfile, overallStats } = patterns;
+    const today = new Date();
+
+    // ── 1. Low grade + urgent ────────────────────────────────────
     const lowGradeUrgent = enrichedTasks.find((t) => {
       const d = safeDate(t.dueDate);
-      return (
-        t._lowGrade &&
-        !t.completed &&
-        d &&
-        differenceInCalendarDays(d, new Date()) <= 3
-      );
+      return t._lowGrade && !t.completed && d && differenceInCalendarDays(d, today) <= 3;
     });
     if (lowGradeUrgent) {
       return {
@@ -491,6 +488,8 @@ const DashboardScreen = ({ navigation }) => {
         color: colors.high,
       };
     }
+
+    // ── 2. Urgent untouched ──────────────────────────────────────
     if (urgentUntouched?.length > 0) {
       const t = urgentUntouched[0];
       return {
@@ -499,6 +498,58 @@ const DashboardScreen = ({ navigation }) => {
         color: colors.high,
       };
     }
+
+    // ── 3. Clustered deadlines + lateness pattern ────────────────
+    // Find the next day in the upcoming 7 days with 2+ tasks due
+    const pending = tasks.filter((t) => !t.completed && t.dueDate);
+    const byDay = {};
+    pending.forEach((t) => {
+      const d = safeDate(t.dueDate);
+      if (!d) return;
+      const daysAway = differenceInCalendarDays(d, today);
+      if (daysAway < 0 || daysAway > 7) return;
+      const key = daysAway;
+      if (!byDay[key]) byDay[key] = [];
+      byDay[key].push(t);
+    });
+    const busiestEntry = Object.entries(byDay)
+      .filter(([, ts]) => ts.length >= 2)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))[0]; // earliest busy day
+
+    if (busiestEntry) {
+      const daysAway  = Number(busiestEntry[0]);
+      const count     = busiestEntry[1].length;
+      const dayName   = daysAway === 0 ? "today"
+                      : daysAway === 1 ? "tomorrow"
+                      : format(addDays(today, daysAway), "EEEE");
+      const hasLateness = latenessProfile?.totalSamples >= 3;
+      const isLastMinute = hasLateness && (latenessProfile.avgDaysBefore ?? 1) < 1.5;
+
+      let text;
+      if (isLastMinute) {
+        const avg = latenessProfile.avgDaysBefore;
+        const avgLabel = avg < 0.5 ? "the last minute"
+                       : avg < 1   ? "just before the deadline"
+                       :             "around a day before the deadline";
+        text = `You have ${count} things due ${dayName} — and you typically finish ${avgLabel}. Start today to stay ahead.`;
+      } else if (count >= 3) {
+        text = `${count} tasks due ${dayName}. Heavy day ahead — spread the work out now.`;
+      } else if (daysAway <= 2) {
+        text = `${count} tasks due ${dayName}. Don't let them stack up.`;
+      } else {
+        text = null; // not urgent enough to surface
+      }
+
+      if (text) {
+        return {
+          text,
+          icon: "calendar",
+          color: daysAway <= 1 ? colors.high : colors.medium,
+        };
+      }
+    }
+
+    // ── 4. Stale task ────────────────────────────────────────────
     if (staleTasks?.length > 0) {
       const t = staleTasks[0];
       return {
@@ -507,18 +558,18 @@ const DashboardScreen = ({ navigation }) => {
         color: colors.medium,
       };
     }
-    if (
-      latenessProfile?.label === "often late" &&
-      overallStats?.totalPending > 0
-    ) {
+
+    // ── 5. Generic lateness nudge ────────────────────────────────
+    if (latenessProfile?.label === "often late" && overallStats?.totalPending > 0) {
       return {
         text: "You tend to finish late. Start your highest-priority item first today.",
         icon: "trending-up",
         color: colors.accent,
       };
     }
+
     return null;
-  }, [patterns, enrichedTasks]);
+  }, [patterns, enrichedTasks, tasks]);
 
   const handleAddTask = () => {
     setEditingTask(null);
