@@ -24,7 +24,7 @@ const toDate = (val) => {
   return isNaN(d.getTime()) ? null : d;
 };
 
-const CLASS_COLORS = ["#7040BE","#FF6B6B","#FFB347","#5CFF8F","#5BC8FF","#FF8EE8"];
+const CLASS_COLORS = ["#9060E8","#FF6B6B","#FFB347","#5CFF8F","#5BC8FF","#FF8EE8"];
 const getClassColor = (name) => {
   let h = 0;
   for (let i = 0; i < (name?.length ?? 0); i++) h = name.charCodeAt(i) + ((h << 5) - h);

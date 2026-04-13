@@ -4,7 +4,7 @@
 // ============================================================
 
 export const COLOR_THEMES = {
-  purple: { key: "purple", label: "Purple", accent: "#7040BE", accentLight: "#9060D8", accentGlowDark: "rgba(112,64,190,0.18)", accentGlowLight: "rgba(112,64,190,0.12)" },
+  purple: { key: "purple", label: "Purple", accent: "#9060E8", accentLight: "#A87AEE", accentGlowDark: "rgba(144,96,232,0.18)", accentGlowLight: "rgba(144,96,232,0.12)" },
   blue:   { key: "blue",   label: "Blue",   accent: "#3B82F6", accentLight: "#60A5FA", accentGlowDark: "rgba(59,130,246,0.18)",  accentGlowLight: "rgba(59,130,246,0.12)"  },
   green:  { key: "green",  label: "Green",  accent: "#10B981", accentLight: "#34D399", accentGlowDark: "rgba(16,185,129,0.18)",  accentGlowLight: "rgba(16,185,129,0.12)"  },
   pink:   { key: "pink",   label: "Pink",   accent: "#EC4899", accentLight: "#F472B6", accentGlowDark: "rgba(236,72,153,0.18)",  accentGlowLight: "rgba(236,72,153,0.12)"  },
@@ -102,7 +102,7 @@ export const makeShadows = (accent) => ({
   },
 });
 
-export const shadows = makeShadows("#7040BE");
+export const shadows = makeShadows("#9060E8");
 
 export const priorityColors = { HIGH: "#FF5C5C", MEDIUM: "#FFB347", LOW: "#5CFF8F" };
 export const priorityGlow   = {

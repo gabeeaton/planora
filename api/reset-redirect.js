@@ -42,17 +42,17 @@ export default function handler(req, res) {
       text-align: center;
       box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
-    .logo { font-size: 24px; font-weight: 800; color: #7040BE; margin-bottom: 24px; }
+    .logo { font-size: 24px; font-weight: 800; color: #9060E8; margin-bottom: 24px; }
     .icon {
       width: 64px; height: 64px; border-radius: 32px;
-      background: rgba(112,64,190,0.1); border: 2px solid #7040BE;
+      background: rgba(144,96,232,0.1); border: 2px solid #9060E8;
       display: flex; align-items: center; justify-content: center;
       font-size: 28px; margin: 0 auto 20px;
     }
     h1 { font-size: 20px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
     p  { font-size: 14px; color: #666; line-height: 1.6; margin-bottom: 28px; }
     .btn {
-      display: block; background: #7040BE; color: #fff;
+      display: block; background: #9060E8; color: #fff;
       font-size: 16px; font-weight: 700; text-decoration: none;
       padding: 14px 32px; border-radius: 12px; margin-bottom: 16px;
     }
