@@ -336,7 +336,6 @@ export default function ChatScreen() {
       <View style={styles.header}>
         <View style={styles.headerAvatar}>
           <Feather name="book-open" size={18} color={colors.accent} />
-          <View style={styles.onlineDot} />
         </View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Academic Coach</Text>
@@ -454,11 +453,6 @@ const makeStyles = (colors) => StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: colors.accentGlow, borderWidth: 1.5, borderColor: colors.accent,
     alignItems: "center", justifyContent: "center",
-  },
-  onlineDot: {
-    position: "absolute", bottom: 1, right: 1,
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: "#5CFF8F", borderWidth: 1.5, borderColor: colors.bg,
   },
   backBtn:      { padding: 4 },
   headerCenter: { flex: 1 },

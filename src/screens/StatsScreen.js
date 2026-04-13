@@ -80,7 +80,7 @@ const makeStyles = (colors) => StyleSheet.create({
 
   sectionHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    marginBottom: spacing.sm, marginTop: spacing.lg,
+    marginBottom: spacing.sm, marginTop: spacing.xl,
   },
   sectionTitle: { ...typography.label, color: colors.textMuted },
   sectionMeta:  { fontSize: 11, color: colors.textMuted, fontWeight: "500" },

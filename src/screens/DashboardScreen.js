@@ -75,28 +75,28 @@ const makeStyles = (colors, insets) =>
       color: colors.textPrimary,
       letterSpacing: -0.3,
     },
-    date: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-    headerRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+    dateRow:   { flexDirection: "row", alignItems: "center", marginTop: 2, gap: 8 },
+    date:      { fontSize: 13, color: colors.textSecondary },
     streakPill: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
+      flexDirection: "row", alignItems: "center", gap: 4,
       backgroundColor: colors.mediumGlow,
       borderRadius: radius.full,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderWidth: 1,
-      borderColor: colors.medium,
+      paddingHorizontal: 8, paddingVertical: 3,
+      borderWidth: 1, borderColor: colors.medium,
     },
-    streakText: { fontSize: 12, fontWeight: "700", color: colors.medium },
+    streakText: { fontSize: 11, fontWeight: "700", color: colors.medium },
     importBtn: {
-      width: 34, height: 34,
-      alignItems: "center", justifyContent: "center",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
       backgroundColor: colors.accentGlow,
       borderRadius: radius.full,
       borderWidth: 1,
       borderColor: colors.accent,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
     },
+    importBtnText: { fontSize: 12, fontWeight: "700", color: colors.accent },
     clearBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -694,25 +694,24 @@ const DashboardScreen = ({ navigation }) => {
             {greeting()}
             {firstName ? `, ${firstName}` : ""}
           </Text>
-          <Text style={styles.date}>{format(now, "EEEE, MMMM d")}</Text>
+          <View style={styles.dateRow}>
+            <Text style={styles.date}>{format(now, "EEEE, MMMM d")}</Text>
+            {streak > 0 && (
+              <View style={styles.streakPill}>
+                <Text>🔥</Text>
+                <Text style={styles.streakText}>{streak} day{streak !== 1 ? "s" : ""}</Text>
+              </View>
+            )}
+          </View>
         </View>
-        <View style={styles.headerRight}>
-          {streak > 0 && (
-            <View style={styles.streakPill}>
-              <Text>🔥</Text>
-              <Text style={styles.streakText}>
-                {streak} day{streak !== 1 ? "s" : ""}
-              </Text>
-            </View>
-          )}
-          <TouchableOpacity
-            onPress={() => navigation.navigate("SyllabusParser")}
-            style={styles.importBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name="upload-cloud" size={16} color={colors.accent} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("SyllabusParser")}
+          style={styles.importBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Feather name="upload-cloud" size={14} color={colors.accent} />
+          <Text style={styles.importBtnText}>Import</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView

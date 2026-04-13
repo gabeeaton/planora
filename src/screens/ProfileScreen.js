@@ -14,42 +14,10 @@ import { useAuth }         from "../hooks/useAuth";
 import { useUserProfile }  from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
 import { typography, spacing, radius, shadows, COLOR_THEMES } from "../utils/theme";
+import { generateTerms, WORK_TIMES, GRADES, CREDIT_OPTS } from "../utils/termHelpers";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
 
-// ── Constants (mirrors OnboardingScreen) ─────────────────────
-const generateTerms = (system = "semester") => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const results = [];
-  for (let y = year; y <= year + 2; y++) {
-    const seasons = system === "quarter"
-      ? [
-          { name: `Winter ${y}`, startMonth: 0 },
-          { name: `Spring ${y}`, startMonth: 3 },
-          { name: `Summer ${y}`, startMonth: 6 },
-          { name: `Fall ${y}`,   startMonth: 8 },
-        ]
-      : [
-          { name: `Spring ${y}`, startMonth: 0 },
-          { name: `Summer ${y}`, startMonth: 4 },
-          { name: `Fall ${y}`,   startMonth: 7 },
-        ];
-    seasons.forEach(({ name, startMonth }) => {
-      const monthsAgo = (now.getFullYear() - y) * 12 + (now.getMonth() - startMonth);
-      if (monthsAgo <= 3) results.push(name);
-    });
-  }
-  return [...new Set(results)].slice(0, 8);
-};
-const WORK_TIMES = [
-  "Morning (6am–12pm)",
-  "Afternoon (12pm–5pm)",
-  "Evening (5pm–9pm)",
-  "Night (9pm+)",
-];
-const GRADES     = ["A", "B", "C", "D", "F", "No grade yet"];
-const CREDIT_OPTS = ["1", "2", "3", "4", "5+"];
 
 // ── Styles ────────────────────────────────────────────────────
 const makeStyles = (colors) => StyleSheet.create({
