@@ -1,4 +1,4 @@
-package com.yourcompany.taskflow
+package com.planora.app
 
 import android.os.Build
 import android.os.Bundle

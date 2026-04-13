@@ -1,4 +1,4 @@
-package com.yourcompany.taskflow
+package com.planora.app
 
 import android.app.Application
 import android.content.res.Configuration

@@ -63,11 +63,11 @@ const makeStyles = (colors) => StyleSheet.create({
     borderRadius: CELL / 2,
   },
   cellSelected: {
-    backgroundColor: "#6C63FF",
+    backgroundColor: "#502791",
   },
   cellToday: {
     borderWidth: 1.5,
-    borderColor: "#6C63FF",
+    borderColor: "#502791",
   },
   cellPast: {
     opacity: 0.25,
@@ -83,7 +83,7 @@ const makeStyles = (colors) => StyleSheet.create({
     fontWeight: "700",
   },
   cellTextToday: {
-    color: "#6C63FF",
+    color: "#502791",
     fontWeight: "700",
   },
   cellTextPast: {

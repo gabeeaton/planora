@@ -6,7 +6,7 @@ import React, { useState, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  ScrollView, Alert, Linking,
+  ScrollView, Alert, Linking, Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -17,22 +17,44 @@ import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 
 const makeStyles = (colors) => StyleSheet.create({
-  safe:      { flex: 1, backgroundColor: colors.bg },
+  safe:      { flex: 1, backgroundColor: colors.bg, overflow: "hidden" },
   kav:       { flex: 1 },
   container: { flexGrow: 1, paddingHorizontal: spacing.lg, justifyContent: "center", paddingVertical: spacing.lg },
 
+  // ── Background decoration ──
+  orb1: {
+    position: "absolute", width: 320, height: 320, borderRadius: 160,
+    backgroundColor: colors.accentGlow, top: -100, right: -100,
+  },
+  orb2: {
+    position: "absolute", width: 220, height: 220, borderRadius: 110,
+    backgroundColor: colors.accentGlow, bottom: 60, left: -80,
+  },
+
   // ── Brand header ──
   brand:    { marginBottom: spacing.xl },
-  logoMark: {
-    width: 48, height: 48, borderRadius: 14,
-    backgroundColor: colors.accent,
+  logoHalo: {
+    width: 84, height: 84, borderRadius: 22,
+    backgroundColor: colors.accentGlow,
+    borderWidth: 1, borderColor: colors.accent + "40",
     alignItems: "center", justifyContent: "center",
     marginBottom: spacing.md,
   },
+  logoMark: {
+    width: 64, height: 64, borderRadius: 16,
+    overflow: "hidden",
+  },
+  logoImg:      { width: "100%", height: "100%" },
   brandName:    { fontSize: 32, fontWeight: "800", color: colors.textPrimary, letterSpacing: -1 },
   brandTagline: { fontSize: 15, color: colors.textSecondary, marginTop: 4, fontWeight: "400" },
 
-  // ── Form ── (no card, floats on bg)
+  // ── Divider ──
+  divider: {
+    height: 1, backgroundColor: colors.border,
+    marginBottom: spacing.lg,
+  },
+
+  // ── Form ──
   formTitle: { fontSize: 20, fontWeight: "700", color: colors.textPrimary, marginBottom: spacing.lg, letterSpacing: -0.3 },
 
   field:     { marginBottom: spacing.sm },
@@ -60,6 +82,8 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 15,
     alignItems: "center", justifyContent: "center",
     marginTop: spacing.sm,
+    shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
   submitBtnDisabled: { opacity: 0.6 },
   submitText: { color: "#fff", fontSize: 16, fontWeight: "700", letterSpacing: 0.1 },
@@ -249,11 +273,15 @@ const AuthScreen = ({ navigation }) => {
   if (mode === "forgot") {
     return (
       <SafeAreaView style={styles.safe}>
+        <View style={styles.orb1} pointerEvents="none" />
+        <View style={styles.orb2} pointerEvents="none" />
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kav}>
           <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
             <View style={styles.brand}>
-              <View style={styles.logoMark}>
-                <Feather name="check-square" size={24} color="#fff" />
+              <View style={styles.logoHalo}>
+                <View style={styles.logoMark}>
+                  <Image source={require("../assets/logo.jpg")} style={styles.logoImg} resizeMode="cover" />
+                </View>
               </View>
               <Text style={styles.brandName}>Planora</Text>
             </View>
@@ -271,17 +299,24 @@ const AuthScreen = ({ navigation }) => {
   // ── Login / Register ──────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.orb1} pointerEvents="none" />
+      <View style={styles.orb2} pointerEvents="none" />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kav}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
           {/* Brand */}
           <View style={styles.brand}>
-            <View style={styles.logoMark}>
-              <Feather name="check-square" size={24} color="#fff" />
+            <View style={styles.logoHalo}>
+              <View style={styles.logoMark}>
+                <Image source={require("../assets/logo.jpg")} style={styles.logoImg} resizeMode="cover" />
+              </View>
             </View>
             <Text style={styles.brandName}>Planora</Text>
             <Text style={styles.brandTagline}>Your semester, organized.</Text>
           </View>
+
+          {/* Divider */}
+          <View style={styles.divider} />
 
           {/* Form title */}
           <Text style={styles.formTitle}>
@@ -428,7 +463,7 @@ export const EmailVerificationScreen = ({ navigation, route }) => {
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
         <View style={{
           width: 80, height: 80, borderRadius: 40,
-          backgroundColor: "rgba(108,99,255,0.12)",
+          backgroundColor: "rgba(80,39,145,0.12)",
           borderWidth: 2, borderColor: colors.accent,
           alignItems: "center", justifyContent: "center",
           marginBottom: 24,

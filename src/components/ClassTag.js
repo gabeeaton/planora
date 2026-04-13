@@ -4,7 +4,7 @@ import { radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 
 const CLASS_COLORS = [
-  "#6C63FF", "#FF6B6B", "#FFB347", "#5CFF8F",
+  "#502791", "#FF6B6B", "#FFB347", "#5CFF8F",
   "#5BC8FF", "#FF8EE8", "#FFE45C", "#A8FF78",
 ];
 

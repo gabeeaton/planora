@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       max-width: 400px; width: 100%; text-align: center;
       box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
-    .logo { font-size: 24px; font-weight: 800; color: #6C63FF; margin-bottom: 24px; }
+    .logo { font-size: 24px; font-weight: 800; color: #502791; margin-bottom: 24px; }
     table { margin: 0 auto 20px; }
     h1 { font-size: 20px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
     p  { font-size: 14px; color: #666; line-height: 1.6; }
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
     <div class="logo">Planora</div>
     <table cellpadding="0" cellspacing="0">
       <tr><td width="64" height="64" align="center" valign="middle"
-        style="border-radius:32px;background:rgba(108,99,255,0.1);border:2px solid #6C63FF;font-size:28px;line-height:64px;margin-bottom:20px;">
+        style="border-radius:32px;background:rgba(80,39,145,0.1);border:2px solid #502791;font-size:28px;line-height:64px;margin-bottom:20px;">
         ✓
       </td></tr>
     </table>

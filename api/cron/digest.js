@@ -80,7 +80,7 @@ function digestHtml(name, tasks, uid) {
     <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;">
       <table cellpadding="0" cellspacing="0" width="100%"><tr>
         <td style="width:8px;vertical-align:top;padding-top:5px;">
-          <div style="width:6px;height:6px;border-radius:3px;background:${overdue.includes(t) ? "#FF5C5C" : "#6C63FF"};"></div>
+          <div style="width:6px;height:6px;border-radius:3px;background:${overdue.includes(t) ? "#FF5C5C" : "#502791"};"></div>
         </td>
         <td style="padding-left:10px;">
           <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#1a1a2e;">${t.title}</p>
@@ -112,7 +112,7 @@ function digestHtml(name, tasks, uid) {
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
 
-        <tr><td style="background:#6C63FF;padding:24px 40px;">
+        <tr><td style="background:#502791;padding:24px 40px;">
           <p style="margin:0;font-size:18px;font-weight:800;color:#ffffff;">Planora</p>
         </td></tr>
 
