@@ -18,24 +18,30 @@ import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
 
 // ── Constants (mirrors OnboardingScreen) ─────────────────────
-const generateSemesters = () => {
+const generateTerms = (system = "semester") => {
   const now = new Date();
   const year = now.getFullYear();
   const results = [];
   for (let y = year; y <= year + 2; y++) {
-    [
-      { name: `Spring ${y}`, startMonth: 0 },
-      { name: `Summer ${y}`, startMonth: 4 },
-      { name: `Fall ${y}`,   startMonth: 7 },
-    ].forEach(({ name, startMonth }) => {
+    const seasons = system === "quarter"
+      ? [
+          { name: `Winter ${y}`, startMonth: 0 },
+          { name: `Spring ${y}`, startMonth: 3 },
+          { name: `Summer ${y}`, startMonth: 6 },
+          { name: `Fall ${y}`,   startMonth: 8 },
+        ]
+      : [
+          { name: `Spring ${y}`, startMonth: 0 },
+          { name: `Summer ${y}`, startMonth: 4 },
+          { name: `Fall ${y}`,   startMonth: 7 },
+        ];
+    seasons.forEach(({ name, startMonth }) => {
       const monthsAgo = (now.getFullYear() - y) * 12 + (now.getMonth() - startMonth);
       if (monthsAgo <= 3) results.push(name);
     });
   }
   return [...new Set(results)].slice(0, 8);
 };
-
-const SEMESTERS  = generateSemesters();
 const WORK_TIMES = [
   "Morning (6am–12pm)",
   "Afternoon (12pm–5pm)",
@@ -150,6 +156,15 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   optionText:         { fontSize: 15, color: colors.textPrimary },
   optionTextSelected: { color: colors.accent, fontWeight: "700" },
+  systemToggleRow: {
+    flexDirection: "row", backgroundColor: colors.bg,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+    overflow: "hidden", marginBottom: spacing.sm,
+  },
+  systemToggleBtn:       { flex: 1, paddingVertical: 10, alignItems: "center" },
+  systemToggleBtnActive: { backgroundColor: colors.accent },
+  systemToggleText:      { fontSize: 14, fontWeight: "600", color: colors.textMuted },
+  systemToggleTextActive:{ color: "#fff" },
 
   // ── Classes editor ──
   classEditorRow: {
@@ -230,8 +245,11 @@ const ProfileScreen = ({ navigation }) => {
     await saveUserProfile(user.uid, { colorTheme: key });
   };
 
-// ── Semester picker ──
+// ── Term picker ──
   const openSemester = () => setModal("semester");
+  const pickSystem = async (sys) => {
+    await saveUserProfile(user.uid, { schoolSystem: sys, semester: null });
+  };
   const pickSemester = async (s) => {
     await saveUserProfile(user.uid, { semester: s });
     setModal(null);
@@ -387,7 +405,7 @@ const ProfileScreen = ({ navigation }) => {
         {/* Academic profile — each row is independently editable */}
         <SectionHeader title="Academic Profile" />
         <View style={styles.card}>
-          <Row icon="book"   label="Semester"      value={profile?.semester ?? "Not set"}           onPress={openSemester} />
+          <Row icon="book"   label="Term"           value={profile?.semester ?? "Not set"}           onPress={openSemester} />
           <View style={styles.divider} />
           <Row icon="layers" label="Classes"        value={profile?.classes?.length ? `${profile.classes.length} classes` : "Not set"} onPress={openClasses} />
           <View style={styles.divider} />
@@ -442,17 +460,34 @@ const ProfileScreen = ({ navigation }) => {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ── Semester picker modal ── */}
+      {/* ── Term picker modal ── */}
       <Modal visible={modal === "semester"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModal(null)}>
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Select Semester</Text>
+              <Text style={styles.sheetTitle}>Select Term</Text>
               <TouchableOpacity onPress={() => setModal(null)}>
                 <Feather name="x" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
-            {SEMESTERS.map((s) => (
+            {/* System toggle */}
+            <View style={styles.systemToggleRow}>
+              {["semester", "quarter"].map((sys) => {
+                const active = (profile?.schoolSystem ?? "semester") === sys;
+                return (
+                  <TouchableOpacity
+                    key={sys}
+                    style={[styles.systemToggleBtn, active && styles.systemToggleBtnActive]}
+                    onPress={() => pickSystem(sys)}
+                  >
+                    <Text style={[styles.systemToggleText, active && styles.systemToggleTextActive]}>
+                      {sys.charAt(0).toUpperCase() + sys.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {generateTerms(profile?.schoolSystem ?? "semester").map((s) => (
               <TouchableOpacity key={s} style={styles.optionBtn} onPress={() => pickSemester(s)}>
                 <Text style={[styles.optionText, profile?.semester === s && styles.optionTextSelected]}>{s}</Text>
                 {profile?.semester === s && <Feather name="check" size={16} color={colors.accent} />}

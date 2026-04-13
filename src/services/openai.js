@@ -433,7 +433,10 @@ const buildChatContext = (tasks, userProfile, patterns) => {
     ?.map((c) => `${c.name} (${c.creditHours}cr, grade:${c.grade && c.grade !== "No grade yet" ? c.grade : "none yet"})`)
     .join(", ");
   if (classes) lines.push(`Classes: ${classes}`);
-  if (userProfile?.semester) lines.push(`Semester: ${userProfile.semester}`);
+  if (userProfile?.semester) {
+    const sys = userProfile?.schoolSystem === "quarter" ? "quarter system" : "semester system";
+    lines.push(`Current term: ${userProfile.semester} (${sys})`);
+  }
   if (userProfile?.preferredWorkTime) lines.push(`Best work time: ${userProfile.preferredWorkTime}`);
 
   const taskLabel = (t) => {

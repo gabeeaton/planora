@@ -119,6 +119,24 @@ const makeStyles = (colors) =>
       fontWeight: "500",
     },
     optionTextSelected: { color: colors.accent, fontWeight: "700" },
+    systemToggleRow: {
+      flexDirection: "row",
+      backgroundColor: colors.bgCard,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+      marginBottom: spacing.sm,
+    },
+    systemToggleBtn: {
+      flex: 1,
+      paddingVertical: 11,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    systemToggleBtnActive: { backgroundColor: colors.accent },
+    systemToggleText: { fontSize: 14, fontWeight: "600", color: colors.textMuted },
+    systemToggleTextActive: { color: "#fff" },
     classCard: {
       backgroundColor: colors.bgCard,
       borderRadius: radius.md,
@@ -400,27 +418,31 @@ const makeStyles = (colors) =>
     skipBtnText: { color: colors.textMuted, fontSize: 14 },
   });
 
-// ── Dynamic semester generation ───────────────────────────────
-const generateSemesters = () => {
+// ── Dynamic term generation ───────────────────────────────────
+const generateTerms = (system = "semester") => {
   const now = new Date();
   const year = now.getFullYear();
   const results = [];
   for (let y = year; y <= year + 2; y++) {
-    const seasons = [
-      { name: `Spring ${y}`, startMonth: 0 },
-      { name: `Summer ${y}`, startMonth: 4 },
-      { name: `Fall ${y}`, startMonth: 7 },
-    ];
+    const seasons = system === "quarter"
+      ? [
+          { name: `Winter ${y}`, startMonth: 0 },
+          { name: `Spring ${y}`, startMonth: 3 },
+          { name: `Summer ${y}`, startMonth: 6 },
+          { name: `Fall ${y}`,   startMonth: 8 },
+        ]
+      : [
+          { name: `Spring ${y}`, startMonth: 0 },
+          { name: `Summer ${y}`, startMonth: 4 },
+          { name: `Fall ${y}`,   startMonth: 7 },
+        ];
     seasons.forEach(({ name, startMonth }) => {
-      const monthsAgo =
-        (now.getFullYear() - y) * 12 + (now.getMonth() - startMonth);
+      const monthsAgo = (now.getFullYear() - y) * 12 + (now.getMonth() - startMonth);
       if (monthsAgo <= 3) results.push(name);
     });
   }
   return [...new Set(results)].slice(0, 8);
 };
-
-const SEMESTERS = generateSemesters();
 const WORK_TIMES = [
   "Morning (6am–12pm)",
   "Afternoon (12pm–5pm)",
@@ -722,6 +744,7 @@ const OnboardingScreen = ({ navigation }) => {
 
   // Step 0 — identity
   const [name, setName] = useState("");
+  const [schoolSystem, setSchoolSystem] = useState("semester");
   const [semester, setSemester] = useState(null);
 
   // Step 1 — classes
@@ -738,6 +761,7 @@ const OnboardingScreen = ({ navigation }) => {
   useEffect(() => {
     if (profile) {
       setName(profile.name ?? "");
+      setSchoolSystem(profile.schoolSystem ?? "semester");
       setSemester(profile.semester ?? null);
       setClasses(
         profile.classes?.length
@@ -798,6 +822,7 @@ const OnboardingScreen = ({ navigation }) => {
     try {
       const data = {
         name: name.trim() || null,
+        schoolSystem,
         semester,
         classes: classes.filter((c) => c.name.trim()).map((c) => ({
           id: c.id,
@@ -860,20 +885,32 @@ const OnboardingScreen = ({ navigation }) => {
       />
 
       <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>
-        CURRENT SEMESTER
+        SCHOOL SYSTEM
       </Text>
-      {SEMESTERS.map((s) => (
+      <View style={styles.systemToggleRow}>
+        {["semester", "quarter"].map((sys) => (
+          <TouchableOpacity
+            key={sys}
+            style={[styles.systemToggleBtn, schoolSystem === sys && styles.systemToggleBtnActive]}
+            onPress={() => { setSchoolSystem(sys); setSemester(null); }}
+          >
+            <Text style={[styles.systemToggleText, schoolSystem === sys && styles.systemToggleTextActive]}>
+              {sys.charAt(0).toUpperCase() + sys.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>
+        CURRENT TERM
+      </Text>
+      {generateTerms(schoolSystem).map((s) => (
         <TouchableOpacity
           key={s}
           style={[styles.optionBtn, semester === s && styles.optionBtnSelected]}
           onPress={() => setSemester(s)}
         >
-          <Text
-            style={[
-              styles.optionText,
-              semester === s && styles.optionTextSelected,
-            ]}
-          >
+          <Text style={[styles.optionText, semester === s && styles.optionTextSelected]}>
             {s}
           </Text>
           {semester === s && (
@@ -1032,7 +1069,7 @@ const OnboardingScreen = ({ navigation }) => {
           <Feather name="zap" size={30} color={colors.accent} />
         </View>
         <Text style={[styles.stepTitle, { textAlign: "center" }]}>
-          {importedCount > 0 ? "Semester loaded! ✓" : "Load your semester"}
+          {importedCount > 0 ? "Term loaded! ✓" : "Load your term"}
         </Text>
         <Text style={[styles.stepSubtitle, { textAlign: "center" }]}>
           {importedCount > 0

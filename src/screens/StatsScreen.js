@@ -48,9 +48,10 @@ const getSemesterBounds = (label) => {
   const lower = label.toLowerCase();
   const yearMatch = label.match(/\d{4}/);
   const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
-  if (lower.includes("spring")) return { start: new Date(year, 0, 13), end: new Date(year, 4, 9) };
-  if (lower.includes("summer")) return { start: new Date(year, 4, 19), end: new Date(year, 7, 8) };
-  if (lower.includes("fall"))   return { start: new Date(year, 7, 25), end: new Date(year, 11, 12) };
+  if (lower.includes("winter")) return { start: new Date(year, 0, 6),  end: new Date(year, 2, 21) };
+  if (lower.includes("spring")) return { start: new Date(year, 0, 13), end: new Date(year, 4, 9)  };
+  if (lower.includes("summer")) return { start: new Date(year, 4, 19), end: new Date(year, 7, 8)  };
+  if (lower.includes("fall"))   return { start: new Date(year, 7, 25), end: new Date(year, 11, 12)};
   return null;
 };
 
@@ -345,7 +346,7 @@ const StatsScreen = () => {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Progress</Text>
-          <Text style={styles.headerSubtitle}>How your semester is going</Text>
+          <Text style={styles.headerSubtitle}>How your term is going</Text>
         </View>
         {streak > 0 && (
           <View style={styles.streakPill}>
@@ -447,7 +448,7 @@ const StatsScreen = () => {
         {daysLeft !== null && daysLeft > 0 && daysLeft < 120 && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>SEMESTER</Text>
+              <Text style={styles.sectionTitle}>TERM</Text>
               <Text style={styles.sectionMeta}>{semPct}% through</Text>
             </View>
             <View style={styles.semesterCard}>
@@ -457,7 +458,7 @@ const StatsScreen = () => {
                 </View>
                 <View>
                   <Text style={styles.semesterDays}>{daysLeft}</Text>
-                  <Text style={styles.semesterLabel}>days left in {profile?.semester}</Text>
+                  <Text style={styles.semesterLabel}>days left in {profile?.semester ?? "this term"}</Text>
                   <Text style={styles.semesterMotivation}>
                     {daysLeft <= 14
                       ? "Finals season — prioritize ruthlessly."
