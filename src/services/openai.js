@@ -6,6 +6,7 @@
 // Firebase ID token is sent on every request for auth + rate limiting.
 // ============================================================
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { APP_CONFIG, VERCEL_API_URL } from "../config";
 import { buildPatternContext } from "./patternAnalysis";
 import { auth } from "./firebase";
@@ -138,18 +139,33 @@ const callProxy = async ({ model, messages, temperature = 0.3, max_tokens = 500 
 };
 
 // ── 1. Today's Focus (auto-loads on dashboard) ───────────────
-// Module-level cache — survives navigation, resets after 2 hours
-let _focusCache = null;
-let _focusCachedAt = null;
+// Two-tier cache: memory (survives navigation) + AsyncStorage (survives cold launch)
+// TTL: 2 hours. A cold launch within 2 hours costs 0 API calls.
+const FOCUS_CACHE_KEY = "@planora_focus_cache";
 const FOCUS_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
+let _focusCache = null;
+let _focusCachedAt = null;
+
 export const getTodayFocus = async (tasks, userProfile, patterns) => {
-  if (
-    _focusCache &&
-    _focusCachedAt &&
-    Date.now() - _focusCachedAt < FOCUS_TTL_MS
-  ) {
+  // 1. Check memory cache
+  if (_focusCache && _focusCachedAt && Date.now() - _focusCachedAt < FOCUS_TTL_MS) {
     return _focusCache;
+  }
+
+  // 2. Check AsyncStorage cache (survives cold launch)
+  try {
+    const stored = await AsyncStorage.getItem(FOCUS_CACHE_KEY);
+    if (stored) {
+      const { result, cachedAt } = JSON.parse(stored);
+      if (Date.now() - cachedAt < FOCUS_TTL_MS) {
+        _focusCache = result;
+        _focusCachedAt = cachedAt;
+        return result;
+      }
+    }
+  } catch {
+    // ignore — fall through to API call
   }
 
   const pending = tasks.filter((t) => !t.completed);
@@ -201,8 +217,10 @@ Respond ONLY with this JSON, no markdown:
       max_tokens: 200,
     });
     const result = safeParseJSON(content.trim());
+    const now = Date.now();
     _focusCache = result;
-    _focusCachedAt = Date.now();
+    _focusCachedAt = now;
+    AsyncStorage.setItem(FOCUS_CACHE_KEY, JSON.stringify({ result, cachedAt: now })).catch(() => {});
     return result;
   } catch (err) {
     console.error("getTodayFocus failed:", err);
@@ -215,6 +233,7 @@ Respond ONLY with this JSON, no markdown:
 export const invalidateTodayFocusCache = () => {
   _focusCache = null;
   _focusCachedAt = null;
+  AsyncStorage.removeItem(FOCUS_CACHE_KEY).catch(() => {});
 };
 
 // ── 2. What Do I Do Right Now? ───────────────────────────────
@@ -385,6 +404,10 @@ const CHAT_SYSTEM = (contextBlock) =>
 
 Important: when the student asks about a CLASS (e.g. "which class should I worry about?"), answer with the class name (e.g. "HIST 101"), not a task title. Tasks belong to classes — use the class name for class-level questions and the task title for task-level questions.
 
+Task creation: If the user explicitly asks you to add, create, or schedule a task, append ONE action block on its own line at the very end of your response, in this exact format:
+%%ACTION:{"type":"createTask","title":"<task title>","dueDate":"<YYYY-MM-DD or null>","className":"<class name or null>"}%%
+Only include this block for explicit task creation requests. Never include it for questions, advice, or any other request.
+
 ${contextBlock}`;
 
 /**
@@ -468,13 +491,22 @@ export const sendChatMessage = async (
   ];
 
   try {
-    const content = await callProxy({
+    const raw = await callProxy({
       model: "gpt-4o-mini",
       messages,
       temperature: 0.5,
       max_tokens: 400,
     });
-    return content.trim();
+
+    // Parse optional task-creation action block
+    const actionMatch = raw.match(/%%ACTION:(.+?)%%/s);
+    let action = null;
+    if (actionMatch) {
+      try { action = JSON.parse(actionMatch[1]); } catch {}
+    }
+    const text = raw.replace(/\n?%%ACTION:.+?%%/s, "").trim();
+
+    return { text, action };
   } catch (err) {
     console.error("sendChatMessage failed:", err);
     const error = new Error(friendlyError(err));

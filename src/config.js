@@ -24,7 +24,7 @@ export const VERCEL_API_URL =
   process.env.EXPO_PUBLIC_VERCEL_API_URL ?? "https://taskflow.vercel.app";
 
 export const APP_CONFIG = {
-  gptModel: "gpt-4o",
+  gptModel: "gpt-4o-mini",
   maxTasksForAI: 20,
   offlineEnabled: true,
 };

@@ -29,7 +29,7 @@ import { spacing, radius, typography } from "../utils/theme";
 
 const HISTORY_KEY     = (uid) => `@planora_chat_${uid}`;
 const MAX_STORED      = 60; // messages kept in AsyncStorage
-const FREE_DAILY_LIMIT = 3;
+const FREE_DAILY_LIMIT = 10;
 const todayKey        = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 const COUNT_KEY       = (uid) => `@planora_chat_count_${uid}_${todayKey()}`;
 
@@ -100,7 +100,7 @@ export default function ChatScreen() {
   const { colors }                   = useTheme();
   const navigation                   = useNavigation();
   const { user }                     = useAuth();
-  const { tasks, patterns }          = useTasks();
+  const { tasks, patterns, createTask } = useTasks();
   const { profile }                  = useUserProfile();
   const { isPro: realIsPro }         = useSubscription();
   const styles                       = makeStyles(colors);
@@ -209,7 +209,7 @@ export default function ChatScreen() {
       .map((m) => ({ role: m.role, content: m.text }));
 
     try {
-      const reply = await sendChatMessage(
+      const { text: reply, action } = await sendChatMessage(
         apiHistory.slice(0, -1), // history without the new message (sendChatMessage appends it)
         trimmed,
         tasks,
@@ -218,6 +218,29 @@ export default function ChatScreen() {
       );
       const aiMsg = { id: (Date.now() + 1).toString(), role: "assistant", text: reply, ts: Date.now() };
       setMessages((prev) => [...prev, aiMsg]);
+
+      // Execute task creation if AI returned an action
+      if (action?.type === "createTask" && action.title) {
+        try {
+          await createTask({
+            title: action.title,
+            dueDate: action.dueDate ? new Date(action.dueDate) : null,
+            className: action.className ?? null,
+            priority: "medium",
+            completed: false,
+          });
+          const confirmMsg = {
+            id: (Date.now() + 2).toString(),
+            role: "assistant",
+            text: `Added "${action.title}" to your task list.`,
+            ts: Date.now(),
+            isConfirm: true,
+          };
+          setMessages((prev) => [...prev, confirmMsg]);
+        } catch {
+          // Task creation failed silently — the text reply is still shown
+        }
+      }
     } catch (err) {
       if (err?.limitReached) {
         navigation.navigate("Paywall");
@@ -289,13 +312,15 @@ export default function ChatScreen() {
           styles.bubble,
           isUser ? styles.bubbleUser : styles.bubbleAI,
           item.isError && styles.bubbleError,
+          item.isConfirm && styles.bubbleConfirm,
         ]}>
           <Text style={[
             styles.bubbleText,
             isUser ? styles.bubbleTextUser : styles.bubbleTextAI,
             item.isError && styles.bubbleTextError,
+            item.isConfirm && styles.bubbleTextConfirm,
           ]}>
-            {item.text}
+            {item.isConfirm ? "✓ " : ""}{item.text}
           </Text>
         </View>
       </View>
@@ -481,6 +506,8 @@ const makeStyles = (colors) => StyleSheet.create({
   bubbleUser:      { backgroundColor: colors.accent, borderBottomRightRadius: 4 },
   bubbleAI:        { backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
   bubbleError:     { borderColor: colors.high, backgroundColor: "rgba(255,92,92,0.08)" },
+  bubbleConfirm:   { borderColor: colors.accent, backgroundColor: colors.accentGlow },
+  bubbleTextConfirm: { color: colors.accent, fontWeight: "600" },
   bubbleText:      { fontSize: 15, lineHeight: 22 },
   bubbleTextUser:  { color: "#fff" },
   bubbleTextAI:    { color: colors.textPrimary },
