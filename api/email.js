@@ -172,8 +172,7 @@ function resetHtml(resetUrl) {
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
 
         <tr><td style="background:#9060E8;padding:32px 40px;text-align:center;">
-          <p style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Planora</p>
-          <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.8);">Your AI Academic Coach</p>
+          <img src="${LOGO_URL}" alt="Planora" width="140" style="display:block;margin:0 auto;" />
         </td></tr>
 
         <tr><td style="padding:40px;text-align:center;">
