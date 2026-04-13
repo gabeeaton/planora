@@ -163,12 +163,11 @@ const AppNavigator = () => {
       }}
     >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {/* Always available — deep link from reset email works even if logged out */}
-        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ presentation: "modal" }} />
         {!user ? (
           <>
             <Stack.Screen name="Auth" component={AuthScreen} />
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ presentation: "modal" }} />
           </>
         ) : shouldOnboard ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
@@ -177,6 +176,7 @@ const AppNavigator = () => {
             <Stack.Screen name="Main"           component={MainTabs} />
             <Stack.Screen name="WeeklyBriefing" component={WeeklyBriefingScreen} />
             <Stack.Screen name="Onboarding"     component={OnboardingScreen} />
+            <Stack.Screen name="ResetPassword"  component={ResetPasswordScreen} options={{ presentation: "modal" }} />
             <Stack.Screen name="ICSReview"      component={ICSReviewScreen} />
             <Stack.Screen
               name="FocusMode"
