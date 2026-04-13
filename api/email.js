@@ -50,8 +50,9 @@ const emailHeader = `
   <!-- Accent bar -->
   <tr><td style="background:#9060E8;height:5px;font-size:0;line-height:0;">&nbsp;</td></tr>
   <!-- Logo -->
-  <tr><td style="background:#ffffff;padding:28px 40px 20px;text-align:center;border-bottom:1px solid #f0f0f0;">
-    <img src="${LOGO_URL}" alt="Planora" width="120" style="display:block;margin:0 auto;" />
+  <tr><td style="background:#ffffff;padding:32px 40px 24px;text-align:center;border-bottom:1px solid #f0f0f0;">
+    <img src="${LOGO_URL}" alt="Planora" width="52" height="52" style="display:block;margin:0 auto;border-radius:14px;box-shadow:0 2px 8px rgba(144,96,232,0.25);" />
+    <p style="margin:10px 0 0;font-size:17px;font-weight:700;color:#1a1a2e;letter-spacing:-0.3px;">Planora</p>
   </td></tr>`;
 
 const emailFooter = `
