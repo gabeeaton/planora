@@ -34,6 +34,7 @@ const linking = {
   config: {
     screens: {
       ResetPassword: "reset-password",
+      Auth:          "verified",       // planora://verified → sign in screen
     },
   },
 };
