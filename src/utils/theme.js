@@ -105,6 +105,24 @@ export const makeShadows = (accent) => ({
 export const shadows = makeShadows("#9060E8");
 
 export const priorityColors = { HIGH: "#FF5C5C", MEDIUM: "#FFB347", LOW: "#5CFF8F" };
+
+// ── Class colors ──────────────────────────────────────────────
+// Deterministic hash → one of 8 vivid colors. Same class name always
+// gets the same color across every screen.
+
+export const CLASS_COLORS = [
+  "#9060E8", "#FF6B6B", "#FFB347", "#5CFF8F",
+  "#5BC8FF", "#FF8EE8", "#FFE45C", "#A8FF78",
+];
+
+export const getClassColor = (className) => {
+  if (!className || typeof className !== "string") return "#44445A";
+  let hash = 0;
+  for (let i = 0; i < className.length; i++) {
+    hash = className.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return CLASS_COLORS[Math.abs(hash) % CLASS_COLORS.length];
+};
 export const priorityGlow   = {
   HIGH:   "rgba(255,92,92,0.15)",
   MEDIUM: "rgba(255,179,71,0.15)",

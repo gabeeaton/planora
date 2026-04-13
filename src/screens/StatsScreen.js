@@ -9,7 +9,7 @@ import React, { useMemo, useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { spacing, radius, typography } from "../utils/theme";
+import { spacing, radius, typography, getClassColor } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
@@ -28,12 +28,6 @@ const toDate = (val) => {
 
 const GRADE_POINTS = { A: 4.0, B: 3.0, C: 2.0, D: 1.0, F: 0.0 };
 
-const CLASS_COLORS = ["#9060E8","#FF6B6B","#FFB347","#5CFF8F","#5BC8FF","#FF8EE8"];
-const getClassColor = (name) => {
-  let h = 0;
-  for (let i = 0; i < (name?.length ?? 0); i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return CLASS_COLORS[Math.abs(h) % CLASS_COLORS.length];
-};
 
 const HEALTH_ORDER = { "At risk": 0, "Behind": 1, "Okay": 2, "On track": 3 };
 

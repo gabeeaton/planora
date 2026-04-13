@@ -1,21 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { radius } from "../utils/theme";
+import { radius, getClassColor } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
-
-const CLASS_COLORS = [
-  "#9060E8", "#FF6B6B", "#FFB347", "#5CFF8F",
-  "#5BC8FF", "#FF8EE8", "#FFE45C", "#A8FF78",
-];
-
-const getClassColor = (className) => {
-  if (!className || typeof className !== "string") return "#44445A";
-  let hash = 0;
-  for (let i = 0; i < className.length; i++) {
-    hash = className.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return CLASS_COLORS[Math.abs(hash) % CLASS_COLORS.length];
-};
 
 const makeStyles = () => StyleSheet.create({
   tag:    { borderWidth: 1, borderRadius: radius.full, alignSelf: "flex-start" },
