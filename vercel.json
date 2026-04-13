@@ -15,6 +15,10 @@
     "api/reset-redirect.js": {
       "memory": 128,
       "maxDuration": 5
+    },
+    "api/verified.js": {
+      "memory": 128,
+      "maxDuration": 5
     }
   },
   "crons": [

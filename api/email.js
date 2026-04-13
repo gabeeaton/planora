@@ -241,8 +241,11 @@ export default async function handler(req, res) {
 
     if (type === "verify") {
       const app = getAdminApp();
+      const vercelUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "https://taskflow-mocha-theta.vercel.app";
       const verifyUrl = await getAuth(app).generateEmailVerificationLink(email, {
-        url: "https://planoraapp.net/verify",
+        url: `${vercelUrl}/api/verified`,
       });
       await sendEmail({
         to:      email,
