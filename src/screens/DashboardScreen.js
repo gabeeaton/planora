@@ -75,7 +75,7 @@ const makeStyles = (colors, insets) =>
       color: colors.textPrimary,
       letterSpacing: -0.3,
     },
-    dateRow:   { flexDirection: "row", alignItems: "center", marginTop: 2, gap: 8 },
+    dateRow:   { flexDirection: "row", alignItems: "center", marginTop: 2, gap: 8, paddingTop: 2 },
     date:      { fontSize: 13, color: colors.textSecondary },
     streakPill: {
       flexDirection: "row", alignItems: "center", gap: 4,
