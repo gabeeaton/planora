@@ -21,7 +21,7 @@ const formatTaskList = (tasks) =>
         ? `due ${new Date(t.dueDate).toLocaleDateString()}`
         : "no due date";
       const cls = t.className ? `[${t.className}]` : "";
-      const priority = t.priority ? `priority:${t.priority}` : "";
+      const priority = (t.aiPriority ?? t.priority) ? `priority:${t.aiPriority ?? t.priority}` : "";
       return `${i + 1}. [ID:${t.id}] ${cls} "${
         t.title
       }" — ${due} ${priority}`.trim();
@@ -174,7 +174,20 @@ export const getTodayFocus = async (tasks, userProfile, patterns) => {
   const patternCtx = patterns
     ? buildPatternContext(patterns, userProfile)
     : "No pattern data yet.";
-  const taskList = formatTaskList(pending);
+
+  // Sort tasks before sending: soonest due first, then HIGH priority, so the AI
+  // sees the most urgent work at the top of the list
+  const PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+  const sorted = [...pending].sort((a, b) => {
+    const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+    const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+    if (aDate !== bDate) return aDate - bDate;
+    const aPri = PRIORITY_RANK[a.aiPriority ?? a.priority] ?? 1;
+    const bPri = PRIORITY_RANK[b.aiPriority ?? b.priority] ?? 1;
+    return aPri - bPri;
+  });
+
+  const taskList = formatTaskList(sorted);
   const classes =
     userProfile?.classes
       ?.map(
@@ -191,12 +204,12 @@ Preferred work time: ${userProfile?.preferredWorkTime ?? "not set"}
 Behavioral patterns:
 ${patternCtx}
 
-All pending tasks:
+All pending tasks (sorted by urgency — most urgent first):
 ${taskList}
 
 Rules:
 - Pick 2-3 tasks MAX. Not more.
-- Prioritize: overdue > due today > due this week with avoidance > low-grade classes
+- STRICT priority order: overdue first, then due today, then due this week, then HIGH priority tasks, then MEDIUM — NEVER pick a LOW priority task or a task due more than 2 weeks away if there are HIGH priority or sooner-due tasks available
 - The coachLine should be 1 sentence, specific, and reference a real pattern or deadline — not generic advice
 - Use EXACT task IDs from the list above
 
