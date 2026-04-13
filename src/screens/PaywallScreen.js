@@ -14,12 +14,13 @@ import { useTheme } from "../utils/ThemeContext";
 import { getOfferings, purchasePackage, restorePurchases } from "../services/purchases";
 
 const FEATURES = [
-  { icon: "cpu",           title: "Find My Focus",                 desc: "One-tap AI recommendation based on your patterns and deadlines." },
-  { icon: "calendar",      title: "AI Weekly Study Plan",          desc: "7-day plan that adapts to your habits and upcoming due dates." },
-  { icon: "trending-up",   title: "Behavioral Insights",          desc: "AI learns how you work and coaches you to improve over time." },
-  { icon: "zap",           title: "Smart Priority Suggestions",   desc: "AI ranks tasks by urgency, grade impact, and your history." },
-  { icon: "alert-triangle",title: "Avoidance Alerts",             desc: "Get nudged when you've been dodging a task too long." },
-  { icon: "file-text",     title: "Unlimited Syllabus Imports",   desc: "Set up any class in seconds with AI syllabus parsing." },
+  { icon: "cpu",           title: "Find My Focus",               desc: "One-tap AI recommendation based on your patterns and deadlines." },
+  { icon: "message-circle",title: "Academic Coach",              desc: "Unlimited AI chat that knows your tasks, classes, and deadlines." },
+  { icon: "trending-up",   title: "Behavioral Insights",        desc: "AI learns how you work and coaches you to improve over time." },
+  { icon: "zap",           title: "Smart Priority Suggestions", desc: "AI ranks tasks by urgency, grade impact, and your history." },
+  { icon: "alert-triangle",title: "Avoidance Alerts",           desc: "Get nudged when you've been dodging a task too long." },
+  { icon: "file-text",     title: "Unlimited Syllabus Imports", desc: "Set up any class in seconds with AI syllabus parsing." },
+  { icon: "save",          title: "Chat History Saved Forever", desc: "Your coach conversations are never lost — even if you reinstall." },
 ];
 
 const makeStyles = (colors) => StyleSheet.create({
