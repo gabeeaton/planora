@@ -57,7 +57,7 @@ function welcomeHtml(name) {
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
 
         <!-- Header -->
-        <tr><td style="background:#502791;padding:32px 40px;text-align:center;">
+        <tr><td style="background:#7040BE;padding:32px 40px;text-align:center;">
           <p style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Planora</p>
           <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.8);">Your AI Academic Coach</p>
         </td></tr>
@@ -124,7 +124,7 @@ function verifyHtml(verifyUrl) {
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
 
-        <tr><td style="background:#502791;padding:32px 40px;text-align:center;">
+        <tr><td style="background:#7040BE;padding:32px 40px;text-align:center;">
           <p style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Planora</p>
           <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.8);">Your AI Academic Coach</p>
         </td></tr>
@@ -132,7 +132,7 @@ function verifyHtml(verifyUrl) {
         <tr><td style="padding:40px;text-align:center;">
           <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
             <tr><td width="64" height="64" align="center" valign="middle"
-              style="border-radius:32px;background:rgba(80,39,145,0.1);border:2px solid #502791;font-size:28px;line-height:64px;">
+              style="border-radius:32px;background:rgba(112,64,190,0.1);border:2px solid #7040BE;font-size:28px;line-height:64px;">
               ✉️
             </td></tr>
           </table>
@@ -141,7 +141,7 @@ function verifyHtml(verifyUrl) {
             Tap the button below to verify your email address and activate your Planora account.
           </p>
 
-          <a href="${verifyUrl}" style="display:inline-block;background:#502791;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
+          <a href="${verifyUrl}" style="display:inline-block;background:#7040BE;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
             Verify my email
           </a>
 
@@ -172,7 +172,7 @@ function resetHtml(resetUrl) {
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
 
-        <tr><td style="background:#502791;padding:32px 40px;text-align:center;">
+        <tr><td style="background:#7040BE;padding:32px 40px;text-align:center;">
           <p style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Planora</p>
           <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.8);">Your AI Academic Coach</p>
         </td></tr>
@@ -180,7 +180,7 @@ function resetHtml(resetUrl) {
         <tr><td style="padding:40px;text-align:center;">
           <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
             <tr><td width="64" height="64" align="center" valign="middle"
-              style="border-radius:32px;background:rgba(80,39,145,0.1);border:2px solid #502791;font-size:28px;line-height:64px;">
+              style="border-radius:32px;background:rgba(112,64,190,0.1);border:2px solid #7040BE;font-size:28px;line-height:64px;">
               🔑
             </td></tr>
           </table>
@@ -189,7 +189,7 @@ function resetHtml(resetUrl) {
             Tap the button below to choose a new password for your Planora account.
           </p>
 
-          <a href="${resetUrl}" style="display:inline-block;background:#502791;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
+          <a href="${resetUrl}" style="display:inline-block;background:#7040BE;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
             Reset password
           </a>
 

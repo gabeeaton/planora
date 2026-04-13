@@ -47,7 +47,7 @@ export const requestNotificationPermissions = async () => {
         name:        "Task Reminders",
         importance:  Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor:  "#502791",
+        lightColor:  "#7040BE",
         sound:       true,
       });
       await Notifications.setNotificationChannelAsync("weekly-summary", {
@@ -59,7 +59,7 @@ export const requestNotificationPermissions = async () => {
         name:        "Avoidance Alerts",
         importance:  Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor:  "#502791",
+        lightColor:  "#7040BE",
         sound:       true,
       });
     }

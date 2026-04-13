@@ -30,7 +30,7 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   highlightOverlay: {
     position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(80,39,145,0.06)", borderRadius: 14,
+    backgroundColor: "rgba(112,64,190,0.06)", borderRadius: 14,
   },
   row:      { flexDirection: "row", alignItems: "flex-start" },
   checkbox: {
@@ -68,7 +68,7 @@ const makeStyles = (colors) => StyleSheet.create({
   description:   { ...typography.bodySmall, color: colors.textSecondary, marginBottom: 8 },
   aiReasonRow: {
     flexDirection: "row", alignItems: "center", marginBottom: 8,
-    backgroundColor: "rgba(80,39,145,0.08)",
+    backgroundColor: "rgba(112,64,190,0.08)",
     paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6,
   },
   aiReason:   { ...typography.bodySmall, color: colors.accent, marginLeft: 4, fontStyle: "italic" },

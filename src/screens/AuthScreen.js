@@ -463,7 +463,7 @@ export const EmailVerificationScreen = ({ navigation, route }) => {
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
         <View style={{
           width: 80, height: 80, borderRadius: 40,
-          backgroundColor: "rgba(80,39,145,0.12)",
+          backgroundColor: "rgba(112,64,190,0.12)",
           borderWidth: 2, borderColor: colors.accent,
           alignItems: "center", justifyContent: "center",
           marginBottom: 24,
