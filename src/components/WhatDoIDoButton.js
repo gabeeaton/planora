@@ -97,7 +97,6 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
     try {
       const rec = await getWhatDoIDo(tasks, userProfile, patterns);
       setResult(rec);
-      if (rec?.taskId && onTaskHighlight) onTaskHighlight(rec.taskId);
     } catch (err) {
       if (err?.limitReached) {
         onUpgrade?.();
