@@ -430,8 +430,11 @@ const buildChatContext = (tasks, userProfile, patterns) => {
     (t) => !t.completed && t.dueDate && new Date(t.dueDate) < now
   );
 
+  const todayIso = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const tomorrowIso = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
   const lines = [];
-  lines.push(`Today: ${today()}`);
+  lines.push(`Today: ${today()} (${todayIso}). Tomorrow is ${tomorrowIso}. Always use YYYY-MM-DD when setting dueDate.`);
 
   const classes = userProfile?.classes
     ?.map((c) => `${c.name} (${c.creditHours}cr, grade:${c.grade && c.grade !== "No grade yet" ? c.grade : "none yet"})`)
