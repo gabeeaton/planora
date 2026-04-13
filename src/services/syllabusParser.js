@@ -15,15 +15,38 @@
 //  - Past-date filter uses local midnight, not UTC
 // ============================================================
 
-import { OPENAI_API_KEY, APP_CONFIG } from "../config";
+import { APP_CONFIG, VERCEL_API_URL } from "../config";
+import { auth } from "./firebase";
 
-let _client = null;
-const getClient = () => {
-  if (!_client) {
-    const OpenAI = require("openai").default ?? require("openai");
-    _client = new OpenAI({ apiKey: OPENAI_API_KEY, dangerouslyAllowBrowser: true });
+const callProxy = async ({ model, messages, temperature = 0.1, max_tokens = 3000 }) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  const token = await user.getIdToken();
+
+  const res = await fetch(`${VERCEL_API_URL}/api/ai`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ model, messages, temperature, max_tokens }),
+  });
+
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("AI service unavailable");
   }
-  return _client;
+
+  if (!res.ok) {
+    const err = new Error(data.error ?? "Proxy request failed");
+    err.status = res.status;
+    throw err;
+  }
+
+  return data.content;
 };
 
 // Parse YYYY-MM-DD as LOCAL date (not UTC) to avoid off-by-one day errors
@@ -153,14 +176,14 @@ LIMIT: Return at most 50 items. If there are recurring weekly items, include all
 Respond with ONLY the raw JSON array. No markdown, no explanation, no preamble.`;
 
   try {
-    const response = await getClient().chat.completions.create({
+    const content = await callProxy({
       model:       APP_CONFIG.gptModel,
       messages:    [{ role: "user", content: prompt }],
       temperature: 0.1,
       max_tokens:  3000,
     });
 
-    return parseAndFilter(response.choices[0].message.content.trim(), className);
+    return parseAndFilter(content.trim(), className);
   } catch (err) {
     console.error("parseSyllabusText failed:", err);
     throw new Error("Failed to parse syllabus. Please check your connection and try again.");
@@ -209,8 +232,8 @@ LIMIT: 50 items max.
 Respond ONLY with the raw JSON array.`;
 
   try {
-    const response = await getClient().chat.completions.create({
-      model: APP_CONFIG.gptModel,
+    const content = await callProxy({
+      model: "gpt-4o",
       messages: [
         {
           role: "user",
@@ -230,7 +253,7 @@ Respond ONLY with the raw JSON array.`;
       max_tokens:  3000,
     });
 
-    return parseAndFilter(response.choices[0].message.content.trim(), className);
+    return parseAndFilter(content.trim(), className);
   } catch (err) {
     console.error("parseSyllabusImage failed:", err);
     throw new Error("Failed to read syllabus image. Try pasting the text instead.");

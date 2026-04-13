@@ -299,7 +299,7 @@ const todayDateStr = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
  *
  * @param {Array} avoidanceScores  Output of getAvoidanceScores()
  */
-export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores) => {
+export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores, bestTime = null) => {
   if (!avoidanceScores?.length) return;
 
   const granted = await checkNotificationPermissions();
@@ -329,6 +329,16 @@ export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores) => {
       : "";
 
     try {
+      // Fire at the user's productive hour (or 9am default) rather than
+      // 5 seconds after app open — more useful when the app is closed
+      const alertHour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 9;
+      const fireTime = new Date();
+      fireTime.setHours(alertHour, 0, 0, 0);
+      if (fireTime <= new Date()) {
+        // Productive hour already passed today — schedule for same time tomorrow
+        fireTime.setDate(fireTime.getDate() + 1);
+      }
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "Don't forget this one 👀",
@@ -336,7 +346,7 @@ export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores) => {
           data:  { type: "avoidance-alert", taskId },
           sound: true,
         },
-        trigger: { type: "timeInterval", seconds: 5 },
+        trigger: { type: "date", date: fireTime },
       });
       alerted[taskId] = today;
       changed = true;
@@ -357,46 +367,147 @@ export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores) => {
 
 // ── Weekly summary (Sunday 7pm) ───────────────────────────────
 
+const weeklySummaryKey = (uid) => `@planora_weekly_summary_id_${uid}`;
+
 /**
- * Schedule a repeating weekly summary notification every Sunday at 7pm.
- * This fires once a week regardless of tasks — the body is generic.
- * For per-user stats you'd need a backend push. This is a good-enough local version.
+ * Schedule (or reschedule) a weekly summary for next Sunday at 7pm.
+ * Bakes in real stats: tasks completed this week + tasks due before Monday.
+ * Call whenever tasks or history change so the copy stays fresh.
  *
- * Returns the notification ID (string). Store it to cancel later.
+ * @param {Array}  tasks    All tasks
+ * @param {Array}  history  Completed task history
+ * @param {string} uid      Firebase user ID
  */
-export const scheduleWeeklySummary = async () => {
+export const scheduleWeeklySummary = async (tasks, history, uid) => {
+  if (!uid) return;
+
   const granted = await checkNotificationPermissions();
-  if (!granted) return null;
+  if (!granted) return;
+
+  // Cancel previous
+  try {
+    const prevId = await AsyncStorage.getItem(weeklySummaryKey(uid));
+    if (prevId) {
+      await Notifications.cancelScheduledNotificationAsync(prevId).catch(() => {});
+      await AsyncStorage.removeItem(weeklySummaryKey(uid)).catch(() => {});
+    }
+  } catch {}
+
+  // Count tasks completed in the last 7 days (from history)
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const completedThisWeek = (history ?? []).filter((h) => {
+    const d = h.completedAt ? new Date(h.completedAt) : null;
+    return d && d >= weekAgo;
+  }).length;
+
+  // Count pending tasks due before next Monday
+  const now = new Date();
+  const nextMonday = new Date(now);
+  nextMonday.setDate(now.getDate() + ((8 - now.getDay()) % 7 || 7));
+  nextMonday.setHours(0, 0, 0, 0);
+
+  const dueBeforeMonday = (tasks ?? []).filter((t) => {
+    if (t.completed || !t.dueDate) return false;
+    return new Date(t.dueDate) < nextMonday;
+  }).length;
+
+  // Skip if nothing to report
+  if (completedThisWeek === 0 && dueBeforeMonday === 0) return;
+
+  // Build specific copy
+  let title, body;
+  if (completedThisWeek > 0 && dueBeforeMonday > 0) {
+    title = "📊 Weekly check-in";
+    body  = `You knocked out ${completedThisWeek} task${completedThisWeek !== 1 ? "s" : ""} this week. ${dueBeforeMonday} more due before Monday — finish strong.`;
+  } else if (completedThisWeek > 0) {
+    title = "📊 Weekly check-in";
+    body  = `${completedThisWeek} task${completedThisWeek !== 1 ? "s" : ""} done this week. You're clear — enjoy the weekend.`;
+  } else {
+    title = "📊 Weekend heads up";
+    body  = `${dueBeforeMonday} task${dueBeforeMonday !== 1 ? "s" : ""} due before Monday. Get ahead this weekend.`;
+  }
+
+  // Find the next Sunday at 7pm
+  const fireSunday = new Date(now);
+  const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
+  fireSunday.setDate(now.getDate() + daysUntilSunday);
+  fireSunday.setHours(19, 0, 0, 0);
 
   try {
-    // Cancel any existing weekly summary first (avoid duplicates)
-    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-    for (const n of scheduled) {
-      if (n.content?.data?.type === "weekly-summary") {
-        await Notifications.cancelScheduledNotificationAsync(n.identifier);
-      }
-    }
-
     const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "📊 Your week in review",
-        body:  "Open Planora to see how you did this week and plan ahead.",
-        data:  { type: "weekly-summary" },
-        sound: true,
-      },
-      trigger: {
-        type:     "weekly",
-        weekday:  1,    // Sunday (1 = Sunday in Expo's numbering)
-        hour:     19,   // 7pm
-        minute:   0,
-        repeats:  true,
-      },
+      content: { title, body, data: { type: "weekly-summary" }, sound: true },
+      trigger: { type: "date", date: fireSunday },
     });
-
-    return id;
+    await AsyncStorage.setItem(weeklySummaryKey(uid), id).catch(() => {});
   } catch (err) {
     console.warn("Failed to schedule weekly summary:", err);
-    return null;
+  }
+};
+
+// ── Morning due-today digest ──────────────────────────────────
+
+const digestNotifKey = (uid) => `@planora_digest_notif_id_${uid}`;
+
+/**
+ * Schedule a "due today" morning notification for the next day.
+ * Call whenever tasks change. Cancels the previous digest first.
+ * Skips if no tasks are due tomorrow (= today when it fires).
+ *
+ * @param {Array}  tasks     All tasks
+ * @param {string} bestTime  "morning"|"afternoon"|"evening"|"night"
+ * @param {string} uid       Firebase user ID
+ */
+export const scheduleDailyDigest = async (tasks, bestTime, uid) => {
+  if (!uid) return;
+
+  const granted = await checkNotificationPermissions();
+  if (!granted) return;
+
+  // Cancel any previously scheduled digest
+  try {
+    const prevId = await AsyncStorage.getItem(digestNotifKey(uid));
+    if (prevId) {
+      await Notifications.cancelScheduledNotificationAsync(prevId).catch(() => {});
+      await AsyncStorage.removeItem(digestNotifKey(uid)).catch(() => {});
+    }
+  } catch {}
+
+  // Find tasks due tomorrow (they'll be "due today" when the notification fires)
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  const dayAfter = new Date(tomorrow);
+  dayAfter.setDate(dayAfter.getDate() + 1);
+
+  const dueTomorrow = (tasks ?? []).filter((t) => {
+    if (t.completed || !t.dueDate) return false;
+    const d = new Date(t.dueDate);
+    return d >= tomorrow && d < dayAfter;
+  });
+
+  if (dueTomorrow.length === 0) return;
+
+  const hour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 8;
+  const fireTime = new Date(tomorrow);
+  fireTime.setHours(hour, 0, 0, 0);
+
+  const body = dueTomorrow.length === 1
+    ? `"${dueTomorrow[0].title}" is due today.`
+    : `${dueTomorrow.length} tasks due today — don't let them sneak up on you.`;
+
+  try {
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Good morning — check today's tasks",
+        body,
+        data:  { type: "daily-digest" },
+        sound: true,
+      },
+      trigger: { type: "date", date: fireTime },
+    });
+    await AsyncStorage.setItem(digestNotifKey(uid), id).catch(() => {});
+  } catch (err) {
+    console.warn("Failed to schedule daily digest:", err);
   }
 };
 

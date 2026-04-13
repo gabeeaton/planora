@@ -417,7 +417,7 @@ const DashboardScreen = ({ navigation }) => {
   // Avoidance alerts — Scholar only, fires at most once per task per day
   useEffect(() => {
     if (!isPro || !patterns?.avoidanceScores?.length) return;
-    checkAndScheduleAvoidanceAlerts(patterns.avoidanceScores);
+    checkAndScheduleAvoidanceAlerts(patterns.avoidanceScores, patterns?.productiveTimeOfDay?.bestTime);
   }, [isPro, patterns?.avoidanceScores]);
 
   // Streak reminder — reschedule whenever streak or productive time changes

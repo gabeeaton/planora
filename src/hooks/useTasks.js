@@ -20,6 +20,8 @@ import {
   cancelTaskReminder,
   cancelAllReminders,
   updateOverdueBadge,
+  scheduleDailyDigest,
+  scheduleWeeklySummary,
 } from "../services/notifications";
 import { spawnNextRecurringTask } from "../services/recurringTasks";
 import { analyzePatterns } from "../services/patternAnalysis";
@@ -70,6 +72,18 @@ export const useTasks = () => {
   useEffect(() => {
     updateOverdueBadge(tasks);
   }, [tasks]);
+
+  // Reschedule morning digest whenever tasks change
+  useEffect(() => {
+    if (!user?.uid) return;
+    scheduleDailyDigest(tasks, bestTimeRef.current, user.uid);
+  }, [tasks, user?.uid]);
+
+  // Reschedule weekly summary whenever tasks or history change
+  useEffect(() => {
+    if (!user?.uid) return;
+    scheduleWeeklySummary(tasks, history, user.uid);
+  }, [tasks, history, user?.uid]);
 
   useEffect(() => {
     if (!user) { setTasks([]); setHistory([]); setLoading(false); return; }

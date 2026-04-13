@@ -5,7 +5,7 @@
 
 import Purchases, { LOG_LEVEL } from "react-native-purchases";
 
-const API_KEY = "test_ALnfmCuADwhSpHSVMQEzKOaPDMM";
+const API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? "";
 
 // Product IDs must match App Store Connect exactly
 export const PRODUCT_IDS = {

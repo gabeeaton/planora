@@ -4,7 +4,7 @@
 //          safe-area bottom inset fix for black bar
 // ============================================================
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -136,13 +136,8 @@ const AppNavigator = () => {
 
   const loading = authLoading || (!!user && profileLoading);
 
-  // Once we see onboardingComplete:true, latch it for the session so a
-  // momentary Firestore null (cache miss) never bounces the user back to onboarding.
-  const onboardedRef = useRef(false);
-  // Only latch after Firestore confirms — prevents stale cache from a prior account locking the flag
-  if (firestoreReady && profile?.onboardingComplete === true) onboardedRef.current = true;
-
-  const shouldOnboard = !!user && !loading && firestoreReady && !onboardedRef.current && profile?.onboardingComplete !== true;
+  // Firestore is the source of truth — only show onboarding once Firestore confirms no profile
+  const shouldOnboard = !!user && !loading && firestoreReady && profile?.onboardingComplete !== true;
 
   if (loading) {
     return (

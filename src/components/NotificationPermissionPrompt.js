@@ -20,7 +20,7 @@ import { Feather } from "@expo/vector-icons";
 import { spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { requestNotificationPermissions, scheduleWeeklySummary } from "../services/notifications";
+import { requestNotificationPermissions } from "../services/notifications";
 
 export const NOTIF_PROMPT_KEY = "@tf_notif_prompt_shown";
 
@@ -115,8 +115,7 @@ const NotificationPermissionPrompt = ({ visible, onDismiss }) => {
     try {
       const granted = await requestNotificationPermissions();
       if (granted) {
-        // Also set up the weekly summary while we're here
-        await scheduleWeeklySummary().catch(() => {});
+        // Weekly summary is scheduled automatically by useTasks when tasks load
       }
     } catch (err) {
       console.warn("Notification setup error:", err);
