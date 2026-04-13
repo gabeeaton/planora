@@ -241,11 +241,8 @@ export default async function handler(req, res) {
 
     if (type === "verify") {
       const app = getAdminApp();
-      const vercelUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "https://taskflow-mocha-theta.vercel.app";
       const verifyUrl = await getAuth(app).generateEmailVerificationLink(email, {
-        url: `${vercelUrl}/api/verified`,
+        url: "https://taskflow-mocha-theta.vercel.app/api/verified",
       });
       await sendEmail({
         to:      email,
@@ -260,10 +257,7 @@ export default async function handler(req, res) {
       // Generate Firebase reset link, extract oobCode, build our own redirect URL
       const firebaseUrl = await getAuth(app).generatePasswordResetLink(email);
       const oobCode = new URL(firebaseUrl).searchParams.get("oobCode");
-      const vercelUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "https://taskflow-mocha-theta.vercel.app";
-      const resetUrl = `${vercelUrl}/api/reset-redirect?oobCode=${encodeURIComponent(oobCode)}`;
+      const resetUrl = `https://taskflow-mocha-theta.vercel.app/api/reset-redirect?oobCode=${encodeURIComponent(oobCode)}`;
       await sendEmail({
         to:      email,
         subject: "Reset your Planora password",
