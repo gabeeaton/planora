@@ -224,7 +224,7 @@ export default function ChatScreen() {
         try {
           await createTask({
             title: action.title,
-            dueDate: action.dueDate ? new Date(action.dueDate) : null,
+            dueDate: action.dueDate ? new Date(action.dueDate + "T12:00:00") : null,
             className: action.className ?? null,
             priority: (action.priority ?? "MEDIUM").toUpperCase(),
             completed: false,
@@ -383,6 +383,8 @@ export default function ChatScreen() {
             renderItem={renderMessage}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
             ListFooterComponent={typing ? (
               <View style={styles.bubbleRow}>
