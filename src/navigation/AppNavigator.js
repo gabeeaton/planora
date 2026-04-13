@@ -107,8 +107,8 @@ const MainTabs = () => (
     sceneContainerStyle={{ backgroundColor: "transparent" }}
   >
     <Tab.Screen name="Dashboard" component={DashboardScreen} />
-    <Tab.Screen name="Chat"      component={ChatScreen} />
     <Tab.Screen name="Stats"     component={StatsScreen} />
+    <Tab.Screen name="Chat"      component={ChatScreen} />
     <Tab.Screen name="Profile"   component={ProfileScreen} />
   </Tab.Navigator>
 );

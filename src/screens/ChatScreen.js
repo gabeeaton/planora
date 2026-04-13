@@ -305,7 +305,7 @@ export default function ChatScreen() {
       <View style={[styles.bubbleRow, isUser && styles.bubbleRowUser]}>
         {!isUser && (
           <View style={styles.avatar}>
-            <Feather name="cpu" size={14} color={colors.accent} />
+            <Feather name="book-open" size={14} color={colors.accent} />
           </View>
         )}
         <View style={[
@@ -335,7 +335,7 @@ export default function ChatScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerAvatar}>
-          <Feather name="cpu" size={18} color={colors.accent} />
+          <Feather name="book-open" size={18} color={colors.accent} />
           <View style={styles.onlineDot} />
         </View>
         <View style={styles.headerCenter}>
@@ -358,7 +358,7 @@ export default function ChatScreen() {
         {isEmpty ? (
           <View style={styles.emptyWrap}>
             <View style={styles.emptyIcon}>
-              <Feather name="cpu" size={32} color={colors.accent} />
+              <Feather name="book-open" size={32} color={colors.accent} />
             </View>
             <Text style={styles.emptyTitle}>
               {firstName ? `Hi ${firstName}! 👋` : "Your Academic Coach"}
@@ -388,7 +388,7 @@ export default function ChatScreen() {
             ListFooterComponent={typing ? (
               <View style={styles.bubbleRow}>
                 <View style={styles.avatar}>
-                  <Feather name="cpu" size={14} color={colors.accent} />
+                  <Feather name="book-open" size={14} color={colors.accent} />
                 </View>
                 <View style={[styles.bubble, styles.bubbleAI, styles.typingBubble]}>
                   <TypingDots color={colors.accent} />
