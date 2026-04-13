@@ -167,10 +167,11 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
 
   return (
     <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
-      <View style={styles.header}>
+      <TouchableOpacity style={styles.header} onLongPress={retry} activeOpacity={0.7}>
         <Feather name="zap" size={13} color={colors.accent} />
         <Text style={styles.headerLabel}>Focus today</Text>
-      </View>
+        <Feather name="refresh-cw" size={11} color={colors.textMuted} />
+      </TouchableOpacity>
 
       {coachLine ? (
         <Text style={styles.coachLine}>{coachLine}</Text>
