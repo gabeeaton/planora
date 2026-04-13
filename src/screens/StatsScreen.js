@@ -5,14 +5,16 @@
 // ── Demo mode (set true for screenshots/TikTok, false for production) ──
 const DEMO_MODE = false;
 
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import React, { useMemo, useState, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { spacing, radius, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuth } from "../hooks/useAuth";
+import { saveUserProfile } from "../services/firebase";
 import { differenceInCalendarDays, subDays, format } from "date-fns";
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -23,6 +25,8 @@ const toDate = (val) => {
   const d = new Date(val);
   return isNaN(d.getTime()) ? null : d;
 };
+
+const GRADE_POINTS = { A: 4.0, B: 3.0, C: 2.0, D: 1.0, F: 0.0 };
 
 const CLASS_COLORS = ["#9060E8","#FF6B6B","#FFB347","#5CFF8F","#5BC8FF","#FF8EE8"];
 const getClassColor = (name) => {
@@ -195,6 +199,45 @@ const makeStyles = (colors) => StyleSheet.create({
   priorityBarFill: { height: 6, borderRadius: 3 },
   priorityCount:   { fontSize: 13, fontWeight: "700", marginLeft: 8, width: 24, textAlign: "right" },
 
+  // ── GPA ─────────────────────────────────────────────────────
+  gpaCard: {
+    backgroundColor: colors.bgCard, borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border, overflow: "hidden",
+  },
+  gpaTopRow: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: spacing.md, paddingHorizontal: spacing.md,
+  },
+  gpaBlock:    { flex: 1, alignItems: "center" },
+  gpaValue:    { fontSize: 36, fontWeight: "800", color: colors.textPrimary, letterSpacing: -1 },
+  gpaLabel:    { fontSize: 11, color: colors.textMuted, fontWeight: "600", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
+  gpaDividerV: { width: 1, height: 48, backgroundColor: colors.border, marginHorizontal: spacing.sm },
+  gpaDividerH: { height: 1, backgroundColor: colors.border },
+  gpaClassRow: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: spacing.md, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+    gap: 8,
+  },
+  gpaClassRowLast: { borderBottomWidth: 0 },
+  gpaClassName:    { flex: 1, fontSize: 14, fontWeight: "600", color: colors.textPrimary },
+  gpaClassMeta:    { fontSize: 12, color: colors.textMuted, width: 28, textAlign: "right" },
+  gpaGradeBadge:   { width: 30, height: 26, borderRadius: 6, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  gpaGradeText:    { fontSize: 13, fontWeight: "800" },
+  gpaClassPoints:  { fontSize: 13, fontWeight: "700", color: colors.textSecondary, width: 28, textAlign: "right" },
+  gpaPriorSection: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md },
+  gpaPriorTitle:   { fontSize: 10, fontWeight: "700", color: colors.textMuted, letterSpacing: 1, textTransform: "uppercase", marginBottom: spacing.sm },
+  gpaPriorRow:     { flexDirection: "row", gap: spacing.sm },
+  gpaPriorField:   { flex: 1 },
+  gpaPriorFieldLabel: { fontSize: 10, fontWeight: "600", color: colors.textMuted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 },
+  gpaPriorInput: {
+    backgroundColor: colors.bg, borderRadius: radius.sm,
+    borderWidth: 1, borderColor: colors.border,
+    paddingHorizontal: 10, paddingVertical: 8,
+    fontSize: 15, fontWeight: "600", color: colors.textPrimary,
+  },
+  gpaPriorHint: { fontSize: 10, color: colors.textMuted, marginTop: 4 },
+
   // Empty state
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 80 },
   emptyIcon:  {
@@ -213,6 +256,7 @@ const StatsScreen = () => {
   const styles = makeStyles(colors);
   const realTasks = useTasks();
   const { profile: realProfile } = useUserProfile();
+  const { user } = useAuth();
 
   // ── Demo data ────────────────────────────────────────────────
   const DEMO_COMPLETED = [
@@ -238,6 +282,60 @@ const StatsScreen = () => {
   const streak         = DEMO_MODE ? 7 : realTasks.streak;
   const profile        = DEMO_MODE ? { name: "Alex Johnson", semester: "Spring 2025" } : realProfile;
   const today = new Date();
+
+  // ── GPA state ────────────────────────────────────────────────
+  const [priorGpaInput,     setPriorGpaInput]     = useState(String(realProfile?.priorGpa     ?? ""));
+  const [priorCreditsInput, setPriorCreditsInput] = useState(String(realProfile?.priorCredits ?? ""));
+
+  // Sync inputs when profile loads
+  React.useEffect(() => {
+    if (realProfile?.priorGpa     !== undefined) setPriorGpaInput(String(realProfile.priorGpa));
+    if (realProfile?.priorCredits !== undefined) setPriorCreditsInput(String(realProfile.priorCredits));
+  }, [realProfile?.priorGpa, realProfile?.priorCredits]);
+
+  const savePrior = useCallback(() => {
+    if (!user) return;
+    const gpa     = parseFloat(priorGpaInput);
+    const credits = parseFloat(priorCreditsInput);
+    saveUserProfile(user.uid, {
+      priorGpa:     isNaN(gpa)     ? null : Math.min(4.0, Math.max(0, gpa)),
+      priorCredits: isNaN(credits) ? null : Math.max(0, credits),
+    }).catch(() => {});
+  }, [user, priorGpaInput, priorCreditsInput]);
+
+  // Classes with a real grade this term
+  const gpaClasses = useMemo(() =>
+    (profile?.classes ?? []).filter((c) => GRADE_POINTS[c.grade] !== undefined),
+    [profile?.classes]
+  );
+
+  const termGpa = useMemo(() => {
+    if (!gpaClasses.length) return null;
+    const points  = gpaClasses.reduce((s, c) => s + GRADE_POINTS[c.grade] * (parseInt(c.creditHours) || 3), 0);
+    const credits = gpaClasses.reduce((s, c) => s + (parseInt(c.creditHours) || 3), 0);
+    return credits > 0 ? (points / credits).toFixed(2) : null;
+  }, [gpaClasses]);
+
+  const cumGpa = useMemo(() => {
+    if (!termGpa) return null;
+    const priorGpa     = parseFloat(realProfile?.priorGpa);
+    const priorCredits = parseFloat(realProfile?.priorCredits);
+    if (!priorGpa || !priorCredits || priorCredits === 0) return termGpa;
+    const termCredits = gpaClasses.reduce((s, c) => s + (parseInt(c.creditHours) || 3), 0);
+    const termPoints  = gpaClasses.reduce((s, c) => s + GRADE_POINTS[c.grade] * (parseInt(c.creditHours) || 3), 0);
+    const total = priorGpa * priorCredits + termPoints;
+    return ((total) / (priorCredits + termCredits)).toFixed(2);
+  }, [termGpa, gpaClasses, realProfile?.priorGpa, realProfile?.priorCredits]);
+
+  const gradeColor = (grade) => {
+    switch (grade) {
+      case "A": return "#5CFF8F";
+      case "B": return colors.accent;
+      case "C": return "#FFB347";
+      case "D": case "F": return "#FF5C5C";
+      default:  return colors.textMuted;
+    }
+  };
 
   const totalCompleted = completedTasks.length;
   const totalPending   = tasks.filter((t) => !t.completed).length;
@@ -396,6 +494,85 @@ const StatsScreen = () => {
             <Text style={styles.statLabel}>Complete</Text>
           </View>
         </View>
+
+        {/* ── GPA ── */}
+        {gpaClasses.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>GPA</Text>
+            </View>
+            <View style={styles.gpaCard}>
+              {/* Term vs Cumulative */}
+              <View style={styles.gpaTopRow}>
+                <View style={styles.gpaBlock}>
+                  <Text style={styles.gpaValue}>{termGpa ?? "—"}</Text>
+                  <Text style={styles.gpaLabel}>This term</Text>
+                </View>
+                <View style={styles.gpaDividerV} />
+                <View style={styles.gpaBlock}>
+                  <Text style={[styles.gpaValue, { color: colors.accent }]}>{cumGpa ?? "—"}</Text>
+                  <Text style={styles.gpaLabel}>Cumulative</Text>
+                </View>
+              </View>
+
+              {/* Per-class breakdown */}
+              <View style={styles.gpaDividerH} />
+              {gpaClasses.map((cls, i) => (
+                <View
+                  key={cls.id ?? i}
+                  style={[styles.gpaClassRow, i === gpaClasses.length - 1 && styles.gpaClassRowLast]}
+                >
+                  <Text style={styles.gpaClassName} numberOfLines={1}>{cls.name}</Text>
+                  <Text style={styles.gpaClassMeta}>{cls.creditHours}cr</Text>
+                  <View style={[styles.gpaGradeBadge, {
+                    backgroundColor: gradeColor(cls.grade) + "22",
+                    borderColor:     gradeColor(cls.grade) + "66",
+                  }]}>
+                    <Text style={[styles.gpaGradeText, { color: gradeColor(cls.grade) }]}>{cls.grade}</Text>
+                  </View>
+                  <Text style={styles.gpaClassPoints}>{GRADE_POINTS[cls.grade].toFixed(1)}</Text>
+                </View>
+              ))}
+
+              {/* Prior record inputs */}
+              <View style={styles.gpaDividerH} />
+              <View style={styles.gpaPriorSection}>
+                <Text style={styles.gpaPriorTitle}>Prior record</Text>
+                <View style={styles.gpaPriorRow}>
+                  <View style={styles.gpaPriorField}>
+                    <Text style={styles.gpaPriorFieldLabel}>Cumulative GPA</Text>
+                    <TextInput
+                      style={styles.gpaPriorInput}
+                      value={priorGpaInput}
+                      onChangeText={setPriorGpaInput}
+                      onBlur={savePrior}
+                      keyboardType="decimal-pad"
+                      placeholder="e.g. 3.50"
+                      placeholderTextColor={colors.textMuted}
+                      maxLength={4}
+                    />
+                  </View>
+                  <View style={styles.gpaPriorField}>
+                    <Text style={styles.gpaPriorFieldLabel}>Credits earned</Text>
+                    <TextInput
+                      style={styles.gpaPriorInput}
+                      value={priorCreditsInput}
+                      onChangeText={setPriorCreditsInput}
+                      onBlur={savePrior}
+                      keyboardType="number-pad"
+                      placeholder="e.g. 45"
+                      placeholderTextColor={colors.textMuted}
+                      maxLength={4}
+                    />
+                  </View>
+                </View>
+                <Text style={styles.gpaPriorHint}>
+                  Enter your GPA and credits before this term to calculate your true cumulative GPA.
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
 
         {/* ── 7-day activity ── */}
         <View style={styles.sectionHeader}>
