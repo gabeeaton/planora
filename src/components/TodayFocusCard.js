@@ -118,12 +118,25 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
   };
 
   // Resolve task IDs → actual task objects (skip completed)
-  const focusTasks = focus?.taskIds
+  // If IDs don't resolve, fall back to top pending tasks by urgency
+  const PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+  const pending = tasks.filter((t) => !t.completed);
+  let focusTasks = focus?.taskIds
     ? focus.taskIds
         .map((id) => tasks.find((t) => t.id === id && !t.completed))
         .filter(Boolean)
         .slice(0, 3)
     : [];
+  if (focusTasks.length === 0 && pending.length > 0) {
+    focusTasks = [...pending]
+      .sort((a, b) => {
+        const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+        const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        if (aDate !== bDate) return aDate - bDate;
+        return (PRIORITY_RANK[a.aiPriority ?? a.priority] ?? 1) - (PRIORITY_RANK[b.aiPriority ?? b.priority] ?? 1);
+      })
+      .slice(0, 3);
+  }
 
   if (loading) {
     return (
@@ -167,11 +180,13 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
 
   return (
     <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
-      <TouchableOpacity style={styles.header} onLongPress={retry} activeOpacity={0.7}>
+      <View style={styles.header}>
         <Feather name="zap" size={13} color={colors.accent} />
         <Text style={styles.headerLabel}>Focus today</Text>
-        <Feather name="refresh-cw" size={11} color={colors.textMuted} />
-      </TouchableOpacity>
+        <TouchableOpacity onPress={retry} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Feather name="refresh-cw" size={13} color={colors.textMuted} />
+        </TouchableOpacity>
+      </View>
 
       {coachLine ? (
         <Text style={styles.coachLine}>{coachLine}</Text>
