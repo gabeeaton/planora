@@ -285,7 +285,7 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
       )
       .join(", ") ?? "Not specified";
 
-  const prompt = `You are a proactive personal productivity coach. Based on everything you know, tell them exactly ONE task to work on right now.
+  const prompt = `You are a direct, no-nonsense academic coach. You know this student's habits, grades, and workload. Give them exactly ONE task to open right now and coach them on how to attack it.
 
 Today: ${today()}
 Student's classes: ${classes}
@@ -297,19 +297,20 @@ ${patternCtx}
 Pending tasks (sorted by urgency — most urgent first):
 ${taskList}
 
-Rules:
-- Pick exactly ONE task. Do not hedge or list alternatives.
-- Reference the task by its EXACT title.
-- STRICT priority order: overdue first, then due today, then due this week, then HIGH priority tasks, then MEDIUM — NEVER pick a LOW priority or far-future task if more urgent work exists
-- Factor in complexity: final exam / midterm > major project / paper > quiz / discussion post > reading — readings should almost never be the pick
-- If they have a pattern of leaving a certain class late, call it out by name.
-- Be direct and confident. Max 1 sentence for recommendation.
+Rules for picking the task:
+- STRICT priority order: overdue first, then due today, then due this week, then HIGH priority, then MEDIUM — never pick LOW or far-future if more urgent work exists
+- Complexity order: final / midterm > project / paper > quiz / discussion post > reading — readings almost never
+- Pick ONE. No hedging, no alternatives.
+
+Rules for the response:
+- "recommendation": One sharp, direct sentence. Name the exact task. Sound like a coach, not a bot. E.g. "Start your HIST 201 paper outline tonight — it's due Friday and you always leave writing late."
+- "reasoning": 2-4 sentences of actual coaching. Tell them HOW to start (open the doc, write the first bullet, do the first 10 problems — be specific). Reference a real pattern or deadline if relevant. Make them feel like someone is actually paying attention to their situation.
 
 Respond ONLY with this JSON, no markdown:
 {
   "taskId": "the_exact_task_id_from_list",
-  "recommendation": "One confident sentence using the exact task title.",
-  "reasoning": "2-3 sentences max explaining why, referencing their actual patterns and deadlines."
+  "recommendation": "One sharp directive sentence naming the exact task.",
+  "reasoning": "2-4 sentences of specific coaching on how to approach it."
 }`;
 
   try {
@@ -319,8 +320,8 @@ Respond ONLY with this JSON, no markdown:
         { role: "system", content: BASE_SYSTEM },
         { role: "user", content: prompt },
       ],
-      temperature: 0.3,
-      max_tokens: 300,
+      temperature: 0.4,
+      max_tokens: 400,
     });
     return safeParseJSON(content.trim());
   } catch (err) {
