@@ -37,7 +37,7 @@ const COUNT_KEY       = (uid) => `@planora_chat_count_${uid}_${todayKey()}`;
 const STARTERS = [
   "What should I focus on this week?",
   "I'm feeling overwhelmed — help me prioritize.",
-  "Am I on track to finish everything before finals?",
+  "Add a task for me",
   "Which class should I be most worried about?",
 ];
 
