@@ -92,13 +92,13 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
 
   // ── Hit the "Find my focus" API ──────────────────────────
   const handlePress = async () => {
+    if (!hasProAccess) { onUpgrade?.(); return; }
     setLoading(true); setError(null); setResult(null); setPriorityDone(false);
     try {
       const rec = await getWhatDoIDo(tasks, userProfile, patterns);
       setResult(rec);
       if (rec?.taskId && onTaskHighlight) onTaskHighlight(rec.taskId);
     } catch (err) {
-      // If backend returns limitReached, nudge upgrade — otherwise show error
       if (err?.limitReached) {
         onUpgrade?.();
       } else {
