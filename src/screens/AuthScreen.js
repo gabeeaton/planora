@@ -19,53 +19,60 @@ import { useTheme } from "../utils/ThemeContext";
 const makeStyles = (colors) => StyleSheet.create({
   safe:      { flex: 1, backgroundColor: colors.bg },
   kav:       { flex: 1 },
-  container: { flexGrow: 1, paddingHorizontal: spacing.lg, justifyContent: "center", paddingVertical: spacing.xxl },
-  brand:     { alignItems: "center", marginBottom: spacing.xxl },
-  logoWrap: {
-    width: 72, height: 72, borderRadius: 20,
-    backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center", marginBottom: spacing.md, ...shadows.accent,
+  container: { flexGrow: 1, paddingHorizontal: spacing.lg, justifyContent: "center", paddingVertical: spacing.lg },
+
+  // ── Brand header ──
+  brand:    { marginBottom: spacing.xl },
+  logoMark: {
+    width: 48, height: 48, borderRadius: 14,
+    backgroundColor: colors.accent,
+    alignItems: "center", justifyContent: "center",
+    marginBottom: spacing.md,
   },
-  brandName:    { fontSize: 34, fontWeight: "900", color: colors.textPrimary, letterSpacing: -1 },
-  brandTagline: { ...typography.body, color: colors.textSecondary, textAlign: "center", marginTop: spacing.xs },
-  card: {
-    backgroundColor: colors.bgCard, borderRadius: radius.xl,
-    padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.card,
-  },
-  cardTitle:  { ...typography.h1, color: colors.textPrimary, marginBottom: spacing.lg },
-  field:      { marginBottom: spacing.md },
-  label:      { ...typography.label, color: colors.textMuted, marginBottom: spacing.xs },
-  inputWrap:  { position: "relative" },
+  brandName:    { fontSize: 32, fontWeight: "800", color: colors.textPrimary, letterSpacing: -1 },
+  brandTagline: { fontSize: 15, color: colors.textSecondary, marginTop: 4, fontWeight: "400" },
+
+  // ── Form ── (no card, floats on bg)
+  formTitle: { fontSize: 20, fontWeight: "700", color: colors.textPrimary, marginBottom: spacing.lg, letterSpacing: -0.3 },
+
+  field:     { marginBottom: spacing.sm },
+  inputWrap: { position: "relative" },
   input: {
-    backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingLeft: 42,
-    paddingVertical: 13, color: colors.textPrimary, fontSize: 15,
+    backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingLeft: 44,
+    paddingVertical: 14, color: colors.textPrimary, fontSize: 15,
   },
   inputError: { borderColor: colors.high },
-  inputIcon:  { position: "absolute", left: 14, top: 15, zIndex: 1 },
-  eyeBtn:     { position: "absolute", right: 14, top: 15, zIndex: 1 },
-  fieldError: { fontSize: 12, color: colors.high, marginTop: 4, marginLeft: 2 },
+  inputIcon:  { position: "absolute", left: 14, top: 16, zIndex: 1 },
+  eyeBtn:     { position: "absolute", right: 14, top: 16, zIndex: 1 },
+  fieldError: { fontSize: 12, color: colors.high, marginTop: 4, marginLeft: 4 },
 
-  // Global error row
+  // Global error
   errorRow: {
-    flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: spacing.md,
-    backgroundColor: "rgba(255,92,92,0.1)", padding: spacing.sm, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: "rgba(255,92,92,0.3)",
+    flexDirection: "row", alignItems: "flex-start", gap: 6,
+    backgroundColor: colors.highGlow, padding: spacing.sm,
+    borderRadius: radius.sm, borderWidth: 1, borderColor: "rgba(255,92,92,0.3)",
+    marginBottom: spacing.sm,
   },
   errorText: { color: colors.high, fontSize: 13, flex: 1, lineHeight: 18 },
 
   submitBtn: {
     backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 15,
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: spacing.sm, marginTop: spacing.xs, ...shadows.accent,
+    alignItems: "center", justifyContent: "center",
+    marginTop: spacing.sm,
   },
   submitBtnDisabled: { opacity: 0.6 },
-  submitText:        { color: colors.white, fontSize: 16, fontWeight: "700" },
-  forgotBtn:  { alignItems: "center", marginTop: spacing.sm, padding: spacing.xs },
-  forgotText: { fontSize: 13, color: colors.accent, fontWeight: "600" },
-  toggleBtn:  { alignItems: "center", marginTop: spacing.md, padding: spacing.xs },
-  toggleText: { ...typography.body, color: colors.textSecondary },
-  toggleLink: { color: colors.accent, fontWeight: "600" },
+  submitText: { color: "#fff", fontSize: 16, fontWeight: "700", letterSpacing: 0.1 },
+
+  forgotBtn:  { alignItems: "center", marginTop: spacing.md },
+  forgotText: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
+
+  toggleRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: spacing.md },
+  toggleText: { fontSize: 14, color: colors.textSecondary },
+  toggleLink: { fontSize: 14, color: colors.accent, fontWeight: "600" },
+
+  legalText: { fontSize: 11, color: colors.textMuted, textAlign: "center", marginTop: spacing.md, lineHeight: 16 },
+  legalLink:  { color: colors.textMuted, textDecorationLine: "underline" },
 
   // Forgot password
   successRow: {
@@ -75,11 +82,8 @@ const makeStyles = (colors) => StyleSheet.create({
     marginBottom: spacing.md,
   },
   successText: { color: colors.low, fontSize: 13, flex: 1, lineHeight: 18 },
-  resetBack: {
-    flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.lg,
-  },
+  resetBack:     { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.lg },
   resetBackText: { fontSize: 14, color: colors.textSecondary },
-
 });
 
 const friendlyAuthError = (err) => {
@@ -123,13 +127,13 @@ const ForgotPasswordScreen = ({ onBack, colors, styles }) => {
   };
 
   return (
-    <View style={styles.card}>
+    <View>
       <TouchableOpacity onPress={onBack} style={styles.resetBack}>
         <Feather name="arrow-left" size={16} color={colors.textSecondary} />
         <Text style={styles.resetBackText}>Back to sign in</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.cardTitle, { marginBottom: spacing.xs }]}>Reset password</Text>
+      <Text style={[styles.formTitle, { marginBottom: spacing.xs }]}>Reset password</Text>
       <Text style={{ ...typography.body, color: colors.textSecondary, marginBottom: spacing.lg }}>
         Enter your email and we'll send a reset link.
       </Text>
@@ -144,12 +148,11 @@ const ForgotPasswordScreen = ({ onBack, colors, styles }) => {
       ) : (
         <>
           <View style={styles.field}>
-            <Text style={styles.label}>EMAIL</Text>
             <View style={styles.inputWrap}>
               <Feather name="mail" size={16} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="you@email.com"
+                placeholder="Email address"
                 placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={(v) => { setEmail(v); setError(""); }}
@@ -249,8 +252,8 @@ const AuthScreen = ({ navigation }) => {
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kav}>
           <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
             <View style={styles.brand}>
-              <View style={styles.logoWrap}>
-                <Feather name="check-square" size={32} color={colors.accent} />
+              <View style={styles.logoMark}>
+                <Feather name="check-square" size={24} color="#fff" />
               </View>
               <Text style={styles.brandName}>Planora</Text>
             </View>
@@ -268,148 +271,147 @@ const AuthScreen = ({ navigation }) => {
   // ── Login / Register ──────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe}>
-
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kav}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+
+          {/* Brand */}
           <View style={styles.brand}>
-            <View style={styles.logoWrap}>
-              <Feather name="check-square" size={32} color={colors.accent} />
+            <View style={styles.logoMark}>
+              <Feather name="check-square" size={24} color="#fff" />
             </View>
             <Text style={styles.brandName}>Planora</Text>
             <Text style={styles.brandTagline}>Your semester, organized.</Text>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{mode === "login" ? "Welcome back" : "Create account"}</Text>
+          {/* Form title */}
+          <Text style={styles.formTitle}>
+            {mode === "login" ? "Welcome back" : "Create your account"}
+          </Text>
 
-            {/* Email */}
-            <View style={styles.field}>
-              <Text style={styles.label}>EMAIL</Text>
-              <View style={styles.inputWrap}>
-                <Feather
-                  name="mail" size={16}
-                  color={emailError ? colors.high : colors.textMuted}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[styles.input, emailError && styles.inputError]}
-                  placeholder="you@email.com"
-                  placeholderTextColor={colors.textMuted}
-                  value={email}
-                  onChangeText={(v) => { setEmail(v); if (emailError) setEmailError(""); if (error) setError(""); }}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  returnKeyType="next"
-                  onSubmitEditing={() => passwordRef.current?.focus()}
-                />
-              </View>
-              {emailError ? <Text style={styles.fieldError}>{emailError}</Text> : null}
+          {/* Email */}
+          <View style={styles.field}>
+            <View style={styles.inputWrap}>
+              <Feather
+                name="mail" size={16}
+                color={emailError ? colors.high : colors.textMuted}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[styles.input, emailError && styles.inputError]}
+                placeholder="Email address"
+                placeholderTextColor={colors.textMuted}
+                value={email}
+                onChangeText={(v) => { setEmail(v); if (emailError) setEmailError(""); if (error) setError(""); }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+              />
             </View>
+            {emailError ? <Text style={styles.fieldError}>{emailError}</Text> : null}
+          </View>
 
-            {/* Password */}
+          {/* Password */}
+          <View style={styles.field}>
+            <View style={styles.inputWrap}>
+              <Feather
+                name="lock" size={16}
+                color={passwordError ? colors.high : colors.textMuted}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                ref={passwordRef}
+                style={[styles.input, { paddingRight: 44 }, passwordError && styles.inputError]}
+                placeholder="Password"
+                placeholderTextColor={colors.textMuted}
+                value={password}
+                onChangeText={(v) => { setPassword(v); if (passwordError) setPasswordError(""); if (error) setError(""); }}
+                secureTextEntry={!showPassword}
+                returnKeyType={mode === "login" ? "done" : "next"}
+                onSubmitEditing={mode === "login" ? handleSubmit : () => confirmRef.current?.focus()}
+              />
+              <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.eyeBtn}>
+                <Feather name={showPassword ? "eye-off" : "eye"} size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {passwordError ? <Text style={styles.fieldError}>{passwordError}</Text> : null}
+          </View>
+
+          {/* Confirm password (register only) */}
+          {mode === "register" && (
             <View style={styles.field}>
-              <Text style={styles.label}>PASSWORD</Text>
               <View style={styles.inputWrap}>
                 <Feather
                   name="lock" size={16}
-                  color={passwordError ? colors.high : colors.textMuted}
+                  color={confirmError ? colors.high : colors.textMuted}
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  ref={passwordRef}
-                  style={[styles.input, { paddingRight: 44 }, passwordError && styles.inputError]}
-                  placeholder="••••••••"
+                  ref={confirmRef}
+                  style={[styles.input, confirmError && styles.inputError]}
+                  placeholder="Confirm password"
                   placeholderTextColor={colors.textMuted}
-                  value={password}
-                  onChangeText={(v) => { setPassword(v); if (passwordError) setPasswordError(""); if (error) setError(""); }}
+                  value={confirmPassword}
+                  onChangeText={(v) => { setConfirmPassword(v); if (confirmError) setConfirmError(""); }}
                   secureTextEntry={!showPassword}
-                  returnKeyType={mode === "login" ? "done" : "next"}
-                  onSubmitEditing={mode === "login" ? handleSubmit : () => confirmRef.current?.focus()}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmit}
                 />
-                <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.eyeBtn}>
-                  <Feather name={showPassword ? "eye-off" : "eye"} size={16} color={colors.textMuted} />
-                </TouchableOpacity>
               </View>
-              {passwordError ? <Text style={styles.fieldError}>{passwordError}</Text> : null}
+              {confirmError ? <Text style={styles.fieldError}>{confirmError}</Text> : null}
             </View>
+          )}
 
-            {/* Confirm password (register only) */}
-            {mode === "register" && (
-              <View style={styles.field}>
-                <Text style={styles.label}>CONFIRM PASSWORD</Text>
-                <View style={styles.inputWrap}>
-                  <Feather
-                    name="lock" size={16}
-                    color={confirmError ? colors.high : colors.textMuted}
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    ref={confirmRef}
-                    style={[styles.input, confirmError && styles.inputError]}
-                    placeholder="••••••••"
-                    placeholderTextColor={colors.textMuted}
-                    value={confirmPassword}
-                    onChangeText={(v) => { setConfirmPassword(v); if (confirmError) setConfirmError(""); }}
-                    secureTextEntry={!showPassword}
-                    returnKeyType="done"
-                    onSubmitEditing={handleSubmit}
-                  />
-                </View>
-                {confirmError ? <Text style={styles.fieldError}>{confirmError}</Text> : null}
-              </View>
-            )}
+          {/* Global error */}
+          {error ? (
+            <View style={styles.errorRow}>
+              <Feather name="alert-circle" size={14} color={colors.high} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-            {/* Global error */}
-            {error ? (
-              <View style={styles.errorRow}>
-                <Feather name="alert-circle" size={14} color={colors.high} />
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
+          {/* Submit */}
+          <TouchableOpacity
+            onPress={handleSubmit}
+            style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+            disabled={loading}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.submitText}>{mode === "login" ? "Sign In" : "Create Account"}</Text>
+            }
+          </TouchableOpacity>
 
-            {/* Submit */}
+          {/* Forgot password */}
+          {mode === "login" && (
             <TouchableOpacity
-              onPress={handleSubmit}
-              style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
-              disabled={loading}
+              onPress={() => { setMode("forgot"); clearErrors(); }}
+              style={styles.forgotBtn}
             >
-              {loading
-                ? <ActivityIndicator color={colors.white} />
-                : <>
-                    <Feather name={mode === "login" ? "log-in" : "user-plus"} size={18} color={colors.white} />
-                    <Text style={styles.submitText}>{mode === "login" ? "Sign In" : "Create Account"}</Text>
-                  </>
-              }
+              <Text style={styles.forgotText}>Forgot your password?</Text>
             </TouchableOpacity>
+          )}
 
-            {mode === "login" && (
-              <TouchableOpacity
-                onPress={() => { setMode("forgot"); clearErrors(); }}
-                style={styles.forgotBtn}
-              >
-                <Text style={styles.forgotText}>Forgot password?</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              onPress={() => { setMode(mode === "login" ? "register" : "login"); clearErrors(); }}
-              style={styles.toggleBtn}
-            >
-              <Text style={styles.toggleText}>
-                {mode === "login" ? "Don't have an account? " : "Already have an account? "}
-                <Text style={styles.toggleLink}>{mode === "login" ? "Sign Up" : "Sign In"}</Text>
-              </Text>
+          {/* Toggle login / register */}
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleText}>
+              {mode === "login" ? "Don't have an account?  " : "Already have an account?  "}
+            </Text>
+            <TouchableOpacity onPress={() => { setMode(mode === "login" ? "register" : "login"); clearErrors(); }}>
+              <Text style={styles.toggleLink}>{mode === "login" ? "Sign Up" : "Sign In"}</Text>
             </TouchableOpacity>
-
-            {mode === "register" && (
-              <Text style={[styles.toggleText, { textAlign: "center", marginTop: 8 }]}>
-                By signing up you agree to our{" "}
-                <Text style={styles.toggleLink} onPress={() => Linking.openURL("https://planoraapp.net/terms")}>Terms of Service</Text>
-                {" "}and{" "}
-                <Text style={styles.toggleLink} onPress={() => Linking.openURL("https://planoraapp.net/privacy")}>Privacy Policy</Text>.
-              </Text>
-            )}
           </View>
+
+          {/* Legal (register only) */}
+          {mode === "register" && (
+            <Text style={styles.legalText}>
+              By signing up you agree to our{" "}
+              <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/terms")}>Terms of Service</Text>
+              {" "}and{" "}
+              <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/privacy")}>Privacy Policy</Text>.
+            </Text>
+          )}
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
