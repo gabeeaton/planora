@@ -72,6 +72,20 @@ export const requestNotificationPermissions = async () => {
   }
 };
 
+/**
+ * Check if notifications are already granted — never prompts the user.
+ * Use this inside scheduling functions so they never trigger Apple's dialog.
+ * Only NotificationPermissionPrompt should call requestNotificationPermissions().
+ */
+const checkNotificationPermissions = async () => {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === "granted";
+  } catch {
+    return false;
+  }
+};
+
 // ── Schedule a reminder for one task ─────────────────────────
 
 /**
@@ -98,7 +112,7 @@ export const scheduleTaskReminder = async (task, bestTime = null) => {
   // Don't schedule reminders for tasks already due
   if (due <= now) return result;
 
-  const granted = await requestNotificationPermissions();
+  const granted = await checkNotificationPermissions();
   if (!granted) return result;
 
   // ── Day-before reminder ───────────────────────────────────
@@ -221,7 +235,7 @@ export const scheduleStreakReminder = async (streak, bestTime, uid) => {
     return;
   }
 
-  const granted = await requestNotificationPermissions();
+  const granted = await checkNotificationPermissions();
   if (!granted) return;
 
   // Cancel existing before rescheduling
@@ -288,7 +302,7 @@ const todayDateStr = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores) => {
   if (!avoidanceScores?.length) return;
 
-  const granted = await requestNotificationPermissions();
+  const granted = await checkNotificationPermissions();
   if (!granted) return;
 
   // Load dedup map { taskId: "YYYY-MM-DD" }
@@ -351,7 +365,7 @@ export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores) => {
  * Returns the notification ID (string). Store it to cancel later.
  */
 export const scheduleWeeklySummary = async () => {
-  const granted = await requestNotificationPermissions();
+  const granted = await checkNotificationPermissions();
   if (!granted) return null;
 
   try {
