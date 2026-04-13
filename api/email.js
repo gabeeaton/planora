@@ -44,168 +44,128 @@ async function sendEmail({ to, subject, html }) {
   return res.json();
 }
 
+// ── Shared header/footer ──────────────────────────────────────
+
+const emailHeader = `
+  <!-- Accent bar -->
+  <tr><td style="background:#9060E8;height:5px;font-size:0;line-height:0;">&nbsp;</td></tr>
+  <!-- Logo -->
+  <tr><td style="background:#ffffff;padding:28px 40px 20px;text-align:center;border-bottom:1px solid #f0f0f0;">
+    <img src="${LOGO_URL}" alt="Planora" width="120" style="display:block;margin:0 auto;" />
+  </td></tr>`;
+
+const emailFooter = `
+  <tr><td style="padding:24px 40px;background:#f9f9f9;text-align:center;border-top:1px solid #eee;">
+    <p style="margin:0;font-size:11px;color:#aaa;line-height:1.8;">
+      Planora · planoraapp.net<br>
+      You're receiving this because you created an account.
+    </p>
+  </td></tr>`;
+
+const emailWrapper = (content) => `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0f5;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08);">
+        ${emailHeader}
+        ${content}
+        ${emailFooter}
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
 // ── Email templates ───────────────────────────────────────────
 
 function welcomeHtml(name) {
   const first = name?.split(" ")[0] ?? "there";
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f9f9f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+  return emailWrapper(`
+    <tr><td style="padding:36px 40px;">
+      <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#1a1a2e;">
+        Welcome, ${first}! 👋
+      </h1>
+      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#555;">
+        You're all set on Planora. Here's where to start:
+      </p>
 
-        <!-- Header -->
-        <tr><td style="background:#9060E8;padding:32px 40px;text-align:center;">
-          <img src="${LOGO_URL}" alt="Planora" width="140" style="display:block;margin:0 auto;" />
-        </td></tr>
-
-        <!-- Body -->
-        <tr><td style="padding:40px;">
-          <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#1a1a2e;">
-            Welcome, ${first}! 👋
-          </h1>
-          <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#555;">
-            You're all set up on Planora. Here's what you can do right now:
-          </p>
-
-          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
-            ${[
-              ["📚", "Add your classes", "Set up your classes in Profile so the AI can factor in grades and credit hours."],
-              ["📋", "Import your syllabus", "Tap the upload icon on the dashboard to import your Canvas calendar or syllabus."],
-              ["🎯", "Find My Focus", "Tap \"Find my focus\" and the AI will tell you exactly what to work on right now."],
-            ].map(([icon, title, desc]) => `
-            <tr><td style="padding:12px 0;border-bottom:1px solid #f0f0f0;">
-              <table cellpadding="0" cellspacing="0"><tr>
-                <td style="font-size:20px;padding-right:14px;vertical-align:top;">${icon}</td>
-                <td>
-                  <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#1a1a2e;">${title}</p>
-                  <p style="margin:0;font-size:13px;color:#888;line-height:1.5;">${desc}</p>
-                </td>
-              </tr></table>
-            </td></tr>`).join("")}
-          </table>
-
-          <p style="margin:0 0 28px;font-size:14px;color:#888;line-height:1.6;">
-            Questions? Just reply to this email — I read every one.
-          </p>
-
-          <p style="margin:0;font-size:14px;color:#555;">
-            — Gabe, founder of Planora
-          </p>
-        </td></tr>
-
-        <!-- Footer -->
-        <tr><td style="padding:24px 40px;background:#f9f9f9;text-align:center;border-top:1px solid #eee;">
-          <p style="margin:0;font-size:11px;color:#aaa;">
-            Planora · planoraapp.net<br>
-            You're receiving this because you created an account.
-          </p>
-        </td></tr>
-
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
+        ${[
+          ["📚", "Add your classes", "Set up your classes in Profile so the AI can factor in grades and credit hours."],
+          ["📋", "Import your syllabus", "Tap the upload icon on the dashboard to import your Canvas calendar or syllabus."],
+          ["🎯", "Find My Focus", "Tap \"Find my focus\" and the AI will tell you exactly what to work on right now."],
+        ].map(([icon, title, desc]) => `
+        <tr><td style="padding:14px 0;border-bottom:1px solid #f0f0f0;">
+          <table cellpadding="0" cellspacing="0"><tr>
+            <td style="font-size:22px;padding-right:16px;vertical-align:top;padding-top:2px;">${icon}</td>
+            <td>
+              <p style="margin:0 0 3px;font-size:14px;font-weight:600;color:#1a1a2e;">${title}</p>
+              <p style="margin:0;font-size:13px;color:#888;line-height:1.5;">${desc}</p>
+            </td>
+          </tr></table>
+        </td></tr>`).join("")}
       </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
+
+      <p style="margin:0 0 6px;font-size:14px;color:#555;">
+        Questions? Just reply — I read every one.
+      </p>
+      <p style="margin:0;font-size:14px;color:#555;">
+        — Gabe, founder of Planora
+      </p>
+    </td></tr>`);
 }
 
-// ── Email templates ───────────────────────────────────────────
-
 function verifyHtml(verifyUrl) {
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f9f9f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-
-        <tr><td style="background:#9060E8;padding:32px 40px;text-align:center;">
-          <img src="${LOGO_URL}" alt="Planora" width="140" style="display:block;margin:0 auto;" />
+  return emailWrapper(`
+    <tr><td style="padding:40px;text-align:center;">
+      <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+        <tr><td width="64" height="64" align="center" valign="middle"
+          style="border-radius:32px;background:rgba(144,96,232,0.1);border:2px solid #9060E8;font-size:28px;line-height:64px;">
+          ✉️
         </td></tr>
-
-        <tr><td style="padding:40px;text-align:center;">
-          <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
-            <tr><td width="64" height="64" align="center" valign="middle"
-              style="border-radius:32px;background:rgba(144,96,232,0.1);border:2px solid #9060E8;font-size:28px;line-height:64px;">
-              ✉️
-            </td></tr>
-          </table>
-          <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;">One tap to get started</h1>
-          <p style="margin:0 0 32px;font-size:15px;line-height:1.6;color:#555;">
-            Confirm your email to activate your Planora account and meet your AI academic coach.
-          </p>
-
-          <a href="${verifyUrl}" style="display:inline-block;background:#9060E8;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
-            Verify my email
-          </a>
-
-          <p style="margin:32px 0 0;font-size:13px;color:#aaa;line-height:1.6;">
-            If you didn't create a Planora account, you can ignore this email.<br>
-            This link expires in 24 hours.
-          </p>
-        </td></tr>
-
-        <tr><td style="padding:24px 40px;background:#f9f9f9;text-align:center;border-top:1px solid #eee;">
-          <p style="margin:0;font-size:11px;color:#aaa;">Planora · planoraapp.net</p>
-        </td></tr>
-
       </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
+      <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;">One tap to get started</h1>
+      <p style="margin:0 0 32px;font-size:15px;line-height:1.6;color:#555;">
+        Confirm your email to activate your Planora account and meet your AI academic coach.
+      </p>
+
+      <a href="${verifyUrl}" style="display:inline-block;background:#9060E8;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
+        Verify my email
+      </a>
+
+      <p style="margin:32px 0 0;font-size:13px;color:#aaa;line-height:1.6;">
+        If you didn't create a Planora account, you can ignore this email.<br>
+        This link expires in 24 hours.
+      </p>
+    </td></tr>`);
 }
 
 function resetHtml(resetUrl) {
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f9f9f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-
-        <tr><td style="background:#9060E8;padding:32px 40px;text-align:center;">
-          <img src="${LOGO_URL}" alt="Planora" width="140" style="display:block;margin:0 auto;" />
+  return emailWrapper(`
+    <tr><td style="padding:40px;text-align:center;">
+      <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+        <tr><td width="64" height="64" align="center" valign="middle"
+          style="border-radius:32px;background:rgba(144,96,232,0.1);border:2px solid #9060E8;font-size:28px;line-height:64px;">
+          🔑
         </td></tr>
-
-        <tr><td style="padding:40px;text-align:center;">
-          <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
-            <tr><td width="64" height="64" align="center" valign="middle"
-              style="border-radius:32px;background:rgba(144,96,232,0.1);border:2px solid #9060E8;font-size:28px;line-height:64px;">
-              🔑
-            </td></tr>
-          </table>
-          <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;">Reset your password</h1>
-          <p style="margin:0 0 32px;font-size:15px;line-height:1.6;color:#555;">
-            Tap the button below to choose a new password for your Planora account.
-          </p>
-
-          <a href="${resetUrl}" style="display:inline-block;background:#9060E8;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
-            Reset password
-          </a>
-
-          <p style="margin:32px 0 0;font-size:13px;color:#aaa;line-height:1.6;">
-            If you didn't request a password reset, you can ignore this email.<br>
-            This link expires in 1 hour.
-          </p>
-        </td></tr>
-
-        <tr><td style="padding:24px 40px;background:#f9f9f9;text-align:center;border-top:1px solid #eee;">
-          <p style="margin:0;font-size:11px;color:#aaa;">Planora · planoraapp.net</p>
-        </td></tr>
-
       </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
+      <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;">Reset your password</h1>
+      <p style="margin:0 0 32px;font-size:15px;line-height:1.6;color:#555;">
+        Tap the button below to choose a new password for your Planora account.
+      </p>
+
+      <a href="${resetUrl}" style="display:inline-block;background:#9060E8;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
+        Reset password
+      </a>
+
+      <p style="margin:32px 0 0;font-size:13px;color:#aaa;line-height:1.6;">
+        If you didn't request a password reset, you can ignore this email.<br>
+        This link expires in 1 hour.
+      </p>
+    </td></tr>`);
 }
 
 // ── Handler ───────────────────────────────────────────────────
@@ -252,7 +212,6 @@ export default async function handler(req, res) {
 
     if (type === "reset") {
       const app = getAdminApp();
-      // Generate Firebase reset link, extract oobCode, build our own redirect URL
       const firebaseUrl = await getAuth(app).generatePasswordResetLink(email);
       const oobCode = new URL(firebaseUrl).searchParams.get("oobCode");
       const resetUrl = `https://taskflow-mocha-theta.vercel.app/api/reset-redirect?oobCode=${encodeURIComponent(oobCode)}`;
