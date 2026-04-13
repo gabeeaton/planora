@@ -265,7 +265,16 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
   const patternCtx = patterns
     ? buildPatternContext(patterns, userProfile)
     : "No pattern data yet.";
-  const taskList = formatTaskList(pending);
+
+  const PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+  const sorted = [...pending].sort((a, b) => {
+    const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+    const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+    if (aDate !== bDate) return aDate - bDate;
+    return (PRIORITY_RANK[a.aiPriority ?? a.priority] ?? 1) - (PRIORITY_RANK[b.aiPriority ?? b.priority] ?? 1);
+  });
+
+  const taskList = formatTaskList(sorted);
   const classes =
     userProfile?.classes
       ?.map(
@@ -285,12 +294,14 @@ Preferred work time: ${userProfile?.preferredWorkTime ?? "not set"}
 Behavioral patterns (learned from their history):
 ${patternCtx}
 
-Pending tasks:
+Pending tasks (sorted by urgency — most urgent first):
 ${taskList}
 
 Rules:
 - Pick exactly ONE task. Do not hedge or list alternatives.
 - Reference the task by its EXACT title.
+- STRICT priority order: overdue first, then due today, then due this week, then HIGH priority tasks, then MEDIUM — NEVER pick a LOW priority or far-future task if more urgent work exists
+- Factor in complexity: final exam / midterm > major project / paper > quiz / discussion post > reading — readings should almost never be the pick
 - If they have a pattern of leaving a certain class late, call it out by name.
 - Be direct and confident. Max 1 sentence for recommendation.
 

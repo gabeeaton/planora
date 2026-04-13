@@ -383,18 +383,23 @@ const DashboardScreen = ({ navigation }) => {
   const scrollOffsetY  = useRef(0);
   const taskViewRefs   = useRef({});
 
-  // Scroll to a task when it's highlighted from the Focus card
+  // Scroll to a task when it's highlighted from the Focus card, then clear it
   useEffect(() => {
     if (!highlightedTaskId) return;
     const taskRef = taskViewRefs.current[highlightedTaskId];
-    if (!taskRef || !scrollRef.current) return;
+    if (!taskRef || !scrollRef.current) {
+      setHighlightedTaskId(null);
+      return;
+    }
     setTimeout(() => {
       taskRef.measureInWindow((_, taskAbsY) => {
-        scrollRef.current.measureInWindow((__, svAbsY) => {
+        scrollRef.current?.measureInWindow((__, svAbsY) => {
           const targetY = scrollOffsetY.current + (taskAbsY - svAbsY) - 120;
-          scrollRef.current.scrollTo({ y: Math.max(0, targetY), animated: true });
+          scrollRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
         });
       });
+      // Clear after scroll animation so it doesn't re-fire
+      setTimeout(() => setHighlightedTaskId(null), 600);
     }, 50);
   }, [highlightedTaskId]);
 
