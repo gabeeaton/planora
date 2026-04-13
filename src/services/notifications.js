@@ -400,6 +400,25 @@ export const scheduleWeeklySummary = async () => {
   }
 };
 
+// ── App icon badge (overdue count) ───────────────────────────
+
+/**
+ * Set the app icon badge to the number of overdue tasks.
+ * Clears the badge when there are none.
+ * Silently no-ops if permissions aren't granted.
+ */
+export const updateOverdueBadge = async (tasks) => {
+  try {
+    const now = new Date();
+    const count = (tasks ?? []).filter(
+      (t) => !t.completed && t.dueDate && new Date(t.dueDate) < now
+    ).length;
+    await Notifications.setBadgeCountAsync(count);
+  } catch {
+    // Fail silently — badge is a nice-to-have
+  }
+};
+
 // ── Internal helpers ──────────────────────────────────────────
 
 const _formatDue = (date) => {

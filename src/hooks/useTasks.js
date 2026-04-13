@@ -19,6 +19,7 @@ import {
   scheduleTaskReminder,
   cancelTaskReminder,
   cancelAllReminders,
+  updateOverdueBadge,
 } from "../services/notifications";
 import { spawnNextRecurringTask } from "../services/recurringTasks";
 import { analyzePatterns } from "../services/patternAnalysis";
@@ -64,6 +65,11 @@ export const useTasks = () => {
       setPatterns(analyzePatterns(tasks, history, profile));
     }
   }, [tasks, history]);
+
+  // Keep app icon badge in sync with overdue count
+  useEffect(() => {
+    updateOverdueBadge(tasks);
+  }, [tasks]);
 
   useEffect(() => {
     if (!user) { setTasks([]); setHistory([]); setLoading(false); return; }
