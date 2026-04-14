@@ -8,6 +8,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Modal, KeyboardAvoidingView, Platform, ScrollView, Linking, Alert,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Feather } from "@expo/vector-icons";
 import { typography, spacing, radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
@@ -109,18 +110,11 @@ const makeStyles = (colors) => StyleSheet.create({
   timeToggleText:   { flex: 1, fontSize: 15, color: colors.textMuted },
   clearTimeText:    { fontSize: 12, color: colors.high, fontWeight: "600" },
 
-  timePicker: {
-    marginTop: 8, backgroundColor: colors.bgInput,
+  nativePicker: {
+    marginTop: 4,
+    backgroundColor: colors.bgInput,
     borderRadius: 12, borderWidth: 1, borderColor: colors.border,
-    maxHeight: 160,
   },
-  timeGrid:      { flexDirection: "row", flexWrap: "wrap", padding: 8, gap: 6 },
-  timeCell: {
-    paddingHorizontal: 10, paddingVertical: 7,
-    borderRadius: 8, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.bgCard,
-  },
-  timeCellText:     { fontSize: 12, color: colors.textSecondary },
 
   calExportRow: {
     flexDirection: "row", alignItems: "center", gap: 8,
@@ -151,8 +145,6 @@ const PRIORITY_META = {
   LOW:    { icon: "check-circle", color: "#5CFF8F", label: "Low" },
 };
 
-const HOURS   = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = ["00", "15", "30", "45"];
 
 const RECURRENCE_OPTIONS = [
   { label: "None",     value: null },
@@ -380,7 +372,12 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
   };
 
   const timeLabel = dueTime
-    ? `${formatHour(dueTime[0])}:${String(dueTime[1]).padStart(2,"0")}`
+    ? (() => {
+        const [h, m] = dueTime;
+        const suffix  = h >= 12 ? "PM" : "AM";
+        const display = h % 12 === 0 ? 12 : h % 12;
+        return `${display}:${String(m).padStart(2, "0")} ${suffix}`;
+      })()
     : "Add time";
 
   return (
@@ -669,31 +666,22 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                 </TouchableOpacity>
 
                 {showTimePicker && (
-                  <View style={styles.timePicker}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View style={styles.timeGrid}>
-                        {HOURS.map((h) =>
-                          MINUTES.map((m) => {
-                            const minNum     = parseInt(m);
-                            const isSelected = dueTime && dueTime[0] === h && dueTime[1] === minNum;
-                            return (
-                              <TouchableOpacity
-                                key={`${h}:${m}`}
-                                style={[
-                                  styles.timeCell,
-                                  isSelected && { backgroundColor: colors.accent, borderColor: colors.accent },
-                                ]}
-                                onPress={() => { setDueTime([h, minNum]); setShowTimePicker(false); }}
-                              >
-                                <Text style={[styles.timeCellText, isSelected && { color: "#fff", fontWeight: "700" }]}>
-                                  {formatHour(h)}:{m}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })
-                        )}
-                      </View>
-                    </ScrollView>
+                  <View style={styles.nativePicker}>
+                    <DateTimePicker
+                      mode="time"
+                      display="spinner"
+                      value={(() => {
+                        const d = dueDate ? new Date(dueDate) : new Date();
+                        if (dueTime) { d.setHours(dueTime[0], dueTime[1], 0, 0); }
+                        else { d.setHours(12, 0, 0, 0); }
+                        return d;
+                      })()}
+                      onChange={(_, date) => {
+                        if (date) setDueTime([date.getHours(), date.getMinutes()]);
+                      }}
+                      textColor={colors.textPrimary}
+                      themeVariant={colors.isDark ? "dark" : "light"}
+                    />
                   </View>
                 )}
               </View>

@@ -21,25 +21,30 @@ Sentry.init({
 const useInitialTheme = () => {
   const [ready,      setReady]      = useState(false);
   const [savedTheme, setSavedTheme] = useState("purple");
+  const [savedDark,  setSavedDark]  = useState(true);
 
   useEffect(() => {
-    AsyncStorage.getItem("@tf_accent").then((accent) => {
+    Promise.all([
+      AsyncStorage.getItem("@tf_accent"),
+      AsyncStorage.getItem("@tf_dark"),
+    ]).then(([accent, dark]) => {
       if (accent) setSavedTheme(accent);
+      if (dark !== null) setSavedDark(dark !== "0");
       setReady(true);
     }).catch(() => setReady(true));
   }, []);
 
-  return { ready, savedTheme };
+  return { ready, savedTheme, savedDark };
 };
 
 function App() {
-  const { ready, savedTheme } = useInitialTheme();
+  const { ready, savedTheme, savedDark } = useInitialTheme();
   if (!ready) return null;
 
   return (
-    <ThemeProvider initialTheme={savedTheme}>
+    <ThemeProvider initialTheme={savedTheme} initialDark={savedDark}>
       <AuthProvider>
-        <StatusBar style="light" />
+        <StatusBar style="auto" />
         <AppNavigator />
       </AuthProvider>
     </ThemeProvider>

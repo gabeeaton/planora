@@ -142,7 +142,7 @@ export default function FocusModeScreen({ route, navigation }) {
     setSecs(WORK);
   };
 
-  const ac = brk ? "#5CFF8F" : colors.accent;
+  const ac = brk ? colors.low : colors.accent;
 
   // topBar sits below the Dynamic Island / status bar using insets
   const topBarStyle = {
@@ -211,8 +211,8 @@ export default function FocusModeScreen({ route, navigation }) {
     },
     overIcon: {
       width: 88, height: 88, borderRadius: 44,
-      backgroundColor: "rgba(92,255,143,0.15)",
-      borderWidth: 2, borderColor: "#5CFF8F",
+      backgroundColor: colors.lowGlow,
+      borderWidth: 2, borderColor: colors.low,
       alignItems: "center", justifyContent: "center",
       marginBottom: spacing.lg,
     },
@@ -307,7 +307,7 @@ export default function FocusModeScreen({ route, navigation }) {
             <Feather
               name={task && !brk ? "check" : "log-out"}
               size={20}
-              color={task && !brk ? "#5CFF8F" : colors.textMuted}
+              color={task && !brk ? colors.low : colors.textMuted}
             />
           </TouchableOpacity>
         </View>
@@ -330,7 +330,7 @@ export default function FocusModeScreen({ route, navigation }) {
 
           <ScrollView contentContainerStyle={s.overScroll} showsVerticalScrollIndicator={false}>
             <View style={s.overIcon}>
-              <Feather name="check-circle" size={40} color="#5CFF8F" />
+              <Feather name="check-circle" size={40} color={colors.low} />
             </View>
             <Text style={s.overH}>Session complete!</Text>
             <Text style={s.overSub}>

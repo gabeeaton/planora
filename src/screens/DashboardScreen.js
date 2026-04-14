@@ -64,38 +64,41 @@ const makeStyles = (colors, insets) =>
       alignItems: "center",
       justifyContent: "space-between",
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.sm,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.md,
+      ...(colors.isDark ? {} : {
+        backgroundColor: colors.bg,
+      }),
     },
     headerLeft: { flex: 1 },
     greeting: {
       fontSize: 22,
       fontWeight: "800",
-      color: colors.textPrimary,
+      color: colors.isDark ? colors.textPrimary : colors.textPrimary,
       letterSpacing: -0.3,
     },
     dateRow:   { flexDirection: "row", alignItems: "center", marginTop: 2, gap: 8, paddingTop: 2 },
-    date:      { fontSize: 13, color: colors.textSecondary },
+    date:      { fontSize: 13, color: colors.isDark ? colors.textSecondary : colors.textSecondary },
     streakPill: {
       flexDirection: "row", alignItems: "center", gap: 4,
-      backgroundColor: colors.mediumGlow,
+      backgroundColor: colors.isDark ? colors.mediumGlow : "rgba(255,255,255,0.2)",
       borderRadius: radius.full,
       paddingHorizontal: 8, paddingVertical: 3,
-      borderWidth: 1, borderColor: colors.medium,
+      borderWidth: 1, borderColor: colors.isDark ? colors.medium : "rgba(255,255,255,0.4)",
     },
-    streakText: { fontSize: 11, fontWeight: "700", color: colors.medium },
+    streakText: { fontSize: 11, fontWeight: "700", color: colors.isDark ? colors.medium : "#fff" },
     importBtn: {
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
-      backgroundColor: colors.accentGlow,
+      backgroundColor: colors.isDark ? colors.accentGlow : colors.bg,
       borderRadius: radius.full,
       borderWidth: 1,
-      borderColor: colors.accent,
+      borderColor: colors.isDark ? colors.accent : colors.accent,
       paddingHorizontal: 10,
       paddingVertical: 6,
     },
-    importBtnText: { fontSize: 12, fontWeight: "700", color: colors.accent },
+    importBtnText: { fontSize: 12, fontWeight: "700", color: colors.isDark ? colors.accent : colors.accent },
     clearBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -129,10 +132,10 @@ const makeStyles = (colors, insets) =>
 
     segmentedControl: {
       flexDirection: "row",
-      backgroundColor: colors.bgCard,
+      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
       borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
+      borderWidth: colors.cardBorderW,
+      borderColor: colors.cardBorder,
       marginBottom: spacing.md,
       padding: 3,
     },
@@ -144,7 +147,7 @@ const makeStyles = (colors, insets) =>
       borderRadius: radius.sm,
     },
     segmentActive: { backgroundColor: colors.accent },
-    segmentText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
+    segmentText: { fontSize: 12, fontWeight: "600", color: colors.isDark ? colors.textSecondary : colors.textPrimary },
     segmentTextActive: { color: "#fff" },
 
     bucketHeader: {
@@ -155,13 +158,12 @@ const makeStyles = (colors, insets) =>
       marginBottom: 8,
       paddingTop: spacing.sm,
       borderTopWidth: 1,
-      borderTopColor: colors.border,
+      borderTopColor: colors.isDark ? colors.border : colors.textPrimary + "18",
     },
     bucketDot: { width: 8, height: 8, borderRadius: 4 },
     bucketLabel: {
       fontSize: 11,
       fontWeight: "700",
-      color: colors.textMuted,
       letterSpacing: 0.8,
       textTransform: "uppercase",
       flex: 1,
@@ -175,7 +177,7 @@ const makeStyles = (colors, insets) =>
     sectionLabel: {
       fontSize: 11,
       fontWeight: "700",
-      color: colors.textMuted,
+      color: colors.isDark ? colors.textMuted : colors.accent,
       letterSpacing: 0.8,
       textTransform: "uppercase",
       marginBottom: spacing.sm,
@@ -255,7 +257,7 @@ const makeStyles = (colors, insets) =>
       width: 72,
       height: 72,
       borderRadius: 36,
-      backgroundColor: "rgba(92,255,143,0.15)",
+      backgroundColor: colors.lowGlow,
       borderWidth: 1,
       borderColor: colors.low,
       alignItems: "center",
@@ -293,6 +295,7 @@ const TABS = ["All", "Today", "Done"];
 
 const bucketTasks = (tasks) => {
   const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
   const today = new Date(now);
   today.setHours(23, 59, 59, 999);
   const week = addDays(today, 7);
@@ -309,7 +312,7 @@ const bucketTasks = (tasks) => {
         noDate.push(t);
         return;
       }
-      if (d < now) {
+      if (d < todayStart) {
         overdue.push(t);
         return;
       }
@@ -733,7 +736,7 @@ const DashboardScreen = ({ navigation }) => {
           style={styles.importBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Feather name="upload-cloud" size={14} color={colors.accent} />
+          <Feather name="upload-cloud" size={14} color={colors.isDark ? colors.accent : colors.accent} />
           <Text style={styles.importBtnText}>Import</Text>
         </TouchableOpacity>
       </View>
@@ -784,16 +787,16 @@ const DashboardScreen = ({ navigation }) => {
 
         {/* Behavioral insight strip */}
         {behavioralInsight && (
-          <View
-            style={[
-              styles.insightStrip,
-              {
-                borderLeftColor: behavioralInsight.color,
-                borderColor: behavioralInsight.color + "33",
-                backgroundColor: behavioralInsight.color + "10",
-              },
-            ]}
-          >
+          <View style={[
+            styles.insightStrip,
+            {
+              borderLeftColor: behavioralInsight.color,
+              borderColor: behavioralInsight.color + "33",
+              backgroundColor: colors.isDark
+                ? behavioralInsight.color + "10"
+                : behavioralInsight.color + "22",
+            },
+          ]}>
             <Feather
               name={behavioralInsight.icon}
               size={13}

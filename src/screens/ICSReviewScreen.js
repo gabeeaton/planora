@@ -53,7 +53,7 @@ const makeStyles = (colors) => StyleSheet.create({
 
   card: {
     backgroundColor: colors.bgCard, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, marginBottom: spacing.sm,
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder, marginBottom: spacing.sm,
     overflow: "hidden",
   },
   cardRemoved: { opacity: 0.4 },
@@ -77,21 +77,21 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 4,
     backgroundColor: colors.bgInput, borderRadius: radius.full,
     paddingHorizontal: 8, paddingVertical: 3,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
   },
   metaChipText: { fontSize: 11, color: colors.textSecondary, fontWeight: "500" },
   classInput: {
     flex: 1, fontSize: 11, color: colors.textSecondary,
     backgroundColor: colors.bgInput, borderRadius: radius.full,
     paddingHorizontal: 10, paddingVertical: 4,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
   },
   priorityRow: {
     flexDirection: "row", gap: 6, paddingHorizontal: spacing.md, paddingBottom: 10,
   },
   priorityBtn: {
     paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.full, borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
   },
   priorityBtnText: { fontSize: 11, fontWeight: "600", color: colors.textMuted },
 
@@ -99,7 +99,7 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: colors.bgCard, borderRadius: radius.md,
     padding: spacing.md, marginTop: spacing.md,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
   },
   summaryText: { ...typography.body, color: colors.textPrimary, flex: 1 },
 

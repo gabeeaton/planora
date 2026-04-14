@@ -501,7 +501,7 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   bubbleUser:      { backgroundColor: colors.accent, borderBottomRightRadius: 4 },
   bubbleAI:        { backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
-  bubbleError:     { borderColor: colors.high, backgroundColor: "rgba(255,92,92,0.08)" },
+  bubbleError:     { borderColor: colors.high, backgroundColor: colors.highGlow },
   bubbleConfirm:   { borderColor: colors.accent, backgroundColor: colors.accentGlow },
   bubbleTextConfirm: { color: colors.accent, fontWeight: "600" },
   bubbleText:      { fontSize: 15, lineHeight: 22 },

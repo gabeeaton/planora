@@ -4,13 +4,13 @@
 // ============================================================
 
 export const COLOR_THEMES = {
-  purple: { key: "purple", label: "Purple", accent: "#9060E8", accentLight: "#A87AEE", accentGlowDark: "rgba(144,96,232,0.18)", accentGlowLight: "rgba(144,96,232,0.12)" },
-  blue:   { key: "blue",   label: "Blue",   accent: "#3B82F6", accentLight: "#60A5FA", accentGlowDark: "rgba(59,130,246,0.18)",  accentGlowLight: "rgba(59,130,246,0.12)"  },
-  green:  { key: "green",  label: "Green",  accent: "#10B981", accentLight: "#34D399", accentGlowDark: "rgba(16,185,129,0.18)",  accentGlowLight: "rgba(16,185,129,0.12)"  },
-  pink:   { key: "pink",   label: "Pink",   accent: "#EC4899", accentLight: "#F472B6", accentGlowDark: "rgba(236,72,153,0.18)",  accentGlowLight: "rgba(236,72,153,0.12)"  },
-  orange: { key: "orange", label: "Orange", accent: "#F97316", accentLight: "#FB923C", accentGlowDark: "rgba(249,115,22,0.18)",  accentGlowLight: "rgba(249,115,22,0.12)"  },
-  yellow: { key: "yellow", label: "Yellow", accent: "#EAB308", accentLight: "#FACC15", accentGlowDark: "rgba(234,179,8,0.18)",   accentGlowLight: "rgba(234,179,8,0.12)"   },
-  red:    { key: "red",    label: "Red",    accent: "#EF4444", accentLight: "#F87171", accentGlowDark: "rgba(239,68,68,0.18)",   accentGlowLight: "rgba(239,68,68,0.12)"   },
+  purple: { key: "purple", label: "Purple", accent: "#9060E8", accentLight: "#A87AEE", accentGlowDark: "rgba(144,96,232,0.18)", accentGlowLight: "rgba(144,96,232,0.22)", bgLight: "#EEEAF8", cardLight: "#F8F6FE" },
+  blue:   { key: "blue",   label: "Blue",   accent: "#3B82F6", accentLight: "#60A5FA", accentGlowDark: "rgba(59,130,246,0.18)",  accentGlowLight: "rgba(59,130,246,0.22)",  bgLight: "#EAF0FC", cardLight: "#F5F8FF" },
+  green:  { key: "green",  label: "Green",  accent: "#10B981", accentLight: "#34D399", accentGlowDark: "rgba(16,185,129,0.18)",  accentGlowLight: "rgba(16,185,129,0.22)",  bgLight: "#E8F5F1", cardLight: "#F4FBF8" },
+  pink:   { key: "pink",   label: "Pink",   accent: "#EC4899", accentLight: "#F472B6", accentGlowDark: "rgba(236,72,153,0.18)",  accentGlowLight: "rgba(236,72,153,0.22)",  bgLight: "#FAE9F3", cardLight: "#FEF4FA" },
+  orange: { key: "orange", label: "Orange", accent: "#F97316", accentLight: "#FB923C", accentGlowDark: "rgba(249,115,22,0.18)",  accentGlowLight: "rgba(249,115,22,0.22)",  bgLight: "#FAF0E8", cardLight: "#FEF8F3" },
+  yellow: { key: "yellow", label: "Yellow", accent: "#EAB308", accentLight: "#FACC15", accentGlowDark: "rgba(234,179,8,0.18)",   accentGlowLight: "rgba(234,179,8,0.22)",   bgLight: "#FAF4E0", cardLight: "#FEFBF0" },
+  red:    { key: "red",    label: "Red",    accent: "#EF4444", accentLight: "#F87171", accentGlowDark: "rgba(239,68,68,0.18)",   accentGlowLight: "rgba(239,68,68,0.22)",   bgLight: "#FAE8E8", cardLight: "#FEF4F4" },
 };
 
 const DARK_BASE = {
@@ -28,15 +28,15 @@ const DARK_BASE = {
 };
 
 const LIGHT_BASE = {
-  bg:            "#F2F2F7",
-  bgCard:        "#FFFFFF",
-  bgElevated:    "#E5E5EA",
-  bgInput:       "#EBEBF0",
+  bg:            "#EDEDF2",
+  bgCard:        "#FAFAFA",
+  bgElevated:    "#E2E2E8",
+  bgInput:       "#E8E8EE",
   textPrimary:   "#0A0A1A",
   textSecondary: "#3C3C43",
-  textMuted:     "#8E8E93",
-  border:        "#C6C6C8",
-  borderLight:   "#D1D1D6",
+  textMuted:     "#4A4A5A",
+  border:        "#AEAEB8",
+  borderLight:   "#C8C8D0",
   overlay:       "rgba(0,0,0,0.4)",
   isDark:        false,
 };
@@ -46,15 +46,19 @@ export const buildColors = (isDark, accentKey) => {
   const accent = COLOR_THEMES[accentKey] ?? COLOR_THEMES.purple;
   return {
     ...base,
+    ...(isDark ? {} : { bg: accent.bgLight, bgCard: accent.cardLight }),
     accent:      accent.accent,
     accentLight: accent.accentLight,
     accentGlow:  isDark ? accent.accentGlowDark : accent.accentGlowLight,
-    high:        "#FF5C5C",
-    highGlow:    "rgba(255,92,92,0.15)",
-    medium:      "#FFB347",
-    mediumGlow:  "rgba(255,179,71,0.15)",
-    low:         "#5CFF8F",
-    lowGlow:     "rgba(92,255,143,0.15)",
+    high:        isDark ? "#FF5C5C" : "#DC2626",
+    highGlow:    isDark ? "rgba(255,92,92,0.15)"  : "rgba(220,38,38,0.14)",
+    medium:      isDark ? "#FFB347" : "#D97706",
+    mediumGlow:  isDark ? "rgba(255,179,71,0.15)" : "rgba(217,119,6,0.14)",
+    low:         isDark ? "#5CFF8F" : "#059669",
+    lowGlow:     isDark ? "rgba(92,255,143,0.15)" : "rgba(5,150,105,0.14)",
+    // In light mode cards have no border — shadows provide depth instead
+    cardBorder:  isDark ? base.border : "transparent",
+    cardBorderW: isDark ? 1 : 0,
     white:       "#FFFFFF",
     black:       "#000000",
     transparent: "transparent",
@@ -106,27 +110,34 @@ export const makeShadows = (accent) => ({
 
 export const shadows = makeShadows("#9060E8");
 
-export const priorityColors = { HIGH: "#FF5C5C", MEDIUM: "#FFB347", LOW: "#5CFF8F" };
+export const priorityColors = (isDark = true) => isDark
+  ? { HIGH: "#FF5C5C", MEDIUM: "#FFB347", LOW: "#5CFF8F" }
+  : { HIGH: "#DC2626", MEDIUM: "#D97706", LOW: "#059669" };
 
 // ── Class colors ──────────────────────────────────────────────
 // Deterministic hash → one of 8 vivid colors. Same class name always
 // gets the same color across every screen.
 
-export const CLASS_COLORS = [
+export const CLASS_COLORS_DARK  = [
   "#9060E8", "#FF6B6B", "#FFB347", "#5CFF8F",
   "#5BC8FF", "#FF8EE8", "#FFE45C", "#A8FF78",
 ];
+export const CLASS_COLORS_LIGHT = [
+  "#7C3AED", "#DC2626", "#D97706", "#059669",
+  "#0284C7", "#C026D3", "#B45309", "#16A34A",
+];
+// Keep old export for any code that hasn't been updated
+export const CLASS_COLORS = CLASS_COLORS_DARK;
 
-export const getClassColor = (className) => {
-  if (!className || typeof className !== "string") return "#44445A";
+export const getClassColor = (className, isDark = true) => {
+  if (!className || typeof className !== "string") return isDark ? "#44445A" : "#6B7280";
   let hash = 0;
   for (let i = 0; i < className.length; i++) {
     hash = className.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return CLASS_COLORS[Math.abs(hash) % CLASS_COLORS.length];
+  const palette = isDark ? CLASS_COLORS_DARK : CLASS_COLORS_LIGHT;
+  return palette[Math.abs(hash) % palette.length];
 };
-export const priorityGlow   = {
-  HIGH:   "rgba(255,92,92,0.15)",
-  MEDIUM: "rgba(255,179,71,0.15)",
-  LOW:    "rgba(92,255,143,0.15)",
-};
+export const priorityGlow = (isDark = true) => isDark
+  ? { HIGH: "rgba(255,92,92,0.15)",  MEDIUM: "rgba(255,179,71,0.15)", LOW: "rgba(92,255,143,0.15)" }
+  : { HIGH: "rgba(220,38,38,0.12)",  MEDIUM: "rgba(217,119,6,0.12)",  LOW: "rgba(5,150,105,0.12)"  };

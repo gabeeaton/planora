@@ -15,9 +15,13 @@ import { getRecurrenceLabel } from "../services/recurringTasks";
 
 const makeStyles = (colors) => StyleSheet.create({
   card: {
-    backgroundColor: colors.bgCard, borderRadius: 14, padding: spacing.md,
+    backgroundColor: colors.isDark ? colors.bgCard : "#fff", borderRadius: 14, padding: spacing.md,
     marginBottom: spacing.sm, borderLeftWidth: 3, borderLeftColor: colors.border,
-    borderWidth: 1, borderColor: colors.border, overflow: "hidden",
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder, overflow: "hidden",
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
+    }),
   },
   cardCompleted:   { opacity: 0.5 },
   cardHighlighted: { borderColor: colors.accent, borderWidth: 1.5 },
@@ -30,12 +34,12 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   highlightOverlay: {
     position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(144,96,232,0.06)", borderRadius: 14,
+    backgroundColor: colors.accentGlow, borderRadius: 14,
   },
   row:      { flexDirection: "row", alignItems: "flex-start" },
   checkbox: {
-    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
-    borderColor: colors.border, marginRight: spacing.sm, marginTop: 2,
+    width: 24, height: 24, borderRadius: 7, borderWidth: 2,
+    borderColor: colors.textMuted, marginRight: spacing.sm, marginTop: 2,
     alignItems: "center", justifyContent: "center",
   },
   checkboxDone: { backgroundColor: colors.accent, borderColor: colors.accent },
@@ -68,7 +72,7 @@ const makeStyles = (colors) => StyleSheet.create({
   description:   { ...typography.bodySmall, color: colors.textSecondary, marginBottom: 8 },
   aiReasonRow: {
     flexDirection: "row", alignItems: "center", marginBottom: 8,
-    backgroundColor: "rgba(144,96,232,0.08)",
+    backgroundColor: colors.accentGlow,
     paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6,
   },
   aiReason:   { ...typography.bodySmall, color: colors.accent, marginLeft: 4, fontStyle: "italic" },
@@ -77,13 +81,11 @@ const makeStyles = (colors) => StyleSheet.create({
   dueDate:    { ...typography.bodySmall, color: colors.textSecondary, marginLeft: 4 },
   actions:    { flexDirection: "row", gap: spacing.sm, alignItems: "center" },
   actionBtn:  { padding: 4 },
-  focusChip: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: colors.accentGlow, borderRadius: radius.full,
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderWidth: 1, borderColor: colors.accent,
+  focusBtn: {
+    width: 30, height: 30, borderRadius: 15,
+    borderWidth: 1.5, borderColor: colors.accent,
+    alignItems: "center", justifyContent: "center",
   },
-  focusChipText: { fontSize: 11, color: colors.accent, fontWeight: "600" },
 });
 
 const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = false }) => {
@@ -112,10 +114,11 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = fal
   const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true }).start();
 
   const displayPriority = task.aiPriority || task.priority;
-  const priorityColor   = displayPriority ? priorityColors[displayPriority] : colors.textMuted;
-  const glowColor       = displayPriority ? priorityGlow[displayPriority]   : "transparent";
+  const priorityColor   = displayPriority ? priorityColors(colors.isDark)[displayPriority] : colors.textMuted;
+  const glowColor       = displayPriority ? priorityGlow(colors.isDark)[displayPriority]   : "transparent";
 
-  const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < todayStart;
 
   const lastTouched      = task.lastTouchedAt ? new Date(task.lastTouchedAt) : null;
   const daysSinceTouched = lastTouched
@@ -207,13 +210,21 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = fal
                   <Text style={[styles.dueDate, isOverdue && { color: colors.high }]}>
                     {isOverdue ? "Overdue · " : ""}{format(new Date(task.dueDate), "MMM d")}
                   </Text>
+                  {Array.isArray(task.dueTime) && task.dueTime.length === 2 && (
+                    <>
+                      <Text style={[styles.dueDate, { marginLeft: 4 }, isOverdue && { color: colors.high }]}>·</Text>
+                      <Feather name="clock" size={11} color={isOverdue ? colors.high : colors.textMuted} style={{ marginLeft: 4 }} />
+                      <Text style={[styles.dueDate, isOverdue && { color: colors.high }]}>
+                        {" "}{task.dueTime[0] % 12 === 0 ? 12 : task.dueTime[0] % 12}:{String(task.dueTime[1]).padStart(2,"0")} {task.dueTime[0] >= 12 ? "PM" : "AM"}
+                      </Text>
+                    </>
+                  )}
                 </View>
               ) : <View />}
               <View style={styles.actions}>
                 {onFocus && !task.completed && (
-                  <TouchableOpacity onPress={() => onFocus(task)} style={styles.focusChip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Feather name="clock" size={10} color={colors.accent} />
-                    <Text style={styles.focusChipText}>Focus · 25m</Text>
+                  <TouchableOpacity onPress={() => onFocus(task)} style={styles.focusBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Feather name="clock" size={14} color={colors.accent} />
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => onEdit(task)} style={styles.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>

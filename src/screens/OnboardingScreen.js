@@ -756,7 +756,7 @@ const OnboardingScreen = ({ navigation }) => {
         return [{ ...prev[0], name }];
       }
       if (!prev.some((c) => c.name.trim() === name)) {
-        return [...prev, { id: generateId(), name, creditHours: "3", grade: "B" }];
+        return [...prev, { id: generateId(), name, creditHours: "3", grade: "No grade yet" }];
       }
       return prev;
     });
@@ -851,6 +851,9 @@ const OnboardingScreen = ({ navigation }) => {
         value={name}
         onChangeText={setName}
         autoCapitalize="words"
+        autoComplete="name"
+        textContentType="name"
+        selectionColor={colors.accent}
       />
 
       <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>

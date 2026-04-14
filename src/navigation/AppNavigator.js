@@ -71,10 +71,10 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 
         return (
           <TouchableOpacity key={route.key} onPress={onPress} style={tabStyles.tab} activeOpacity={0.7}>
-            <View style={[tabStyles.iconWrap, isFocused && { backgroundColor: colors.accentGlow }]}>
+            <View style={[tabStyles.iconWrap, isFocused && { backgroundColor: colors.isDark ? colors.accentGlow : colors.accent + "22" }]}>
               <Feather name={iconName} size={20} color={isFocused ? colors.accent : colors.textMuted} />
             </View>
-            <Text style={[tabStyles.label, isFocused && { color: colors.accent }]}>{label}</Text>
+            <Text style={[tabStyles.label, { color: colors.textMuted }, isFocused && { color: colors.accent }]}>{label}</Text>
           </TouchableOpacity>
         );
       })}

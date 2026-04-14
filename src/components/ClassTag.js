@@ -22,7 +22,8 @@ const ClassTag = ({ className, size = "sm" }) => {
 
   if (!safeClassName) return null;
 
-  const color = getClassColor(safeClassName);
+  const { colors } = useTheme();
+  const color = getClassColor(safeClassName, colors.isDark);
   const small = size === "sm";
   return (
     <View style={[styles.tag, { borderColor: color, backgroundColor: color + "18" }, small ? styles.tagSm : styles.tagMd]}>

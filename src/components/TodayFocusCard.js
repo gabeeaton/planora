@@ -15,7 +15,7 @@ import {
   View, Text, StyleSheet, ActivityIndicator, Animated, TouchableOpacity,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { spacing, radius } from "../utils/theme";
+import { spacing, radius, priorityColors } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { getTodayFocus, invalidateTodayFocusCache } from "../services/openai";
 
@@ -32,9 +32,13 @@ const cleanText = (str) => {
 const makeStyles = (colors) => StyleSheet.create({
   card: {
     backgroundColor: colors.bgCard, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
     borderLeftWidth: 3, borderLeftColor: colors.accent,
     marginBottom: spacing.md, overflow: "hidden",
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
+    }),
   },
   header: {
     flexDirection: "row", alignItems: "center", gap: 8,
@@ -76,10 +80,9 @@ const makeStyles = (colors) => StyleSheet.create({
   retryText: { fontSize: 13, color: colors.accent, fontWeight: "600" },
 });
 
-const PRIORITY_COLORS = { HIGH: "#FF5C5C", MEDIUM: "#FFB347", LOW: "#5CFF8F" };
-
 const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
   const { colors } = useTheme();
+  const PRIORITY_COLORS = priorityColors(colors.isDark);
   const styles     = makeStyles(colors);
 
   const [focus, setFocus]         = useState(null);

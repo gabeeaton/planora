@@ -31,14 +31,15 @@ const GRADE_POINTS = { A: 4.0, B: 3.0, C: 2.0, D: 1.0, F: 0.0 };
 
 const HEALTH_ORDER = { "At risk": 0, "Behind": 1, "Okay": 2, "On track": 3 };
 
-const getHealthRating = (pct, overdueCount) => {
-  if (overdueCount >= 2 || pct < 40)
-    return { label: "At risk",  color: "#FF5C5C", icon: "alert-triangle" };
-  if (overdueCount >= 1 || pct < 65)
-    return { label: "Behind",   color: "#FFB347", icon: "clock" };
-  if (pct >= 85)
-    return { label: "On track", color: "#5CFF8F", icon: "check-circle" };
-  return   { label: "Okay",     color: "#5BC8FF", icon: "minus-circle" };
+const getHealthRating = (pct, overdueCount, total, isDark = true) => {
+  // Only flag based on overdue tasks — never penalise new users for low completion
+  if (overdueCount >= 2)
+    return { label: "At risk",  color: isDark ? "#FF5C5C" : "#DC2626", icon: "alert-triangle" };
+  if (overdueCount >= 1)
+    return { label: "Behind",   color: isDark ? "#FFB347" : "#D97706", icon: "clock" };
+  if (total === 0 || pct >= 80)
+    return { label: "On track", color: isDark ? "#5CFF8F" : "#059669", icon: "check-circle" };
+  return   { label: "Okay",     color: isDark ? "#5BC8FF" : "#0284C7", icon: "minus-circle" };
 };
 
 const getSemesterBounds = (label) => {
@@ -61,8 +62,12 @@ const makeStyles = (colors) => StyleSheet.create({
   // Header
   header: {
     paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "transparent",
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    ...(colors.isDark ? {} : {
+      shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06, shadowRadius: 4,
+    }),
   },
   headerTitle:    { ...typography.h1, color: colors.textPrimary },
   headerSubtitle: { ...typography.bodySmall, color: colors.textMuted, marginTop: 2 },
@@ -70,9 +75,9 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 5,
     backgroundColor: colors.bgCard, borderRadius: radius.full,
     paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: "#FFB347",
+    borderWidth: 1, borderColor: colors.medium,
   },
-  streakText:  { fontSize: 13, fontWeight: "700", color: "#FFB347" },
+  streakText:  { fontSize: 13, fontWeight: "700", color: colors.medium },
   streakLabel: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
 
   scroll:        { flex: 1 },
@@ -82,7 +87,7 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     marginBottom: spacing.sm, marginTop: spacing.xl,
   },
-  sectionTitle: { ...typography.label, color: colors.textMuted },
+  sectionTitle: { ...typography.label, color: colors.isDark ? colors.textMuted : colors.accent },
   sectionMeta:  { fontSize: 11, color: colors.textMuted, fontWeight: "500" },
 
   // ── Stat cards ──────────────────────────────────────────────
@@ -90,8 +95,12 @@ const makeStyles = (colors) => StyleSheet.create({
   statCard: {
     flex: 1, backgroundColor: colors.bgCard, borderRadius: radius.lg,
     padding: spacing.md, alignItems: "center", gap: 4,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
     overflow: "hidden",
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
+    }),
   },
   statAccentBar:  { position: "absolute", top: 0, left: 0, right: 0, height: 3 },
   statIconWrap:   { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", marginBottom: 2 },
@@ -101,7 +110,11 @@ const makeStyles = (colors) => StyleSheet.create({
   // ── Activity chart ──────────────────────────────────────────
   activityCard: {
     backgroundColor: colors.bgCard, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border, padding: spacing.md,
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder, padding: spacing.md,
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
+    }),
   },
   activityCardTop: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: spacing.md,
@@ -119,7 +132,11 @@ const makeStyles = (colors) => StyleSheet.create({
   // ── Semester countdown ───────────────────────────────────────
   semesterCard: {
     backgroundColor: colors.bgCard, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border, padding: spacing.md,
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder, padding: spacing.md,
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
+    }),
   },
   semesterTop: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
   semesterIconWrap: {
@@ -138,7 +155,11 @@ const makeStyles = (colors) => StyleSheet.create({
   // ── Due soon ────────────────────────────────────────────────
   dueSoonCard: {
     backgroundColor: colors.bgCard, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border, overflow: "hidden",
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder, overflow: "hidden",
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
+    }),
   },
   dueSoonRow: {
     flexDirection: "row", alignItems: "center",
@@ -155,7 +176,11 @@ const makeStyles = (colors) => StyleSheet.create({
   // ── Classes ─────────────────────────────────────────────────
   classesCard: {
     backgroundColor: colors.bgCard, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border, overflow: "hidden",
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder, overflow: "hidden",
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
+    }),
   },
   classRow: {
     flexDirection: "row",
@@ -182,7 +207,11 @@ const makeStyles = (colors) => StyleSheet.create({
   // ── Priority ────────────────────────────────────────────────
   priorityCard: {
     backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
+    }),
   },
   priorityRow:     { flexDirection: "row", alignItems: "center", marginBottom: 14 },
   priorityRowLast: { marginBottom: 0 },
@@ -196,7 +225,11 @@ const makeStyles = (colors) => StyleSheet.create({
   // ── GPA ─────────────────────────────────────────────────────
   gpaCard: {
     backgroundColor: colors.bgCard, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border, overflow: "hidden",
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder, overflow: "hidden",
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
+    }),
   },
   gpaTopRow: {
     flexDirection: "row", alignItems: "center",
@@ -226,7 +259,7 @@ const makeStyles = (colors) => StyleSheet.create({
   gpaPriorFieldLabel: { fontSize: 10, fontWeight: "600", color: colors.textMuted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 },
   gpaPriorInput: {
     backgroundColor: colors.bg, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
     paddingHorizontal: 10, paddingVertical: 8,
     fontSize: 15, fontWeight: "600", color: colors.textPrimary,
   },
@@ -243,7 +276,7 @@ const makeStyles = (colors) => StyleSheet.create({
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 80 },
   emptyIcon:  {
     width: 64, height: 64, borderRadius: 32,
-    backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.bgCard, borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
     alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
   },
   emptyTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary, marginBottom: spacing.xs },
@@ -253,7 +286,7 @@ const makeStyles = (colors) => StyleSheet.create({
 // ── Screen ────────────────────────────────────────────────────
 
 const StatsScreen = () => {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = makeStyles(colors);
   const realTasks = useTasks();
   const { profile: realProfile } = useUserProfile();
@@ -283,6 +316,7 @@ const StatsScreen = () => {
   const streak         = DEMO_MODE ? 7 : realTasks.streak;
   const profile        = DEMO_MODE ? { name: "Alex Johnson", semester: "Spring 2025" } : realProfile;
   const today = new Date();
+  const todayStart = new Date(today); todayStart.setHours(0, 0, 0, 0);
 
   // ── GPA state ────────────────────────────────────────────────
   // Only initialise with real numeric values — never write "null" into the input
@@ -333,10 +367,10 @@ const StatsScreen = () => {
 
   const gradeColor = (grade) => {
     switch (grade) {
-      case "A": return "#5CFF8F";
+      case "A": return colors.low;
       case "B": return colors.accent;
-      case "C": return "#FFB347";
-      case "D": case "F": return "#FF5C5C";
+      case "C": return colors.medium;
+      case "D": case "F": return colors.high;
       default:  return colors.textMuted;
     }
   };
@@ -382,12 +416,12 @@ const StatsScreen = () => {
       if (!map[key]) map[key] = { total: 0, done: 0, overdue: 0 };
       map[key].total++;
       if (t.completed) map[key].done++;
-      else if (t.dueDate && (toDate(t.dueDate) ?? 0) < today) map[key].overdue++;
+      else if (t.dueDate && (toDate(t.dueDate) ?? 0) < todayStart) map[key].overdue++;
     });
     return Object.entries(map)
       .map(([name, { total, done, overdue }]) => {
         const pct    = total > 0 ? Math.round((done / total) * 100) : 0;
-        const health = getHealthRating(pct, overdue);
+        const health = getHealthRating(pct, overdue, total, isDark);
         return { name, total, done, overdue, pct, health };
       })
       .sort((a, b) => {
@@ -416,9 +450,9 @@ const StatsScreen = () => {
     const low    = pending.filter((t) => (t.aiPriority ?? t.priority) === "LOW").length;
     const total  = high + medium + low || 1;
     return [
-      { label: "High",   count: high,   color: "#FF5C5C", pct: (high / total) * 100 },
-      { label: "Medium", count: medium, color: "#FFB347", pct: (medium / total) * 100 },
-      { label: "Low",    count: low,    color: "#5CFF8F", pct: (low / total) * 100 },
+      { label: "High",   count: high,   color: colors.high,   pct: (high / total) * 100 },
+      { label: "Medium", count: medium, color: colors.medium, pct: (medium / total) * 100 },
+      { label: "Low",    count: low,    color: colors.low,    pct: (low / total) * 100 },
     ].filter((p) => p.count > 0);
   }, [tasks]);
 
@@ -470,20 +504,20 @@ const StatsScreen = () => {
         <View style={styles.statsRow}>
           {/* Completed */}
           <View style={styles.statCard}>
-            <View style={[styles.statAccentBar, { backgroundColor: "#5CFF8F" }]} />
-            <View style={[styles.statIconWrap, { backgroundColor: "#5CFF8F18" }]}>
-              <Feather name="check-circle" size={16} color="#5CFF8F" />
+            <View style={[styles.statAccentBar, { backgroundColor: colors.low }]} />
+            <View style={[styles.statIconWrap, { backgroundColor: colors.lowGlow }]}>
+              <Feather name="check-circle" size={16} color={colors.low} />
             </View>
-            <Text style={[styles.statValue, { color: "#5CFF8F" }]}>{totalCompleted}</Text>
+            <Text style={[styles.statValue, { color: colors.low }]}>{totalCompleted}</Text>
             <Text style={styles.statLabel}>Completed</Text>
           </View>
           {/* Overdue */}
           <View style={styles.statCard}>
-            <View style={[styles.statAccentBar, { backgroundColor: totalOverdue > 0 ? "#FF5C5C" : colors.border }]} />
-            <View style={[styles.statIconWrap, { backgroundColor: totalOverdue > 0 ? "#FF5C5C18" : colors.border + "30" }]}>
-              <Feather name="alert-circle" size={16} color={totalOverdue > 0 ? "#FF5C5C" : colors.textMuted} />
+            <View style={[styles.statAccentBar, { backgroundColor: totalOverdue > 0 ? colors.high : colors.border }]} />
+            <View style={[styles.statIconWrap, { backgroundColor: totalOverdue > 0 ? colors.highGlow : colors.border + "30" }]}>
+              <Feather name="alert-circle" size={16} color={totalOverdue > 0 ? colors.high : colors.textMuted} />
             </View>
-            <Text style={[styles.statValue, { color: totalOverdue > 0 ? "#FF5C5C" : colors.textPrimary }]}>
+            <Text style={[styles.statValue, { color: totalOverdue > 0 ? colors.high : colors.textPrimary }]}>
               {totalOverdue}
             </Text>
             <Text style={styles.statLabel}>Overdue</Text>
@@ -677,7 +711,7 @@ const StatsScreen = () => {
                 const dueDate    = toDate(t.dueDate);
                 const daysAway   = dueDate ? differenceInCalendarDays(dueDate, today) : 0;
                 const dueLabel   = daysAway === 0 ? "Today" : daysAway === 1 ? "Tomorrow" : format(dueDate, "EEE, MMM d");
-                const dueColor   = daysAway === 0 ? "#FF5C5C" : daysAway === 1 ? "#FFB347" : colors.textMuted;
+                const dueColor   = daysAway === 0 ? colors.high : daysAway === 1 ? colors.medium : colors.textMuted;
                 const dotColor   = getClassColor(t.className ?? "");
                 return (
                   <View key={t.id ?? idx} style={[styles.dueSoonRow, isLast && styles.dueSoonRowLast]}>

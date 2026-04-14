@@ -342,6 +342,9 @@ const AuthScreen = ({ navigation }) => {
                 onChangeText={(v) => { setEmail(v); if (emailError) setEmailError(""); if (error) setError(""); }}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
+                selectionColor={colors.accent}
                 returnKeyType="next"
                 onFocus={() => setFocusedField("email")}
                 onBlur={() => setFocusedField(null)}
@@ -367,6 +370,9 @@ const AuthScreen = ({ navigation }) => {
                 value={password}
                 onChangeText={(v) => { setPassword(v); if (passwordError) setPasswordError(""); if (error) setError(""); }}
                 secureTextEntry={!showPassword}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                textContentType={mode === "login" ? "password" : "newPassword"}
+                selectionColor={colors.accent}
                 returnKeyType={mode === "login" ? "done" : "next"}
                 onFocus={() => setFocusedField("password")}
                 onBlur={() => setFocusedField(null)}
@@ -396,6 +402,9 @@ const AuthScreen = ({ navigation }) => {
                   value={confirmPassword}
                   onChangeText={(v) => { setConfirmPassword(v); if (confirmError) setConfirmError(""); }}
                   secureTextEntry={!showPassword}
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  selectionColor={colors.accent}
                   returnKeyType="done"
                   onFocus={() => setFocusedField("confirm")}
                   onBlur={() => setFocusedField(null)}

@@ -62,10 +62,14 @@ const makeStyles = (colors) => StyleSheet.create({
   upgradeTitle:    { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
   upgradeSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 
-  sectionHeader: { ...typography.label, color: colors.textMuted, marginBottom: spacing.sm, marginTop: spacing.sm, paddingLeft: 4 },
+  sectionHeader: { ...typography.label, color: colors.isDark ? colors.textMuted : colors.accent, marginBottom: spacing.sm, marginTop: spacing.sm, paddingLeft: 4 },
   card: {
     backgroundColor: colors.bgCard, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md, overflow: "hidden",
+    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder, marginBottom: spacing.md, overflow: "hidden",
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
+    }),
   },
 
   themeRow:      { flexDirection: "row", gap: 8, paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
@@ -74,12 +78,29 @@ const makeStyles = (colors) => StyleSheet.create({
   themeDotActive:{ borderWidth: 3, borderColor: "#fff" },
   themeLabel:    { fontSize: 10, color: colors.textMuted, fontWeight: "500" },
 
+  modeToggleRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: spacing.md, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: colors.border,
+  },
+  modeToggleLabel: { fontSize: 14, fontWeight: "600", color: colors.textPrimary },
+  modeToggleSub:   { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  modeToggleBtns:  { flexDirection: "row", gap: 8 },
+  modeBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border,
+  },
+  modeBtnActive:  { borderColor: colors.accent, backgroundColor: colors.accentGlow },
+  modeBtnText:    { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+  modeBtnTextActive: { color: colors.accent },
+
   row: {
     flexDirection: "row", alignItems: "center",
     paddingHorizontal: spacing.md, paddingVertical: 14, gap: 12,
   },
   rowIcon:       { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  rowIconDanger: { backgroundColor: "rgba(255,92,92,0.12)" },
+  rowIconDanger: { backgroundColor: colors.highGlow },
   rowLabel:      { flex: 1, fontSize: 15, color: colors.textPrimary, fontWeight: "500" },
   rowRight:      { flexDirection: "row", alignItems: "center", gap: 6 },
   rowValue:      { fontSize: 13, color: colors.textSecondary },
@@ -166,7 +187,7 @@ const makeStyles = (colors) => StyleSheet.create({
 // ── ProfileScreen ─────────────────────────────────────────────
 const ProfileScreen = ({ navigation }) => {
   const { user, logout }                          = useAuth();
-  const { colors, accentKey, setTheme } = useTheme();
+  const { colors, accentKey, isDark, setTheme, setDarkMode } = useTheme();
   const styles = makeStyles(colors);
   const { profile }                               = useUserProfile();
   const { isPro, hasProAccess }                   = useSubscription();
@@ -347,10 +368,38 @@ const ProfileScreen = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
-        {/* Color theme */}
+        {/* Appearance */}
         <SectionHeader title="Appearance" />
         <View style={styles.card}>
-          <View style={styles.themeRow}>
+          {/* Dark / Light mode */}
+          <View style={styles.modeToggleRow}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Feather name={isDark ? "moon" : "sun"} size={16} color={colors.accent} />
+              <View>
+                <Text style={styles.modeToggleLabel}>{isDark ? "Dark Mode" : "Light Mode"}</Text>
+                <Text style={styles.modeToggleSub}>Tap to switch</Text>
+              </View>
+            </View>
+            <View style={styles.modeToggleBtns}>
+              <TouchableOpacity
+                style={[styles.modeBtn, isDark && styles.modeBtnActive]}
+                onPress={() => setDarkMode(true)}
+              >
+                <Feather name="moon" size={13} color={isDark ? colors.accent : colors.textMuted} />
+                <Text style={[styles.modeBtnText, isDark && styles.modeBtnTextActive]}>Dark</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modeBtn, !isDark && styles.modeBtnActive]}
+                onPress={() => setDarkMode(false)}
+              >
+                <Feather name="sun" size={13} color={!isDark ? colors.accent : colors.textMuted} />
+                <Text style={[styles.modeBtnText, !isDark && styles.modeBtnTextActive]}>Light</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Color accent */}
+          <View style={[styles.themeRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md }]}>
             {Object.values(COLOR_THEMES).map((theme) => {
               const isActive = activeThemeKey === theme.key;
               return (
@@ -387,7 +436,7 @@ const ProfileScreen = ({ navigation }) => {
             <View style={styles.card}>
               {profile.classes.map((cls, i) => {
                 const grade = cls.grade === "No grade yet" ? null : (cls.grade ?? null);
-                const gradeColor = grade === "A" ? "#5CFF8F" : grade === "B" ? colors.accent : grade === "C" ? "#FFB347" : grade === "D" || grade === "F" ? colors.high : null;
+                const gradeColor = grade === "A" ? colors.low : grade === "B" ? colors.accent : grade === "C" ? colors.medium : grade === "D" || grade === "F" ? colors.high : null;
                 return (
                   <View key={cls.id ?? i}>
                     {i > 0 && <View style={styles.divider} />}
