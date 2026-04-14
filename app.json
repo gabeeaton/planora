@@ -13,6 +13,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.planoraapp",
+      "icon": "./icon.png",
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
