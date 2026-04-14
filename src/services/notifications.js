@@ -107,6 +107,13 @@ export const scheduleTaskReminder = async (task, bestTime = null) => {
   if (!task?.dueDate) return result;
 
   const due = new Date(task.dueDate);
+  const hasTime = Array.isArray(task.dueTime) && task.dueTime.length === 2;
+  // Merge dueTime [h, m] into the date if provided, otherwise default to 9am
+  if (hasTime) {
+    due.setHours(task.dueTime[0], task.dueTime[1], 0, 0);
+  } else {
+    due.setHours(23, 59, 0, 0);
+  }
   const now = new Date();
 
   // Don't schedule reminders for tasks already due
