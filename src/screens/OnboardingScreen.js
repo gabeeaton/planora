@@ -9,7 +9,7 @@
 //   - Import step has "Skip for now" so it's never a blocker
 // ============================================================
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -1030,21 +1031,99 @@ const OnboardingScreen = ({ navigation }) => {
   );
 
 
+  const importSuccessAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (importedCount > 0) {
+      Animated.spring(importSuccessAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 60,
+        friction: 7,
+      }).start();
+    }
+  }, [importedCount]);
+
+  const detectedClasses = classes.filter((c) => c.name.trim());
+
   const renderStep4 = () => (
     <View style={styles.stepContainer}>
-      <View style={styles.importHero}>
-        <View style={styles.importHeroIcon}>
-          <Feather name="zap" size={30} color={colors.accent} />
+      {importedCount > 0 ? (
+        <Animated.View style={[
+          styles.importHero,
+          { opacity: importSuccessAnim, transform: [{ scale: importSuccessAnim }] }
+        ]}>
+          {/* Success icon */}
+          <View style={{
+            width: 88, height: 88, borderRadius: 44,
+            backgroundColor: "rgba(34,197,94,0.12)",
+            borderWidth: 2.5, borderColor: "#22C55E",
+            alignItems: "center", justifyContent: "center",
+            marginBottom: spacing.lg,
+            shadowColor: "#22C55E", shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
+          }}>
+            <Feather name="check" size={38} color="#22C55E" />
+          </View>
+
+          <Text style={[styles.stepTitle, { textAlign: "center", fontSize: 26 }]}>
+            You're all set up
+          </Text>
+          <Text style={[styles.stepSubtitle, { textAlign: "center", marginBottom: spacing.lg }]}>
+            Planora has everything it needs to coach you through this semester.
+          </Text>
+
+          {/* Stats row */}
+          <View style={{
+            flexDirection: "row", gap: spacing.md,
+            marginBottom: spacing.lg, width: "100%",
+          }}>
+            <View style={[styles.infoCard, {
+              flex: 1, flexDirection: "column", alignItems: "center",
+              gap: 4, paddingVertical: spacing.md,
+            }]}>
+              <Text style={{ fontSize: 28, fontWeight: "800", color: "#22C55E" }}>
+                {importedCount}
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: "600" }}>
+                tasks imported
+              </Text>
+            </View>
+            {detectedClasses.length > 0 && (
+              <View style={[styles.infoCard, {
+                flex: 1, flexDirection: "column", alignItems: "center",
+                gap: 4, paddingVertical: spacing.md,
+              }]}>
+                <Text style={{ fontSize: 28, fontWeight: "800", color: colors.accent }}>
+                  {detectedClasses.length}
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: "600" }}>
+                  classes found
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* What's next */}
+          <View style={[styles.infoCard, { width: "100%" }]}>
+            <Feather name="zap" size={16} color={colors.accent} style={{ marginTop: 2 }} />
+            <Text style={styles.infoText}>
+              The AI will use your deadlines and patterns to tell you exactly what to work on each day.
+            </Text>
+          </View>
+        </Animated.View>
+      ) : (
+        <View style={styles.importHero}>
+          <View style={styles.importHeroIcon}>
+            <Feather name="zap" size={30} color={colors.accent} />
+          </View>
+          <Text style={[styles.stepTitle, { textAlign: "center" }]}>
+            Load your term
+          </Text>
+          <Text style={[styles.stepSubtitle, { textAlign: "center" }]}>
+            Import from Canvas, Brightspace, Blackboard, or Moodle. You can skip this and add tasks manually.
+          </Text>
         </View>
-        <Text style={[styles.stepTitle, { textAlign: "center" }]}>
-          {importedCount > 0 ? "Term loaded! ✓" : "Load your term"}
-        </Text>
-        <Text style={[styles.stepSubtitle, { textAlign: "center" }]}>
-          {importedCount > 0
-            ? `${importedCount} tasks imported. The AI has your full schedule.`
-            : "Import from your Canvas, Brightspace, Blackboard, or Moodle calendar. You can also skip this and add tasks manually."}
-        </Text>
-      </View>
+      )}
 
       {importedCount === 0 && (
         <ImportStep
