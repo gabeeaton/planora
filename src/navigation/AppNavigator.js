@@ -134,7 +134,7 @@ const AppNavigator = () => {
     saveUserProfile(user.uid, { timezone: tz }).catch(() => {});
   }, [user?.uid, profile?.timezone]);
 
-  const loading = authLoading || (!!user && profileLoading);
+  const loading = authLoading || (!!user && (profileLoading || !firestoreReady));
 
   // Firestore is the source of truth — only show onboarding once Firestore confirms no profile
   const shouldOnboard = !!user && !loading && firestoreReady && profile?.onboardingComplete !== true;
