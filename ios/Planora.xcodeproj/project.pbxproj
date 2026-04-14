@@ -259,7 +259,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.name.Planora;
+				PRODUCT_BUNDLE_IDENTIFIER = com.planoraapp;
 				PRODUCT_NAME = Planora;
 				SWIFT_OBJC_BRIDGING_HEADER = "Planora/Planora-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -286,7 +286,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.name.Planora;
+				PRODUCT_BUNDLE_IDENTIFIER = com.planoraapp;
 				PRODUCT_NAME = Planora;
 				SWIFT_OBJC_BRIDGING_HEADER = "Planora/Planora-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
