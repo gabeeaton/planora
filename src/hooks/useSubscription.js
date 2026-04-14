@@ -39,7 +39,9 @@ export const useSubscription = () => {
   const loading = profileLoading || rcLoading;
 
   // Active if RevenueCat says so OR Firestore isPro flag is set (legacy)
-  const hasProAccess = rcSubscribed || !!profile?.isPro;
+  // Beta: grant Pro to all users during TestFlight testing
+  const BETA_PRO_UNLOCKED = true;
+  const hasProAccess = BETA_PRO_UNLOCKED || rcSubscribed || !!profile?.isPro;
 
   return {
     isPro: hasProAccess,

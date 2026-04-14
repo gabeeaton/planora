@@ -19,6 +19,7 @@ export const ENTITLEMENT_ID = "Planora Pro";
 let _configured = false;
 
 export const configurePurchases = (userId) => {
+  if (!API_KEY) return; // skip if key not configured (e.g. missing env var)
   if (_configured) {
     if (userId) Purchases.logIn(userId).catch(() => {});
     return;
