@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
+    "icon": "./src/assets/logo.png",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
@@ -49,7 +50,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
+          "icon": "./src/assets/notification-icon.png",
           "color": "#6C63FF",
           "defaultChannel": "task-reminders",
           "sounds": []
