@@ -448,7 +448,7 @@ const makeStyles = (colors) => StyleSheet.create({
   header: {
     flexDirection: "row", alignItems: "center",
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "#E0E0E8",
     gap: 10,
   },
   headerAvatar: {
@@ -476,15 +476,17 @@ const makeStyles = (colors) => StyleSheet.create({
   emptySub:   { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.md },
   starters:   { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   starterBtn: {
-    backgroundColor: colors.bgCard, borderRadius: radius.full,
+    borderRadius: radius.full,
     paddingHorizontal: 14, paddingVertical: 9,
     borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
+    borderColor: colors.isDark ? colors.border : "#E5E5EA",
   },
   starterText: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
 
   // Date separators
   dateSepRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 12 },
-  dateSepLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dateSepLine: { flex: 1, height: 1, backgroundColor: colors.isDark ? colors.border : "#E5E5EA" },
   dateSepText: { fontSize: 11, fontWeight: "600", color: colors.textMuted, letterSpacing: 0.5 },
 
   // Messages
@@ -500,7 +502,12 @@ const makeStyles = (colors) => StyleSheet.create({
     maxWidth: "78%", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10,
   },
   bubbleUser:      { backgroundColor: colors.accent, borderBottomRightRadius: 4 },
-  bubbleAI:        { backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
+  bubbleAI: {
+    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
+    borderWidth: 1,
+    borderColor: colors.isDark ? colors.border : "#F0F0F5",
+    borderBottomLeftRadius: 4,
+  },
   bubbleError:     { borderColor: colors.high, backgroundColor: colors.highGlow },
   bubbleConfirm:   { borderColor: colors.accent, backgroundColor: colors.accentGlow },
   bubbleTextConfirm: { color: colors.accent, fontWeight: "600" },
@@ -526,14 +533,17 @@ const makeStyles = (colors) => StyleSheet.create({
   inputBar: {
     flexDirection: "row", alignItems: "center", gap: 8,
     paddingHorizontal: spacing.md, paddingVertical: 14,
-    borderTopWidth: 1, borderTopColor: colors.border,
-    backgroundColor: colors.bg,
+    borderTopWidth: 1, 
+    borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
+    backgroundColor: colors.isDark ? colors.bg : "#F2F2F7",
   },
   input: {
     flex: 1, backgroundColor: colors.bgCard, borderRadius: 22,
     paddingHorizontal: 16, paddingVertical: 10, paddingTop: 10,
     borderWidth: 1, borderColor: colors.border,
     color: colors.textPrimary, fontSize: 15, maxHeight: 120,
+    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
+    borderColor: colors.isDark ? colors.border : "#E5E5EA",
   },
   sendBtn: {
     width: 42, height: 42, borderRadius: 21,

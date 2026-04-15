@@ -54,9 +54,9 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
     <View style={[
       tabStyles.container,
       {
-        paddingBottom: Math.max(insets.bottom, 8), // respect home indicator
-        backgroundColor: colors.bgCard,
-        borderTopColor:  colors.border,
+        paddingBottom: Math.max(insets.bottom, 8),
+        backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
+        borderTopColor: colors.isDark ? colors.border : "#E0E0E8",
       }
     ]}>
       {state.routes.map((route, index) => {

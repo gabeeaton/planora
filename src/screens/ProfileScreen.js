@@ -62,14 +62,26 @@ const makeStyles = (colors) => StyleSheet.create({
   upgradeTitle:    { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
   upgradeSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 
-  sectionHeader: { ...typography.label, color: colors.isDark ? colors.textMuted : colors.accent, marginBottom: spacing.sm, marginTop: spacing.sm, paddingLeft: 4 },
+  sectionHeader: {
+    ...typography.label,
+    color: colors.isDark ? colors.textMuted : colors.textMuted,
+    marginBottom: 6,
+    marginTop: spacing.sm,
+    paddingLeft: 4,
+    fontSize: 11,
+    letterSpacing: 0.6,
+  },
   card: {
-    backgroundColor: colors.bgCard, borderRadius: radius.lg,
-    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder, marginBottom: spacing.md, overflow: "hidden",
-    ...(colors.isDark ? {} : {
-      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
-    }),
+    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
+    borderRadius: radius.lg,
+    borderWidth: 0, // remove border entirely
+    marginBottom: spacing.md,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: colors.isDark ? 0 : 0.07,
+    shadowRadius: 12,
+    elevation: colors.isDark ? 0 : 3,
   },
 
   themeRow:      { flexDirection: "row", gap: 8, paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
@@ -79,9 +91,13 @@ const makeStyles = (colors) => StyleSheet.create({
   themeLabel:    { fontSize: 10, color: colors.textMuted, fontWeight: "500" },
 
   modeToggleRow: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: spacing.md, paddingVertical: 12,
-    borderTopWidth: 1, borderTopColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
   },
   modeToggleLabel: { fontSize: 14, fontWeight: "600", color: colors.textPrimary },
   modeToggleSub:   { fontSize: 12, color: colors.textMuted, marginTop: 1 },
@@ -96,15 +112,24 @@ const makeStyles = (colors) => StyleSheet.create({
   modeBtnTextActive: { color: colors.accent },
 
   row: {
-    flexDirection: "row", alignItems: "center",
-    paddingHorizontal: spacing.md, paddingVertical: 14, gap: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: 15,
+    gap: 12,
+    borderBottomWidth: colors.isDark ? 0 : 1,
+    borderBottomColor: "#F0F0F5",
   },
   rowIcon:       { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   rowIconDanger: { backgroundColor: colors.highGlow },
   rowLabel:      { flex: 1, fontSize: 15, color: colors.textPrimary, fontWeight: "500" },
   rowRight:      { flexDirection: "row", alignItems: "center", gap: 6 },
   rowValue:      { fontSize: 13, color: colors.textSecondary },
-  divider:       { height: 1, backgroundColor: colors.border, marginLeft: 56 },
+  divider: {
+    height: 1,
+    backgroundColor: colors.isDark ? colors.border : "transparent",
+    marginLeft: 56
+  },
 
   classRow:      { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: 12, gap: 10 },
   classRowInfo:  { flex: 1 },
@@ -399,7 +424,7 @@ const ProfileScreen = ({ navigation }) => {
           </View>
 
           {/* Color accent */}
-          <View style={[styles.themeRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md }]}>
+          <View style={[styles.themeRow, { borderTopWidth: 1, borderTopColor: colors.isDark ? colors.border : "#F0F0F5", paddingTop: spacing.md }]}>
             {Object.values(COLOR_THEMES).map((theme) => {
               const isActive = activeThemeKey === theme.key;
               return (

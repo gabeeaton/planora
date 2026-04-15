@@ -23,12 +23,12 @@ const makeStyles = (colors) => StyleSheet.create({
   backdrop:    { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
   container:   { position: "absolute", bottom: 0, left: 0, right: 0, top: 120 },
   sheet: {
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
     paddingHorizontal: 20, paddingBottom: 48, maxHeight: "100%",
   },
   handle: {
-    width: 40, height: 4, backgroundColor: colors.border,
+    width: 40, height: 4, backgroundColor: colors.isDark ? colors.border : "#D8D8E0",
     borderRadius: 2, alignSelf: "center", marginTop: 12, marginBottom: 16,
   },
   header: {
@@ -50,7 +50,9 @@ const makeStyles = (colors) => StyleSheet.create({
     letterSpacing: 0.8, marginBottom: 8, textTransform: "uppercase",
   },
   input: {
-    backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7",
+    borderWidth: 1,
+    borderColor: colors.isDark ? colors.border : "#D8D8E0",
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
     color: colors.textPrimary, fontSize: 15,
   },
@@ -58,13 +60,14 @@ const makeStyles = (colors) => StyleSheet.create({
   classRow:   { flexDirection: "row", gap: 8 },
   classChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.full,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgInput,
+    borderWidth: 1, backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7",
+    borderColor: colors.isDark ? colors.border : "#D8D8E0",
   },
   classChipText:    { fontSize: 13, color: colors.textSecondary, fontWeight: "600" },
   priorityRow:      { flexDirection: "row", gap: 8 },
   priorityBtn: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 5,
+    paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.isDark ? colors.border : "#D8D8E0",
   },
   priorityLabel:    { fontSize: 14, color: colors.textMuted, fontWeight: "600" },
   dateHeaderRow:    { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
@@ -78,7 +81,8 @@ const makeStyles = (colors) => StyleSheet.create({
   recurrenceRow:    { flexDirection: "row", gap: 6, flexWrap: "wrap" },
   recurrenceChip: {
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgInput,
+    borderWidth: 1,backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7",
+    borderColor: colors.isDark ? colors.border : "#D8D8E0",
   },
   recurrenceChipActive: {
     borderColor: colors.accent, backgroundColor: colors.accentGlow,
@@ -88,7 +92,8 @@ const makeStyles = (colors) => StyleSheet.create({
   dayRow:  { flexDirection: "row", gap: 6, marginTop: 10, flexWrap: "wrap" },
   dayChip: {
     width: 38, height: 38, borderRadius: 19, borderWidth: 1,
-    borderColor: colors.border, backgroundColor: colors.bgInput,
+    backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7",
+  borderColor: colors.isDark ? colors.border : "#D8D8E0",
     alignItems: "center", justifyContent: "center",
   },
   dayChipActive:      { borderColor: colors.accent, backgroundColor: colors.accentGlow },
@@ -104,7 +109,9 @@ const makeStyles = (colors) => StyleSheet.create({
 
   timeToggleBtn: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7",
+    borderWidth: 1,
+    borderColor: colors.isDark ? colors.border : "#D8D8E0",
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
   },
   timeToggleText:   { flex: 1, fontSize: 15, color: colors.textMuted },
@@ -112,8 +119,10 @@ const makeStyles = (colors) => StyleSheet.create({
 
   nativePicker: {
     marginTop: 4,
-    backgroundColor: colors.bgInput,
-    borderRadius: 12, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.isDark ? colors.border : "#D8D8E0",
   },
 
   calExportRow: {

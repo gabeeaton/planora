@@ -27,46 +27,69 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// ── Android channel setup (idempotent — safe to call multiple times) ─
+
+const _ensureAndroidChannels = async () => {
+  if (Platform.OS !== "android") return;
+  try {
+    await Notifications.setNotificationChannelAsync("task-reminders", {
+      name:             "Task Reminders",
+      importance:       Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor:       "#9060E8",
+      sound:            true,
+    });
+    await Notifications.setNotificationChannelAsync("weekly-summary", {
+      name:      "Weekly Summary",
+      importance: Notifications.AndroidImportance.DEFAULT,
+      sound:     true,
+    });
+    await Notifications.setNotificationChannelAsync("avoidance-alerts", {
+      name:             "Avoidance Alerts",
+      importance:       Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor:       "#9060E8",
+      sound:            true,
+    });
+  } catch (err) {
+    console.warn("Failed to set Android notification channels:", err);
+  }
+};
+
 // ── Permission request ────────────────────────────────────────
 
 /**
  * Ask the OS for notification permission.
  * Call once — ideally after user has seen their first task list.
  * Returns true if granted.
+ *
+ * Android channels are always (re)created here — creating an existing
+ * channel is a no-op, so this is safe even if permissions were already
+ * granted on a previous install.
  */
+
+export const testImmediateNotification = async () => {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "🔥 TEST NOTIFICATION",
+      body: "If you see this, push system works",
+      sound: true,
+    },
+    trigger: null, // 👈 fires immediately
+  });
+};
+
 export const requestNotificationPermissions = async () => {
   try {
+    // Always ensure Android channels exist — re-creating is idempotent
+    await _ensureAndroidChannels();
+
     const { status: existing } = await Notifications.getPermissionsAsync();
     if (existing === "granted") return true;
 
     const { status } = await Notifications.requestPermissionsAsync();
-
-    // Android 13+ needs an explicit channel
-    if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("task-reminders", {
-        name:        "Task Reminders",
-        importance:  Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor:  "#9060E8",
-        sound:       true,
-      });
-      await Notifications.setNotificationChannelAsync("weekly-summary", {
-        name:        "Weekly Summary",
-        importance:  Notifications.AndroidImportance.DEFAULT,
-        sound:       true,
-      });
-      await Notifications.setNotificationChannelAsync("avoidance-alerts", {
-        name:        "Avoidance Alerts",
-        importance:  Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor:  "#9060E8",
-        sound:       true,
-      });
-    }
-
     return status === "granted";
   } catch (err) {
-    // Gracefully fail — notifications are a nice-to-have, not critical
     console.warn("Notification permission error:", err);
     return false;
   }
@@ -136,7 +159,15 @@ export const scheduleTaskReminder = async (task, bestTime = null) => {
     }
   }
 
-  if (remind24h > now) {
+  // ── 2-hour reminder (HIGH priority) — compute early so we can guard ──
+  const remind2h = task.priority === "HIGH"
+    ? new Date(due.getTime() - 2 * 60 * 60 * 1000)
+    : null;
+
+  // Skip 24h reminder if it would fire after (or at the same time as) the 2h reminder
+  const skip24h = remind2h && remind24h >= remind2h;
+
+  if (remind24h > now && !skip24h) {
     try {
       result.id24h = await Notifications.scheduleNotificationAsync({
         content: {
@@ -147,7 +178,10 @@ export const scheduleTaskReminder = async (task, bestTime = null) => {
           data:  { taskId: task.id },
           sound: true,
         },
-        trigger: { type: "date", date: remind24h },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: remind24h,
+        }
       });
     } catch (err) {
       console.warn("Failed to schedule 24h reminder:", err);
@@ -155,24 +189,24 @@ export const scheduleTaskReminder = async (task, bestTime = null) => {
   }
 
   // ── 2-hour reminder (HIGH priority only) ─────────────────
-  if (task.priority === "HIGH") {
-    const remind2h = new Date(due.getTime() - 2 * 60 * 60 * 1000);
-    if (remind2h > now) {
-      try {
-        result.id2h = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: `⚠️ Due in 2 hours: ${task.title}`,
-            body:  task.className
-              ? `${task.className} assignment due very soon!`
-              : "This task is due very soon!",
-            data:  { taskId: task.id },
-            sound: true,
-          },
-          trigger: { type: "date", date: remind2h },
-        });
-      } catch (err) {
-        console.warn("Failed to schedule 2h reminder:", err);
-      }
+  if (remind2h && remind2h > now) {
+    try {
+      result.id2h = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `⚠️ Due in 2 hours: ${task.title}`,
+          body:  task.className
+            ? `${task.className} assignment due very soon!`
+            : "This task is due very soon!",
+          data:  { taskId: task.id },
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: remind2h,
+        }
+      });
+    } catch (err) {
+      console.warn("Failed to schedule 2h reminder:", err);
     }
   }
 
@@ -250,6 +284,16 @@ export const scheduleStreakReminder = async (streak, bestTime, uid) => {
 
   const hour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 18;
 
+  // Calculate the next concrete fire time:
+  // If today's productive hour hasn't passed yet → fire today, otherwise tomorrow.
+  // Using a DATE trigger with a real Date avoids the OS ambiguity of DAILY
+  // when the target hour has already passed for the current day.
+  const fire = new Date();
+  fire.setHours(hour, 0, 0, 0);
+  if (fire <= new Date()) {
+    fire.setDate(fire.getDate() + 1);
+  }
+
   try {
     const id = await Notifications.scheduleNotificationAsync({
       content: {
@@ -259,11 +303,9 @@ export const scheduleStreakReminder = async (streak, bestTime, uid) => {
         sound: true,
       },
       trigger: {
-        type:    "daily",
-        hour,
-        minute:  0,
-        repeats: true,
-      },
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fire,
+      }
     });
     await AsyncStorage.setItem(streakNotifKey(uid), id).catch(() => {});
   } catch (err) {
@@ -353,7 +395,10 @@ export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores, bestTime 
           data:  { type: "avoidance-alert", taskId },
           sound: true,
         },
-        trigger: { type: "date", date: fireTime },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: fireTime,
+        }
       });
       alerted[taskId] = today;
       changed = true;
@@ -443,7 +488,10 @@ export const scheduleWeeklySummary = async (tasks, history, uid) => {
   try {
     const id = await Notifications.scheduleNotificationAsync({
       content: { title, body, data: { type: "weekly-summary" }, sound: true },
-      trigger: { type: "date", date: fireSunday },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fireSunday,
+      }
     });
     await AsyncStorage.setItem(weeklySummaryKey(uid), id).catch(() => {});
   } catch (err) {
@@ -510,7 +558,10 @@ export const scheduleDailyDigest = async (tasks, bestTime, uid) => {
         data:  { type: "daily-digest" },
         sound: true,
       },
-      trigger: { type: "date", date: fireTime },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fireTime,
+      }
     });
     await AsyncStorage.setItem(digestNotifKey(uid), id).catch(() => {});
   } catch (err) {

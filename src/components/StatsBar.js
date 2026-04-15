@@ -9,7 +9,7 @@ const StatsBar = ({ todayCount, pendingCount, completedCount }) => {
 
   return (
     <View style={[styles.container, {
-      backgroundColor: colors.bgCard,
+      backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
       borderColor: colors.isDark ? colors.border : "transparent",
     }]}>
       {/* Today */}

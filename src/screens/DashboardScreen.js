@@ -66,9 +66,6 @@ const makeStyles = (colors, insets) =>
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.md,
       paddingBottom: spacing.md,
-      ...(colors.isDark ? {} : {
-        backgroundColor: colors.bg,
-      }),
     },
     headerLeft: { flex: 1 },
     greeting: {
@@ -157,8 +154,6 @@ const makeStyles = (colors, insets) =>
       marginTop: spacing.md,
       marginBottom: 8,
       paddingTop: spacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: colors.isDark ? colors.border : colors.textPrimary + "18",
     },
     bucketDot: { width: 8, height: 8, borderRadius: 4 },
     bucketLabel: {

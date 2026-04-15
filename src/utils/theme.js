@@ -28,7 +28,7 @@ const DARK_BASE = {
 };
 
 const LIGHT_BASE = {
-  bg:            "#EDEDF2",
+  bg:            "#F2F2F7",
   bgCard:        "#FAFAFA",
   bgElevated:    "#E2E2E8",
   bgInput:       "#E8E8EE",
@@ -46,7 +46,7 @@ export const buildColors = (isDark, accentKey) => {
   const accent = COLOR_THEMES[accentKey] ?? COLOR_THEMES.purple;
   return {
     ...base,
-    ...(isDark ? {} : { bg: accent.bgLight, bgCard: accent.cardLight }),
+    ...(isDark ? {} : { bgCard: accent.cardLight }),
     accent:      accent.accent,
     accentLight: accent.accentLight,
     accentGlow:  isDark ? accent.accentGlowDark : accent.accentGlowLight,

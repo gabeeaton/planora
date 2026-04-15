@@ -467,7 +467,7 @@ const StatsScreen = () => {
         </View>
         <View style={styles.emptyState}>
           <View style={styles.emptyIcon}>
-            <Feather name="bar-chart-2" size={28} color={colors.textMuted} />
+            <Feather name="bar-chart-2" size={28} color={ colors.isDark ? colors.textMuted : '#D8D8E0 '} />
           </View>
           <Text style={styles.emptyTitle}>Nothing to show yet</Text>
           <Text style={styles.emptyText}>{"Add tasks and complete them\nto track your progress here."}</Text>
