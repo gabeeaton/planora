@@ -21,35 +21,48 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
-    shouldShowList:   true,
-    shouldPlaySound:  true,
-    shouldSetBadge:   false,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
   }),
 });
 
 // ── Android channel setup (idempotent — safe to call multiple times) ─
 
+const _schedulingLocks = new Set();
+
+const _withLock = async (key, fn) => {
+  if (_schedulingLocks.has(key)) return;
+  _schedulingLocks.add(key);
+  try {
+    await fn();
+  } finally {
+    _schedulingLocks.delete(key);
+  }
+};
+
+
 const _ensureAndroidChannels = async () => {
   if (Platform.OS !== "android") return;
   try {
     await Notifications.setNotificationChannelAsync("task-reminders", {
-      name:             "Task Reminders",
-      importance:       Notifications.AndroidImportance.HIGH,
+      name: "Task Reminders",
+      importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor:       "#9060E8",
-      sound:            true,
+      lightColor: "#9060E8",
+      sound: true,
     });
     await Notifications.setNotificationChannelAsync("weekly-summary", {
-      name:      "Weekly Summary",
+      name: "Weekly Summary",
       importance: Notifications.AndroidImportance.DEFAULT,
-      sound:     true,
+      sound: true,
     });
     await Notifications.setNotificationChannelAsync("avoidance-alerts", {
-      name:             "Avoidance Alerts",
-      importance:       Notifications.AndroidImportance.HIGH,
+      name: "Avoidance Alerts",
+      importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor:       "#9060E8",
-      sound:            true,
+      lightColor: "#9060E8",
+      sound: true,
     });
   } catch (err) {
     console.warn("Failed to set Android notification channels:", err);
@@ -131,79 +144,69 @@ export const scheduleTaskReminder = async (task, bestTime = null) => {
 
   const due = task.dueDate?.toDate?.() ?? new Date(task.dueDate);
   const hasTime = Array.isArray(task.dueTime) && task.dueTime.length === 2;
-  // Merge dueTime [h, m] into the date if provided, otherwise default to 9am
   if (hasTime) {
     due.setHours(task.dueTime[0], task.dueTime[1], 0, 0);
   } else {
     due.setHours(23, 59, 0, 0);
   }
-  const now = new Date();
 
-  // Don't schedule reminders for tasks already due
+  const now = new Date();
   if (due <= now) return result;
 
   const granted = await checkNotificationPermissions();
   if (!granted) return result;
 
   // ── Day-before reminder ───────────────────────────────────
-  // Try to fire at the user's productive hour on the day before due.
-  // Fall back to due - 24h if the smart time is past or too close to due.
-  let remind24h = new Date(due.getTime() - 24 * 60 * 60 * 1000);
-  if (bestTime && PRODUCTIVE_TIME_HOURS[bestTime] !== undefined) {
-    const smartTime = new Date(due);
-    smartTime.setDate(smartTime.getDate() - 1);
-    smartTime.setHours(PRODUCTIVE_TIME_HOURS[bestTime], 0, 0, 0);
-    // Use smart time only if it's in the future and at least 1h before due
-    if (smartTime > now && smartTime < new Date(due.getTime() - 60 * 60 * 1000)) {
-      remind24h = smartTime;
-    }
-  }
+  const dayBefore = new Date(due);
+  dayBefore.setDate(dayBefore.getDate() - 1);
+  const fireHour = bestTime && PRODUCTIVE_TIME_HOURS[bestTime] !== undefined
+    ? PRODUCTIVE_TIME_HOURS[bestTime]
+    : 9;
+  dayBefore.setHours(fireHour, 0, 0, 0);
+  const remind24h = dayBefore;
 
-  // ── 2-hour reminder (HIGH priority) — compute early so we can guard ──
-  const remind2h = task.priority === "HIGH"
-    ? new Date(due.getTime() - 2 * 60 * 60 * 1000)
-    : null;
+  // ── 2-hour reminder ───────────────────────────────────────
+  const remind2h = new Date(due.getTime() - 2 * 60 * 60 * 1000);
 
-  // Skip 24h reminder if it would fire after (or at the same time as) the 2h reminder
-  const skip24h = remind2h && remind24h >= remind2h;
+  // Skip 24h reminder if it would fire after the 2h reminder
+  const skip24h = remind24h >= remind2h;
 
   if (remind24h > now && !skip24h) {
     try {
       result.id24h = await Notifications.scheduleNotificationAsync({
         content: {
           title: `📚 Due tomorrow: ${task.title}`,
-          body:  task.className
+          body: task.className
             ? `${task.className} — due ${_formatDue(due)}`
             : `Due ${_formatDue(due)}`,
-          data:  { taskId: task.id },
+          data: { taskId: task.id },
           sound: true,
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: remind24h,
-        }
+        },
       });
     } catch (err) {
       console.warn("Failed to schedule 24h reminder:", err);
     }
   }
 
-  // ── 2-hour reminder (HIGH priority only) ─────────────────
-  if (remind2h && remind2h > now) {
+  if (remind2h > now) {
     try {
       result.id2h = await Notifications.scheduleNotificationAsync({
         content: {
           title: `⚠️ Due in 2 hours: ${task.title}`,
-          body:  task.className
+          body: task.className
             ? `${task.className} assignment due very soon!`
             : "This task is due very soon!",
-          data:  { taskId: task.id },
+          data: { taskId: task.id },
           sound: true,
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: remind2h,
-        }
+        },
       });
     } catch (err) {
       console.warn("Failed to schedule 2h reminder:", err);
@@ -233,8 +236,14 @@ export const cancelTaskReminder = async (notificationIds) => {
     }
 
     const { id24h, id2h } = notificationIds;
-    if (id24h) await Notifications.cancelScheduledNotificationAsync(id24h).catch(() => {});
-    if (id2h)  await Notifications.cancelScheduledNotificationAsync(id2h).catch(() => {});
+    if (id24h)
+      await Notifications.cancelScheduledNotificationAsync(id24h).catch(
+        () => {}
+      );
+    if (id2h)
+      await Notifications.cancelScheduledNotificationAsync(id2h).catch(
+        () => {}
+      );
   } catch (err) {
     console.warn("Failed to cancel task reminder:", err);
   }
@@ -255,10 +264,10 @@ export const cancelAllReminders = async () => {
 const streakNotifKey = (uid) => `@planora_streak_notif_id_${uid}`;
 
 const PRODUCTIVE_TIME_HOURS = {
-  morning:   8,
+  morning: 8,
   afternoon: 13,
-  evening:   18,
-  night:     21,
+  evening: 18,
+  night: 21,
 };
 
 /**
@@ -275,42 +284,37 @@ export const scheduleStreakReminder = async (streak, bestTime, uid) => {
     await cancelStreakReminder(uid);
     return;
   }
+  await _withLock(`streak-${uid}`, async () => {
+    const granted = await checkNotificationPermissions();
+    if (!granted) return;
 
-  const granted = await checkNotificationPermissions();
-  if (!granted) return;
+    await cancelStreakReminder(uid);
 
-  // Cancel existing before rescheduling
-  await cancelStreakReminder(uid);
+    const hour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 18;
+    const fire = new Date();
+    fire.setHours(hour, 0, 0, 0);
+    if (fire <= new Date()) {
+      fire.setDate(fire.getDate() + 1);
+    }
 
-  const hour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 18;
-
-  // Calculate the next concrete fire time:
-  // If today's productive hour hasn't passed yet → fire today, otherwise tomorrow.
-  // Using a DATE trigger with a real Date avoids the OS ambiguity of DAILY
-  // when the target hour has already passed for the current day.
-  const fire = new Date();
-  fire.setHours(hour, 0, 0, 0);
-  if (fire <= new Date()) {
-    fire.setDate(fire.getDate() + 1);
-  }
-
-  try {
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `🔥 ${streak} day streak — keep it going!`,
-        body:  "Complete a task today so you don't lose your streak.",
-        data:  { type: "streak-reminder" },
-        sound: true,
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: fire,
-      }
-    });
-    await AsyncStorage.setItem(streakNotifKey(uid), id).catch(() => {});
-  } catch (err) {
-    console.warn("Failed to schedule streak reminder:", err);
-  }
+    try {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `🔥 ${streak} day streak — keep it going!`,
+          body: "Complete a task today so you don't lose your streak.",
+          data: { type: "streak-reminder" },
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: fire,
+        },
+      });
+      await AsyncStorage.setItem(streakNotifKey(uid), id).catch(() => {});
+    } catch (err) {
+      console.warn("Failed to schedule streak reminder:", err);
+    }
+  });
 };
 
 /**
@@ -319,7 +323,7 @@ export const scheduleStreakReminder = async (streak, bestTime, uid) => {
 export const cancelStreakReminder = async (uid) => {
   try {
     const key = uid ? streakNotifKey(uid) : null;
-    const id  = key ? await AsyncStorage.getItem(key) : null;
+    const id = key ? await AsyncStorage.getItem(key) : null;
     if (id) {
       await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
       await AsyncStorage.removeItem(key).catch(() => {});
@@ -348,7 +352,10 @@ const todayDateStr = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
  *
  * @param {Array} avoidanceScores  Output of getAvoidanceScores()
  */
-export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores, bestTime = null) => {
+export const checkAndScheduleAvoidanceAlerts = async (
+  avoidanceScores,
+  bestTime = null
+) => {
   if (!avoidanceScores?.length) return;
 
   const granted = await checkNotificationPermissions();
@@ -365,17 +372,27 @@ export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores, bestTime 
   let changed = false;
 
   for (const item of avoidanceScores) {
-    const { taskId, title, className, isBeingAvoided, daysSinceTouched, daysUntilDue } = item;
+    const {
+      taskId,
+      title,
+      className,
+      isBeingAvoided,
+      daysSinceTouched,
+      daysUntilDue,
+    } = item;
     if (!isBeingAvoided) continue;
     if (daysUntilDue !== null && daysUntilDue > 4) continue; // only nudge when it matters
     if (alerted[taskId] === today) continue; // already fired today
 
     const classLabel = className ? `${className} — ` : "";
-    const dueLabel   = daysUntilDue !== null
-      ? daysUntilDue === 0 ? " It's due today."
-      : daysUntilDue === 1 ? " It's due tomorrow."
-      : ` Due in ${daysUntilDue} days.`
-      : "";
+    const dueLabel =
+      daysUntilDue !== null
+        ? daysUntilDue === 0
+          ? " It's due today."
+          : daysUntilDue === 1
+          ? " It's due tomorrow."
+          : ` Due in ${daysUntilDue} days.`
+        : "";
 
     try {
       // Fire at the user's productive hour (or 9am default) rather than
@@ -391,14 +408,14 @@ export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores, bestTime 
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "Don't forget this one 👀",
-          body:  `${classLabel}"${title}" hasn't been touched in ${daysSinceTouched} days.${dueLabel}`,
-          data:  { type: "avoidance-alert", taskId },
+          body: `${classLabel}"${title}" hasn't been touched in ${daysSinceTouched} days.${dueLabel}`,
+          data: { type: "avoidance-alert", taskId },
           sound: true,
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: fireTime,
-        }
+        },
       });
       alerted[taskId] = today;
       changed = true;
@@ -412,8 +429,12 @@ export const checkAndScheduleAvoidanceAlerts = async (avoidanceScores, bestTime 
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
     const cutoff = twoDaysAgo.toISOString().slice(0, 10);
-    Object.keys(alerted).forEach((k) => { if (alerted[k] < cutoff) delete alerted[k]; });
-    AsyncStorage.setItem(AVOIDANCE_MAP_KEY, JSON.stringify(alerted)).catch(() => {});
+    Object.keys(alerted).forEach((k) => {
+      if (alerted[k] < cutoff) delete alerted[k];
+    });
+    AsyncStorage.setItem(AVOIDANCE_MAP_KEY, JSON.stringify(alerted)).catch(
+      () => {}
+    );
   }
 };
 
@@ -432,71 +453,74 @@ const weeklySummaryKey = (uid) => `@planora_weekly_summary_id_${uid}`;
  */
 export const scheduleWeeklySummary = async (tasks, history, uid) => {
   if (!uid) return;
+  await _withLock(`weekly-${uid}`, async () => {
+    const granted = await checkNotificationPermissions();
+    if (!granted) return;
 
-  const granted = await checkNotificationPermissions();
-  if (!granted) return;
-
-  // Cancel previous
-  try {
-    const prevId = await AsyncStorage.getItem(weeklySummaryKey(uid));
-    if (prevId) {
-      await Notifications.cancelScheduledNotificationAsync(prevId).catch(() => {});
-      await AsyncStorage.removeItem(weeklySummaryKey(uid)).catch(() => {});
-    }
-  } catch {}
-
-  // Count tasks completed in the last 7 days (from history)
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const completedThisWeek = (history ?? []).filter((h) => {
-    const d = h.completedAt ? new Date(h.completedAt) : null;
-    return d && d >= weekAgo;
-  }).length;
-
-  // Count pending tasks due before next Monday
-  const now = new Date();
-  const nextMonday = new Date(now);
-  nextMonday.setDate(now.getDate() + ((8 - now.getDay()) % 7 || 7));
-  nextMonday.setHours(0, 0, 0, 0);
-
-  const dueBeforeMonday = (tasks ?? []).filter((t) => {
-    if (t.completed || !t.dueDate) return false;
-    return new Date(t.dueDate) < nextMonday;
-  }).length;
-
-  // Skip if nothing to report
-  if (completedThisWeek === 0 && dueBeforeMonday === 0) return;
-
-  // Build specific copy
-  let title, body;
-  if (completedThisWeek > 0 && dueBeforeMonday > 0) {
-    title = "📊 Weekly check-in";
-    body  = `You knocked out ${completedThisWeek} task${completedThisWeek !== 1 ? "s" : ""} this week. ${dueBeforeMonday} more due before Monday — finish strong.`;
-  } else if (completedThisWeek > 0) {
-    title = "📊 Weekly check-in";
-    body  = `${completedThisWeek} task${completedThisWeek !== 1 ? "s" : ""} done this week. You're clear — enjoy the weekend.`;
-  } else {
-    title = "📊 Weekend heads up";
-    body  = `${dueBeforeMonday} task${dueBeforeMonday !== 1 ? "s" : ""} due before Monday. Get ahead this weekend.`;
-  }
-
-  // Find the next Sunday at 7pm
-  const fireSunday = new Date(now);
-  const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
-  fireSunday.setDate(now.getDate() + daysUntilSunday);
-  fireSunday.setHours(19, 0, 0, 0);
-
-  try {
-    const id = await Notifications.scheduleNotificationAsync({
-      content: { title, body, data: { type: "weekly-summary" }, sound: true },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: fireSunday,
+    try {
+      const prevId = await AsyncStorage.getItem(weeklySummaryKey(uid));
+      if (prevId) {
+        await Notifications.cancelScheduledNotificationAsync(prevId).catch(
+          () => {}
+        );
+        await AsyncStorage.removeItem(weeklySummaryKey(uid)).catch(() => {});
       }
-    });
-    await AsyncStorage.setItem(weeklySummaryKey(uid), id).catch(() => {});
-  } catch (err) {
-    console.warn("Failed to schedule weekly summary:", err);
-  }
+    } catch {}
+
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const completedThisWeek = (history ?? []).filter((h) => {
+      const d = h.completedAt ? new Date(h.completedAt) : null;
+      return d && d >= weekAgo;
+    }).length;
+
+    const now = new Date();
+    const nextMonday = new Date(now);
+    nextMonday.setDate(now.getDate() + ((8 - now.getDay()) % 7 || 7));
+    nextMonday.setHours(0, 0, 0, 0);
+
+    const dueBeforeMonday = (tasks ?? []).filter((t) => {
+      if (t.completed || !t.dueDate) return false;
+      return new Date(t.dueDate) < nextMonday;
+    }).length;
+
+    if (completedThisWeek === 0 && dueBeforeMonday === 0) return;
+
+    let title, body;
+    if (completedThisWeek > 0 && dueBeforeMonday > 0) {
+      title = "📊 Weekly check-in";
+      body = `You knocked out ${completedThisWeek} task${
+        completedThisWeek !== 1 ? "s" : ""
+      } this week. ${dueBeforeMonday} more due before Monday — finish strong.`;
+    } else if (completedThisWeek > 0) {
+      title = "📊 Weekly check-in";
+      body = `${completedThisWeek} task${
+        completedThisWeek !== 1 ? "s" : ""
+      } done this week. You're clear — enjoy the weekend.`;
+    } else {
+      title = "📊 Weekend heads up";
+      body = `${dueBeforeMonday} task${
+        dueBeforeMonday !== 1 ? "s" : ""
+      } due before Monday. Get ahead this weekend.`;
+    }
+
+    const fireSunday = new Date(now);
+    const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
+    fireSunday.setDate(now.getDate() + daysUntilSunday);
+    fireSunday.setHours(19, 0, 0, 0);
+
+    try {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: { title, body, data: { type: "weekly-summary" }, sound: true },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: fireSunday,
+        },
+      });
+      await AsyncStorage.setItem(weeklySummaryKey(uid), id).catch(() => {});
+    } catch (err) {
+      console.warn("Failed to schedule weekly summary:", err);
+    }
+  });
 };
 
 // ── Morning due-today digest ──────────────────────────────────
@@ -514,61 +538,62 @@ const digestNotifKey = (uid) => `@planora_digest_notif_id_${uid}`;
  */
 export const scheduleDailyDigest = async (tasks, bestTime, uid) => {
   if (!uid) return;
+  await _withLock(`digest-${uid}`, async () => {
+    const granted = await checkNotificationPermissions();
+    if (!granted) return;
 
-  const granted = await checkNotificationPermissions();
-  if (!granted) return;
-
-  // Cancel any previously scheduled digest
-  try {
-    const prevId = await AsyncStorage.getItem(digestNotifKey(uid));
-    if (prevId) {
-      await Notifications.cancelScheduledNotificationAsync(prevId).catch(() => {});
-      await AsyncStorage.removeItem(digestNotifKey(uid)).catch(() => {});
-    }
-  } catch {}
-
-  // Find tasks due tomorrow (they'll be "due today" when the notification fires)
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
-  const dayAfter = new Date(tomorrow);
-  dayAfter.setDate(dayAfter.getDate() + 1);
-
-  const dueTomorrow = (tasks ?? []).filter((t) => {
-    if (t.completed || !t.dueDate) return false;
-    const d = new Date(t.dueDate);
-    return d >= tomorrow && d < dayAfter;
-  });
-
-  if (dueTomorrow.length === 0) return;
-
-  const hour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 8;
-  const fireTime = new Date(tomorrow);
-  fireTime.setHours(hour, 0, 0, 0);
-
-  const body = dueTomorrow.length === 1
-    ? `"${dueTomorrow[0].title}" is due today.`
-    : `${dueTomorrow.length} tasks due today — don't let them sneak up on you.`;
-
-  try {
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Good morning — check today's tasks",
-        body,
-        data:  { type: "daily-digest" },
-        sound: true,
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: fireTime,
+    try {
+      const prevId = await AsyncStorage.getItem(digestNotifKey(uid));
+      if (prevId) {
+        await Notifications.cancelScheduledNotificationAsync(prevId).catch(
+          () => {}
+        );
+        await AsyncStorage.removeItem(digestNotifKey(uid)).catch(() => {});
       }
-    });
-    await AsyncStorage.setItem(digestNotifKey(uid), id).catch(() => {});
-  } catch (err) {
-    console.warn("Failed to schedule daily digest:", err);
-  }
-};
+    } catch {}
 
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const dayAfter = new Date(tomorrow);
+    dayAfter.setDate(dayAfter.getDate() + 1);
+
+    const dueTomorrow = (tasks ?? []).filter((t) => {
+      if (t.completed || !t.dueDate) return false;
+      const d = new Date(t.dueDate);
+      return d >= tomorrow && d < dayAfter;
+    });
+
+    if (dueTomorrow.length === 0) return;
+
+    const hour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 8;
+    const fireTime = new Date(tomorrow);
+    fireTime.setHours(hour, 0, 0, 0);
+
+    const body =
+      dueTomorrow.length === 1
+        ? `"${dueTomorrow[0].title}" is due today.`
+        : `${dueTomorrow.length} tasks due today — don't let them sneak up on you.`;
+
+    try {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Good morning — check today's tasks",
+          body,
+          data: { type: "daily-digest" },
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: fireTime,
+        },
+      });
+      await AsyncStorage.setItem(digestNotifKey(uid), id).catch(() => {});
+    } catch (err) {
+      console.warn("Failed to schedule daily digest:", err);
+    }
+  });
+};
 // ── App icon badge (overdue count) ───────────────────────────
 
 /**
@@ -604,44 +629,78 @@ const SYNC_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
  * @param {string} uid         Firebase user ID
  * @param {Function} onUpdate  Callback(taskId, notificationIds) to persist IDs back to Firestore
  */
-export const syncNotificationWindow = async (tasks, bestTime, uid, onUpdate) => {
+export const syncNotificationWindow = async (
+  tasks,
+  bestTime,
+  uid,
+  onUpdate,
+  pendingIds = new Set()
+) => {
   if (!uid) return;
 
   const granted = await checkNotificationPermissions();
   if (!granted) return;
 
+  // notifications.js — inside syncNotificationWindow, before the for loop
   const now = new Date();
   const windowEnd = new Date(now.getTime() + SYNC_WINDOW_MS);
 
-  for (const task of tasks) {
+  // Sort: HIGH priority first, then by due date ascending
+  // iOS allows max 64 scheduled local notifications — prioritize ruthlessly
+  const sortedTasks = [...tasks].sort((a, b) => {
+    if (a.priority === "HIGH" && b.priority !== "HIGH") return -1;
+    if (b.priority === "HIGH" && a.priority !== "HIGH") return 1;
+    return new Date(a.dueDate) - new Date(b.dueDate);
+  });
+
+  let scheduledCount = 0;
+  const MAX_TASK_NOTIFICATIONS = 58; // leave 6 slots for digest, weekly, streak, etc.
+
+  for (const task of sortedTasks) {
     if (task.completed || !task.dueDate) continue;
+    if (
+      pendingIds.has(task.id) &&
+      (task.notificationIds?.id24h || task.notificationIds?.id2h)
+    )
+      continue;
+    if (scheduledCount >= MAX_TASK_NOTIFICATIONS) break;
 
     const due = task.dueDate?.toDate?.() ?? new Date(task.dueDate);
     const inWindow = due > now && due <= windowEnd;
     const hasIds = task.notificationIds?.id24h || task.notificationIds?.id2h;
 
     if (inWindow && !hasIds) {
-      // Task just entered the window — schedule it
-      const notificationIds = await scheduleTaskReminder(task, bestTime);
-      if (notificationIds.id24h || notificationIds.id2h) {
-        await onUpdate(task.id, notificationIds);
-      }
+      await _withLock(`task-${task.id}`, async () => {
+        const notificationIds = await scheduleTaskReminder(task, bestTime);
+        if (notificationIds.id24h || notificationIds.id2h) {
+          await onUpdate(task.id, notificationIds);
+          scheduledCount++;
+        }
+      });
     } else if (!inWindow && hasIds) {
-      // Task left the window (completed, deleted, date pushed out) — cancel
-      await cancelTaskReminder(task.notificationIds).catch(() => {});
-      await onUpdate(task.id, null);
+      await _withLock(`task-${task.id}`, async () => {
+        await cancelTaskReminder(task.notificationIds).catch(() => {});
+        await onUpdate(task.id, null);
+      }
+      );
     }
   }
 };
 
 const _formatDue = (date) => {
-  const now   = new Date();
-  const today = new Date(now); today.setHours(0, 0, 0, 0);
-  const dueMidnight = new Date(date); dueMidnight.setHours(0, 0, 0, 0);
-  const diff  = Math.round((dueMidnight - today) / (1000 * 60 * 60 * 24));
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const dueMidnight = new Date(date);
+  dueMidnight.setHours(0, 0, 0, 0);
+  const diff = Math.round((dueMidnight - today) / (1000 * 60 * 60 * 24));
 
   if (diff === 0) return "today";
   if (diff === 1) return "tomorrow";
 
-  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 };

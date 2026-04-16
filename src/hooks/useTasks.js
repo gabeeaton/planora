@@ -48,6 +48,7 @@ export const useTasks = () => {
 
   // Keep a ref so createManyTasks can read current tasks without stale closure
   const tasksRef = useRef([]);
+  const pendingTaskIdsRef = useRef(new Set());
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
 
   // Keep bestTime in a ref so reminder scheduling always uses the latest value
@@ -136,7 +137,7 @@ export const useTasks = () => {
       updateTask(taskId, { notificationIds }).catch(() => {});
   
     const timer = setTimeout(() => {
-      syncNotificationWindow(tasks, bestTimeRef.current, user.uid, onUpdate);
+      syncNotificationWindow(tasks, bestTimeRef.current, user.uid, onUpdate, pendingTaskIdsRef.current);
     }, 2000);
   
     return () => clearTimeout(timer);
@@ -148,17 +149,12 @@ export const useTasks = () => {
     if (!user) throw new Error("Not logged in.");
     try {
       const docRef = await addTask(user.uid, taskData);
-
-      if (taskData.dueDate) {
-        const notificationIds = await scheduleTaskReminder({
-          id: docRef.id,
-          ...taskData,
-        }, bestTimeRef.current);
-        if (notificationIds.id24h || notificationIds.id2h) {
-          await updateTask(docRef.id, { notificationIds }).catch(() => {});
-        }
-      }
-
+      // Mark as pending so syncNotificationWindow skips it until
+      // Firestore propagates the doc back through the snapshot listener.
+      // syncNotificationWindow will schedule the reminder on the next
+      // tasks-state update once the task has an ID in the snapshot.
+      pendingTaskIdsRef.current.add(docRef.id);
+      setTimeout(() => pendingTaskIdsRef.current.delete(docRef.id), 10_000);
       return docRef;
     } catch (err) {
       const msg = err.message?.includes("permission")
@@ -192,16 +188,12 @@ export const useTasks = () => {
 
       const docRefs = await Promise.all(toCreate.map((t) => addTask(user.uid, t)));
 
-      Promise.all(
-        docRefs.map(async (docRef, i) => {
-          const task = toCreate[i];
-          if (!task.dueDate) return;
-          const notificationIds = await scheduleTaskReminder({ id: docRef.id, ...task }, bestTimeRef.current);
-          if (notificationIds.id24h || notificationIds.id2h) {
-            await updateTask(docRef.id, { notificationIds }).catch(() => {});
-          }
-        })
-      ).catch(() => {});
+      // once Firestore propagates the docs back through the snapshot listener
+docRefs.forEach((docRef) => {
+  pendingTaskIdsRef.current.add(docRef.id);
+  setTimeout(() => pendingTaskIdsRef.current.delete(docRef.id), 10_000);
+});
+
 
       return { created: toCreate.length, skipped };
     } catch (err) {
@@ -216,33 +208,20 @@ export const useTasks = () => {
   const editTask = useCallback(async (taskId, updates) => {
     try {
       const currentTask = tasks.find((t) => t.id === taskId);
-
+  
+      // If the due date changed, cancel the old reminders now.
+      // syncNotificationWindow will schedule fresh ones on the next
+      // state update once the updated task comes back from Firestore.
       if (currentTask && "dueDate" in updates) {
         const oldDue = currentTask.dueDate?.toDate?.()?.getTime() ?? null;
         const newDue = updates.dueDate ? new Date(updates.dueDate).getTime() : null;
-
-        if (oldDue !== newDue) {
-          if (currentTask.notificationIds) {
-            await cancelTaskReminder(currentTask.notificationIds).catch(() => {});
-          }
-
-          if (updates.dueDate) {
-            const notificationIds = await scheduleTaskReminder({
-              id: taskId,
-              title: updates.title ?? currentTask.title,
-              priority: updates.priority ?? currentTask.priority,
-              className: updates.className ?? currentTask.className,
-              dueDate: updates.dueDate,
-            }, bestTimeRef.current);
-            updates.notificationIds = (notificationIds.id24h || notificationIds.id2h)
-              ? notificationIds
-              : null;
-          } else {
-            updates.notificationIds = null;
-          }
+  
+        if (oldDue !== newDue && currentTask.notificationIds) {
+          await cancelTaskReminder(currentTask.notificationIds).catch(() => {});
+          updates.notificationIds = null; // clear so sync knows to reschedule
         }
       }
-
+  
       await updateTask(taskId, updates);
     } catch (err) {
       const msg = err.message?.includes("permission")
