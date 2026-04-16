@@ -130,14 +130,22 @@ export const addTask = (userId, taskData) =>
       : null,
   });
 
-export const updateTask = (taskId, updates) => {
-  const data = { ...updates, lastTouchedAt: Timestamp.now() };
-  if (updates.dueDate instanceof Date)
-    data.dueDate = Timestamp.fromDate(updates.dueDate);
-  if ("className" in updates)
-    data.className = resolveClassName(updates.className);
-  return updateDoc(doc(db, "tasks", taskId), data);
-};
+  export const updateTask = (taskId, updates) => {
+    const data = { ...updates, lastTouchedAt: Timestamp.now() };
+    
+    if (updates.dueDate != null) {
+      const d = updates.dueDate instanceof Date
+        ? updates.dueDate
+        : new Date(updates.dueDate);
+      if (!isNaN(d.getTime())) {
+        data.dueDate = Timestamp.fromDate(d);
+      }
+    }
+  
+    if ("className" in updates)
+      data.className = resolveClassName(updates.className);
+    return updateDoc(doc(db, "tasks", taskId), data);
+  };
 
 export const toggleTask = async (taskId, currentStatus) => {
   await updateDoc(doc(db, "tasks", taskId), {

@@ -10,11 +10,21 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  subscribeTasks, addTask, updateTask,
-  toggleTask, deleteTask, recordTaskCompletion,
-  loadTaskHistory, clearCompletedTasks,
+  subscribeTasks,
+  addTask,
+  updateTask,
+  toggleTask,
+  deleteTask,
+  recordTaskCompletion,
+  loadTaskHistory,
+  clearCompletedTasks,
 } from "../services/firebase";
-import { cacheTasksLocally, loadCachedTasks, cacheTaskHistory, loadCachedHistory } from "../services/offlineStorage";
+import {
+  cacheTasksLocally,
+  loadCachedTasks,
+  cacheTaskHistory,
+  loadCachedHistory,
+} from "../services/offlineStorage";
 import {
   scheduleTaskReminder,
   cancelTaskReminder,
@@ -39,17 +49,20 @@ import {
 export const useTasks = () => {
   const { user } = useAuth();
   const { profile } = useUserProfile();
-  const [tasks, setTasks]       = useState([]);
-  const [history, setHistory]   = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [patterns, setPatterns] = useState(null);
-  const [streak, setStreak]     = useState(0);
+  const [streak, setStreak] = useState(0);
 
   // Keep a ref so createManyTasks can read current tasks without stale closure
   const tasksRef = useRef([]);
   const pendingTaskIdsRef = useRef(new Set());
-  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  const lastEditTimeRef = useRef(0);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   // Keep bestTime in a ref so reminder scheduling always uses the latest value
   // without needing to add patterns to every useCallback dep array
@@ -60,7 +73,9 @@ export const useTasks = () => {
 
   // Load persisted streak on mount — resets if user missed a day
   useEffect(() => {
-    checkAndResetStreak().then(setStreak).catch(() => {});
+    checkAndResetStreak()
+      .then(setStreak)
+      .catch(() => {});
   }, []);
 
   // Recompute patterns whenever tasks or history change
@@ -78,41 +93,51 @@ export const useTasks = () => {
   // Reschedule morning digest whenever tasks change
   useEffect(() => {
     if (!user?.uid) return;
-  
+
     const timer = setTimeout(() => {
       scheduleDailyDigest(tasks, bestTimeRef.current, user.uid);
-    }, 2000);
-  
+    }, 12000);
+
     return () => clearTimeout(timer);
   }, [tasks, user?.uid]);
 
   // Reschedule weekly summary whenever tasks or history change
   useEffect(() => {
     if (!user?.uid) return;
-  
+
     const timer = setTimeout(() => {
       scheduleWeeklySummary(tasks, history, user.uid);
-    }, 2000); // wait 2s for state to settle before rescheduling
-  
+    }, 12000); // wait 2s for state to settle before rescheduling
+
     return () => clearTimeout(timer);
   }, [tasks, history, user?.uid]);
 
   useEffect(() => {
-    if (!user) { setTasks([]); setHistory([]); setLoading(false); return; }
+    if (!user) {
+      setTasks([]);
+      setHistory([]);
+      setLoading(false);
+      return;
+    }
     // Load cached data immediately for snappy offline-first UI
-    Promise.all([loadCachedTasks(), loadCachedHistory()]).then(([cachedTasks, cachedHistory]) => {
-      if (cachedTasks.length > 0) {
-        const sanitized = cachedTasks.map((t) => ({
-          ...t,
-          className: typeof t.className === "string" ? t.className : (t.className?.name ?? null),
-        }));
-        setTasks(sanitized);
-        setLoading(false);
+    Promise.all([loadCachedTasks(), loadCachedHistory()]).then(
+      ([cachedTasks, cachedHistory]) => {
+        if (cachedTasks.length > 0) {
+          const sanitized = cachedTasks.map((t) => ({
+            ...t,
+            className:
+              typeof t.className === "string"
+                ? t.className
+                : t.className?.name ?? null,
+          }));
+          setTasks(sanitized);
+          setLoading(false);
+        }
+        if (cachedHistory.length > 0) {
+          setHistory(cachedHistory);
+        }
       }
-      if (cachedHistory.length > 0) {
-        setHistory(cachedHistory);
-      }
-    });
+    );
 
     // Subscribe to live task updates
     const unsubscribe = subscribeTasks(user.uid, (freshTasks) => {
@@ -122,163 +147,219 @@ export const useTasks = () => {
     });
 
     // Load full task history for pattern analysis (non-blocking)
-    loadTaskHistory(user.uid, 100).then((freshHistory) => {
-      setHistory(freshHistory);
-      cacheTaskHistory(freshHistory);
-    }).catch(() => {});
+    loadTaskHistory(user.uid, 100)
+      .then((freshHistory) => {
+        setHistory(freshHistory);
+        cacheTaskHistory(freshHistory);
+      })
+      .catch(() => {});
 
     return unsubscribe;
   }, [user]);
 
   useEffect(() => {
     if (!user?.uid || tasks.length === 0) return;
-  
+
     const onUpdate = (taskId, notificationIds) =>
       updateTask(taskId, { notificationIds }).catch(() => {});
-  
+
     const timer = setTimeout(() => {
-      syncNotificationWindow(tasks, bestTimeRef.current, user.uid, onUpdate, pendingTaskIdsRef.current);
-    }, 2000);
-  
+      if (Date.now() - lastEditTimeRef.current < 15_000) return;
+      syncNotificationWindow(
+        tasks,
+        bestTimeRef.current,
+        user.uid,
+        onUpdate,
+        pendingTaskIdsRef.current
+      );
+    }, 12000);
+
     return () => clearTimeout(timer);
   }, [tasks, user?.uid]);
 
   // ── Create task ─────────────────────────────────────────────
 
-  const createTask = useCallback(async (taskData) => {
-    if (!user) throw new Error("Not logged in.");
-    try {
-      const docRef = await addTask(user.uid, taskData);
-      // Mark as pending so syncNotificationWindow skips it until
-      // Firestore propagates the doc back through the snapshot listener.
-      // syncNotificationWindow will schedule the reminder on the next
-      // tasks-state update once the task has an ID in the snapshot.
-      pendingTaskIdsRef.current.add(docRef.id);
-      setTimeout(() => pendingTaskIdsRef.current.delete(docRef.id), 10_000);
-      return docRef;
-    } catch (err) {
-      const msg = err.message?.includes("permission")
-        ? "Permission denied. Please sign in again."
-        : err.message || "Failed to create task.";
-      setError(msg);
-      throw new Error(msg);
-    }
-  }, [user]);
+  const createTask = useCallback(
+    async (taskData) => {
+      if (!user) throw new Error("Not logged in.");
+      try {
+        const docRef = await addTask(user.uid, taskData);
+        // Mark as pending so syncNotificationWindow skips it until
+        // Firestore propagates the doc back through the snapshot listener.
+        // syncNotificationWindow will schedule the reminder on the next
+        // tasks-state update once the task has an ID in the snapshot.
+        pendingTaskIdsRef.current.add(docRef.id);
+        setTimeout(() => pendingTaskIdsRef.current.delete(docRef.id), 10_000);
+        return docRef;
+      } catch (err) {
+        const msg = err.message?.includes("permission")
+          ? "Permission denied. Please sign in again."
+          : err.message || "Failed to create task.";
+        setError(msg);
+        throw new Error(msg);
+      }
+    },
+    [user]
+  );
 
   // ── Create many tasks (bulk import) ────────────────────────
 
-  const createManyTasks = useCallback(async (tasksArray) => {
-    if (!user) throw new Error("Not logged in.");
-    try {
-      // Deduplicate re-imports: skip tasks whose canvasId or icsUid already exists
-      const existingCanvasIds = new Set(
-        tasksRef.current.filter((t) => t.canvasId).map((t) => String(t.canvasId))
-      );
-      const existingIcsUids = new Set(
-        tasksRef.current.filter((t) => t.icsUid).map((t) => String(t.icsUid))
-      );
-      const toCreate = tasksArray.filter(
-        (t) =>
-          (!t.canvasId || !existingCanvasIds.has(String(t.canvasId))) &&
-          (!t.icsUid   || !existingIcsUids.has(String(t.icsUid)))
-      );
-      const skipped = tasksArray.length - toCreate.length;
+  const createManyTasks = useCallback(
+    async (tasksArray) => {
+      if (!user) throw new Error("Not logged in.");
+      try {
+        // Deduplicate re-imports: skip tasks whose canvasId or icsUid already exists
+        const existingCanvasIds = new Set(
+          tasksRef.current
+            .filter((t) => t.canvasId)
+            .map((t) => String(t.canvasId))
+        );
+        const existingIcsUids = new Set(
+          tasksRef.current.filter((t) => t.icsUid).map((t) => String(t.icsUid))
+        );
+        const toCreate = tasksArray.filter(
+          (t) =>
+            (!t.canvasId || !existingCanvasIds.has(String(t.canvasId))) &&
+            (!t.icsUid || !existingIcsUids.has(String(t.icsUid)))
+        );
+        const skipped = tasksArray.length - toCreate.length;
 
-      if (toCreate.length === 0) return { created: 0, skipped };
+        if (toCreate.length === 0) return { created: 0, skipped };
 
-      const docRefs = await Promise.all(toCreate.map((t) => addTask(user.uid, t)));
+        const docRefs = await Promise.all(
+          toCreate.map((t) => addTask(user.uid, t))
+        );
 
-      // once Firestore propagates the docs back through the snapshot listener
-docRefs.forEach((docRef) => {
-  pendingTaskIdsRef.current.add(docRef.id);
-  setTimeout(() => pendingTaskIdsRef.current.delete(docRef.id), 10_000);
-});
+        // once Firestore propagates the docs back through the snapshot listener
+        docRefs.forEach((docRef) => {
+          pendingTaskIdsRef.current.add(docRef.id);
+          setTimeout(() => pendingTaskIdsRef.current.delete(docRef.id), 10_000);
+        });
 
-
-      return { created: toCreate.length, skipped };
-    } catch (err) {
-      const msg = err.message || "Failed to import tasks.";
-      setError(msg);
-      throw new Error(msg);
-    }
-  }, [user]);
+        return { created: toCreate.length, skipped };
+      } catch (err) {
+        const msg = err.message || "Failed to import tasks.";
+        setError(msg);
+        throw new Error(msg);
+      }
+    },
+    [user]
+  );
 
   // ── Edit task ───────────────────────────────────────────────
 
-  const editTask = useCallback(async (taskId, updates) => {
-    try {
-      const currentTask = tasks.find((t) => t.id === taskId);
-  
-      // If the due date changed, cancel the old reminders now.
-      // syncNotificationWindow will schedule fresh ones on the next
-      // state update once the updated task comes back from Firestore.
-      if (currentTask && "dueDate" in updates) {
-        const oldDue = currentTask.dueDate?.toDate?.()?.getTime() ?? null;
-        const newDue = updates.dueDate ? new Date(updates.dueDate).getTime() : null;
-  
-        if (oldDue !== newDue && currentTask.notificationIds) {
-          await cancelTaskReminder(currentTask.notificationIds).catch(() => {});
-          updates.notificationIds = null; // clear so sync knows to reschedule
+  const editTask = useCallback(
+    async (taskId, updates) => {
+      try {
+        const currentTask = tasks.find((t) => t.id === taskId);
+
+        if (currentTask && ("dueDate" in updates || "dueTime" in updates)) {
+          const oldDue = currentTask.dueDate instanceof Date
+            ? currentTask.dueDate.getTime()
+            : currentTask.dueDate?.toDate?.()?.getTime() ?? null;
+          const newDue = updates.dueDate ? new Date(updates.dueDate).getTime() : null;
+        
+          const oldTime = JSON.stringify(currentTask.dueTime ?? null);
+          const newTime = JSON.stringify(updates.dueTime ?? null);
+        
+          if (oldDue !== newDue || oldTime !== newTime) {
+            // Block sync immediately before doing anything else
+            lastEditTimeRef.current = Date.now();
+            pendingTaskIdsRef.current.add(taskId);
+            setTimeout(() => pendingTaskIdsRef.current.delete(taskId), 15_000);
+            pendingTaskIdsRef.current.add(taskId);
+            setTimeout(() => pendingTaskIdsRef.current.delete(taskId), 15_000);
+
+            if (currentTask.notificationIds) {
+              await cancelTaskReminder(currentTask.notificationIds).catch(
+                () => {}
+              );
+            }
+
+            const updatedTask = { ...currentTask, ...updates, id: taskId };
+            console.log("EDIT - updatedTask.dueDate:", updatedTask.dueDate);
+            console.log("EDIT - updatedTask.dueTime:", updatedTask.dueTime);
+            const notificationIds = await scheduleTaskReminder(
+              updatedTask,
+              bestTimeRef.current
+            );
+            console.log("EDIT - notificationIds:", notificationIds);
+
+            updates.notificationIds =
+              notificationIds.id24h || notificationIds.id2h
+                ? notificationIds
+                : null;
+          }
         }
+
+        await updateTask(taskId, updates);
+      } catch (err) {
+        const msg = err.message?.includes("permission")
+          ? "Permission denied."
+          : err.message || "Failed to update task.";
+        setError(msg);
+        throw new Error(msg);
       }
-  
-      await updateTask(taskId, updates);
-    } catch (err) {
-      const msg = err.message?.includes("permission")
-        ? "Permission denied."
-        : err.message || "Failed to update task.";
-      setError(msg);
-      throw new Error(msg);
-    }
-  }, [tasks]);
+    },
+    [tasks]
+  );
 
   // ── Complete / toggle task ──────────────────────────────────
 
-  const completeTask = useCallback(async (task) => {
-    try {
-      await toggleTask(task.id, task.completed);
+  const completeTask = useCallback(
+    async (task) => {
+      try {
+        await toggleTask(task.id, task.completed);
 
-      if (!task.completed) {
-        // Task is being marked complete
+        if (!task.completed) {
+          // Task is being marked complete
 
-        // Increment streak — guarded inside incrementStreak so re-completing
-        // the same task today won't double-count
-        incrementStreak().then((newCount) => {
-          setStreak(newCount);
-        }).catch(() => {});
+          // Increment streak — guarded inside incrementStreak so re-completing
+          // the same task today won't double-count
+          incrementStreak()
+            .then((newCount) => {
+              setStreak(newCount);
+            })
+            .catch(() => {});
 
-        // Spawn next occurrence for recurring tasks
-        if (task.recurrence) {
-          await spawnNextRecurringTask({ ...task, userId: user.uid });
-        }
+          // Spawn next occurrence for recurring tasks
+          if (task.recurrence) {
+            await spawnNextRecurringTask({ ...task, userId: user.uid });
+          }
 
-        // Record for pattern analysis
-        await recordTaskCompletion({ ...task, userId: user.uid });
+          // Record for pattern analysis
+          await recordTaskCompletion({ ...task, userId: user.uid });
 
-        // Cancel reminders — no point reminding about a done task
-        if (task.notificationIds) {
-          await cancelTaskReminder(task.notificationIds).catch(() => {});
-        }
+          // Cancel reminders — no point reminding about a done task
+          if (task.notificationIds) {
+            await cancelTaskReminder(task.notificationIds).catch(() => {});
+          }
 
-        // Refresh history so patterns update after completion
-        loadTaskHistory(user.uid, 100).then((fresh) => {
-          setHistory(fresh);
-          cacheTaskHistory(fresh);
-        }).catch(() => {});
-
-      } else {
-        // Task is being un-completed — reschedule reminder if future due date
-        if (task.dueDate && new Date(task.dueDate) > new Date()) {
-          const notificationIds = await scheduleTaskReminder(task, bestTimeRef.current);
-          if (notificationIds.id24h || notificationIds.id2h) {
-            await updateTask(task.id, { notificationIds }).catch(() => {});
+          // Refresh history so patterns update after completion
+          loadTaskHistory(user.uid, 100)
+            .then((fresh) => {
+              setHistory(fresh);
+              cacheTaskHistory(fresh);
+            })
+            .catch(() => {});
+        } else {
+          // Task is being un-completed — reschedule reminder if future due date
+          if (task.dueDate && new Date(task.dueDate) > new Date()) {
+            const notificationIds = await scheduleTaskReminder(
+              task,
+              bestTimeRef.current
+            );
+            if (notificationIds.id24h || notificationIds.id2h) {
+              await updateTask(task.id, { notificationIds }).catch(() => {});
+            }
           }
         }
+      } catch (err) {
+        setError(err.message || "Failed to update task.");
       }
-    } catch (err) {
-      setError(err.message || "Failed to update task.");
-    }
-  }, [user]);
+    },
+    [user]
+  );
 
   // ── Delete task ─────────────────────────────────────────────
 
@@ -316,22 +397,33 @@ docRefs.forEach((docRef) => {
 
   // ── Derived lists ───────────────────────────────────────────
 
-  const pendingTasks   = tasks.filter((t) => !t.completed);
+  const pendingTasks = tasks.filter((t) => !t.completed);
   const completedTasks = tasks.filter((t) => t.completed);
-  const todaysTasks    = tasks.filter((t) => {
+  const todaysTasks = tasks.filter((t) => {
     if (!t.dueDate) return false;
     const today = new Date();
-    const due   = new Date(t.dueDate);
+    const due = new Date(t.dueDate);
     return (
-      due.getDate()     === today.getDate()   &&
-      due.getMonth()    === today.getMonth()  &&
+      due.getDate() === today.getDate() &&
+      due.getMonth() === today.getMonth() &&
       due.getFullYear() === today.getFullYear()
     );
   });
 
   return {
-    tasks, pendingTasks, completedTasks, todaysTasks,
-    loading, error, patterns, streak,
-    createTask, createManyTasks, editTask, completeTask, removeTask, clearCompleted,
+    tasks,
+    pendingTasks,
+    completedTasks,
+    todaysTasks,
+    loading,
+    error,
+    patterns,
+    streak,
+    createTask,
+    createManyTasks,
+    editTask,
+    completeTask,
+    removeTask,
+    clearCompleted,
   };
 };

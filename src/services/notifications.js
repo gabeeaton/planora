@@ -193,6 +193,8 @@ export const scheduleTaskReminder = async (task, bestTime = null) => {
   }
 
   if (remind2h > now) {
+    console.log("REMIND2H fire date:", remind2h.toString());
+      console.log("REMIND2H seconds from now:", (remind2h - new Date()) / 1000);
     try {
       result.id2h = await Notifications.scheduleNotificationAsync({
         content: {
@@ -658,11 +660,7 @@ export const syncNotificationWindow = async (
 
   for (const task of sortedTasks) {
     if (task.completed || !task.dueDate) continue;
-    if (
-      pendingIds.has(task.id) &&
-      (task.notificationIds?.id24h || task.notificationIds?.id2h)
-    )
-      continue;
+    if (pendingIds.has(task.id)) continue;
     if (scheduledCount >= MAX_TASK_NOTIFICATIONS) break;
 
     const due = task.dueDate?.toDate?.() ?? new Date(task.dueDate);
