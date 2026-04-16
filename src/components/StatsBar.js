@@ -11,6 +11,15 @@ const StatsBar = ({ todayCount, pendingCount, completedCount }) => {
     <View style={[styles.container, {
       backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
       borderColor: colors.isDark ? colors.border : "transparent",
+      ...(colors.isDark
+        ? {}
+        : {
+            shadowColor: "#6B6B8A",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.18,
+            shadowRadius: 8,
+            elevation: 5,
+          }),
     }]}>
       {/* Today */}
       <View style={styles.stat}>

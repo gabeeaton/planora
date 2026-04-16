@@ -87,14 +87,21 @@ const makeStyles = (colors) =>
     // ── Sync card (saved URL) ──
     syncCard: {
       flexDirection: "row", alignItems: "center",
-      backgroundColor: "rgba(92,255,143,0.07)",
+      backgroundColor: colors.isDark
+      ? "rgba(92,255,143,0.07)"
+      : "rgba(22,101,52,0.08)",
+      borderColor: colors.isDark
+    ? "rgba(92,255,143,0.3)"
+    : "rgba(22,101,52,1)",
       borderRadius: radius.lg, padding: spacing.md,
-      borderWidth: 1, borderColor: "rgba(92,255,143,0.3)",
+      borderWidth: 1,
       marginBottom: spacing.sm, gap: 12,
     },
     syncIcon: {
       width: 38, height: 38, borderRadius: 10,
-      backgroundColor: "rgba(92,255,143,0.12)",
+      backgroundColor: colors.isDark
+    ? "rgba(92,255,143,0.12)"
+    : "#fff",
       alignItems: "center", justifyContent: "center",
     },
     syncInfo:     { flex: 1 },
@@ -561,7 +568,7 @@ const SyllabusParserScreen = ({ navigation }) => {
           <>
             <View style={styles.syncCard}>
               <View style={styles.syncIcon}>
-                <Feather name="check-circle" size={18} color="#5CFF8F" />
+              <Feather name="check-circle" size={18} color={colors.isDark ? "#5CFF8F" : "#16653A"} />
               </View>
               <View style={styles.syncInfo}>
                 <Text style={styles.syncTitle}>Calendar connected</Text>

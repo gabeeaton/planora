@@ -4,129 +4,272 @@
 // ============================================================
 
 import React, { useRef, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { typography, spacing, radius, priorityColors, priorityGlow } from "../utils/theme";
+import {
+  typography,
+  spacing,
+  radius,
+  priorityColors,
+  priorityGlow,
+} from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { format } from "date-fns";
 import ClassTag from "./ClassTag";
 import { getRecurrenceLabel } from "../services/recurringTasks";
 
+const makeStyles = (colors) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+      borderRadius: 14,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.border,
+      borderWidth: colors.cardBorderW,
+      borderColor: colors.cardBorder,
+      overflow: "hidden",
+      ...(colors.isDark
+        ? {}
+        : {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          elevation: 4,
+          }),
+    },
+    cardCompleted: { opacity: 0.5 },
+    cardHighlighted: { borderColor: colors.accent, borderWidth: 1.5 },
+    glowOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      borderRadius: 14,
+    },
+    completionFlash: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(92,255,143,0.2)",
+      borderRadius: 14,
+      pointerEvents: "none",
+    },
+    highlightOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.accentGlow,
+      borderRadius: 14,
+    },
+    row: { flexDirection: "row", alignItems: "flex-start" },
+    checkbox: {
+      width: 26, height: 26, borderRadius: 13,
+      borderWidth: 2,
+      borderColor: colors.textMuted,
+      marginRight: spacing.sm,
+      marginTop: 2,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    checkboxDone: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    content: { flex: 1 },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 4,
+    },
+    title: {
+      ...typography.h3,
+      color: colors.textPrimary,
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    titleCompleted: {
+      textDecorationLine: "line-through",
+      color: colors.textMuted,
+    },
+    badge: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: radius.full,
+      borderWidth: 1,
+    },
+    badgeText: { ...typography.label, color: colors.textMuted, fontSize: 9 },
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: 6,
+      flexWrap: "wrap",
+    },
+    recurrenceChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      backgroundColor: colors.accentGlow,
+      borderRadius: radius.full,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderWidth: 1,
+      borderColor: colors.accent,
+    },
+    recurrenceText: { fontSize: 9, color: colors.accent, fontWeight: "700"},
+    avoidanceChip: {
+   flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      backgroundColor: colors.mediumGlow,
+      borderRadius: radius.full,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderWidth: 1,
+      borderColor: colors.medium,
+    },
+    avoidanceText: { fontSize: 9, color: colors.medium, fontWeight: "600" },
+    description: {
+      ...typography.bodySmall,
+      color: colors.textSecondary,
+      marginBottom: 8,
+    },
+    aiReasonRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+      backgroundColor: colors.accentGlow,
+      paddingHorizontal: 7,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    aiReason: {
+      ...typography.bodySmall,
+      color: colors.accent,
+      marginLeft: 4,
+      fontStyle: "italic",
+    },
+    footer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
+    },
+    dueDateRow: { flexDirection: "row", alignItems: "center" },
+    dueDate: {
+      ...typography.bodySmall,
+      color: colors.textSecondary,
+      marginLeft: 4,
+    },
+    actions: { flexDirection: "row", gap: spacing.sm, alignItems: "center" },
+    actionBtn: { padding: 4 },
+    focusBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      borderWidth: 1.5,
+      borderColor: colors.accent,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+  });
 
-const makeStyles = (colors) => StyleSheet.create({
-  card: {
-    backgroundColor: colors.isDark ? colors.bgCard : "#fff", borderRadius: 14, padding: spacing.md,
-    marginBottom: spacing.sm, borderLeftWidth: 3, borderLeftColor: colors.border,
-    borderWidth: colors.cardBorderW, borderColor: colors.cardBorder, overflow: "hidden",
-    ...(colors.isDark ? {} : {
-      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
-    }),
-  },
-  cardCompleted:   { opacity: 0.5 },
-  cardHighlighted: { borderColor: colors.accent, borderWidth: 1.5 },
-  glowOverlay: {
-    position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: 14,
-  },
-  completionFlash: {
-    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(92,255,143,0.2)", borderRadius: 14, pointerEvents: "none",
-  },
-  highlightOverlay: {
-    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: colors.accentGlow, borderRadius: 14,
-  },
-  row:      { flexDirection: "row", alignItems: "flex-start" },
-  checkbox: {
-    width: 24, height: 24, borderRadius: 7, borderWidth: 2,
-    borderColor: colors.textMuted, marginRight: spacing.sm, marginTop: 2,
-    alignItems: "center", justifyContent: "center",
-  },
-  checkboxDone: { backgroundColor: colors.accent, borderColor: colors.accent },
-  content:      { flex: 1 },
-  titleRow: {
-    flexDirection: "row", alignItems: "center",
-    justifyContent: "space-between", marginBottom: 4,
-  },
-  title:          { ...typography.h3, color: colors.textPrimary, flex: 1, marginRight: spacing.sm },
-  titleCompleted: { textDecorationLine: "line-through", color: colors.textMuted },
-  badge: {
-    flexDirection: "row", alignItems: "center",
-    paddingHorizontal: 7, paddingVertical: 3,
-    borderRadius: radius.full, borderWidth: 1,
-  },
-  badgeText:   { ...typography.label, color: colors.textMuted, fontSize: 9 },
-  metaRow:     { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" },
-  recurrenceChip: {
-    flexDirection: "row", alignItems: "center", gap: 3,
-    backgroundColor: colors.accentGlow, borderRadius: radius.full,
-    paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: colors.accent,
-  },
-  recurrenceText: { fontSize: 9, color: colors.accent, fontWeight: "600" },
-  avoidanceChip: {
-    flexDirection: "row", alignItems: "center", gap: 3,
-    backgroundColor: colors.mediumGlow, borderRadius: radius.full,
-    paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: colors.medium,
-  },
-  avoidanceText: { fontSize: 9, color: colors.medium, fontWeight: "600" },
-  description:   { ...typography.bodySmall, color: colors.textSecondary, marginBottom: 8 },
-  aiReasonRow: {
-    flexDirection: "row", alignItems: "center", marginBottom: 8,
-    backgroundColor: colors.accentGlow,
-    paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6,
-  },
-  aiReason:   { ...typography.bodySmall, color: colors.accent, marginLeft: 4, fontStyle: "italic" },
-  footer:     { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  dueDateRow: { flexDirection: "row", alignItems: "center" },
-  dueDate:    { ...typography.bodySmall, color: colors.textSecondary, marginLeft: 4 },
-  actions:    { flexDirection: "row", gap: spacing.sm, alignItems: "center" },
-  actionBtn:  { padding: 4 },
-  focusBtn: {
-    width: 30, height: 30, borderRadius: 15,
-    borderWidth: 1.5, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center",
-  },
-});
-
-const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = false }) => {
+const TaskCard = ({
+  task,
+  onToggle,
+  onEdit,
+  onDelete,
+  onFocus,
+  highlighted = false,
+}) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const scaleAnim    = useRef(new Animated.Value(1)).current;
-  const checkScale   = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const checkScale = useRef(new Animated.Value(1)).current;
   const flashOpacity = useRef(new Animated.Value(0)).current;
-  const prevDone     = useRef(task.completed);
+  const prevDone = useRef(task.completed);
 
   useEffect(() => {
     if (!prevDone.current && task.completed) {
       Animated.sequence([
-        Animated.spring(checkScale, { toValue: 1.5, useNativeDriver: true, speed: 50 }),
-        Animated.spring(checkScale, { toValue: 1.0, useNativeDriver: true, speed: 20 }),
+        Animated.spring(checkScale, {
+          toValue: 1.5,
+          useNativeDriver: true,
+          speed: 50,
+        }),
+        Animated.spring(checkScale, {
+          toValue: 1.0,
+          useNativeDriver: true,
+          speed: 20,
+        }),
       ]).start();
       Animated.sequence([
-        Animated.timing(flashOpacity, { toValue: 1, duration: 100, useNativeDriver: true }),
-        Animated.timing(flashOpacity, { toValue: 0, duration: 600, useNativeDriver: true }),
+        Animated.timing(flashOpacity, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(flashOpacity, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
       ]).start();
     }
     prevDone.current = task.completed;
   }, [task.completed]);
 
-  const handlePressIn  = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true }).start();
-  const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true }).start();
+  const handlePressIn = () =>
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+    }).start();
+  const handlePressOut = () =>
+    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
 
   const displayPriority = task.aiPriority || task.priority;
-  const priorityColor   = displayPriority ? priorityColors(colors.isDark)[displayPriority] : colors.textMuted;
-  const glowColor       = displayPriority ? priorityGlow(colors.isDark)[displayPriority]   : "transparent";
+  const priorityColor = displayPriority
+    ? priorityColors(colors.isDark)[displayPriority]
+    : colors.textMuted;
+  const glowColor = displayPriority
+    ? priorityGlow(colors.isDark)[displayPriority]
+    : "transparent";
 
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < todayStart;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const isOverdue =
+    task.dueDate && !task.completed && new Date(task.dueDate) < todayStart;
 
-  const lastTouched      = task.lastTouchedAt ? new Date(task.lastTouchedAt) : null;
+  const lastTouched = task.lastTouchedAt ? new Date(task.lastTouchedAt) : null;
   const daysSinceTouched = lastTouched
     ? Math.floor((new Date() - lastTouched) / (1000 * 60 * 60 * 24))
     : null;
-  const isBeingAvoided = !task.completed && daysSinceTouched !== null && daysSinceTouched >= 3;
+  const isBeingAvoided =
+    !task.completed && daysSinceTouched !== null && daysSinceTouched >= 3;
 
-  const recurrenceLabel = task.recurrence ? getRecurrenceLabel(task.recurrence) : null;
+  const recurrenceLabel = task.recurrence
+    ? getRecurrenceLabel(task.recurrence)
+    : null;
 
   return (
     <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
@@ -140,7 +283,10 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = fal
         style={[
           styles.card,
           task.completed && styles.cardCompleted,
-          displayPriority && { borderLeftColor: priorityColor, borderLeftWidth: 3 },
+          displayPriority && {
+            borderLeftColor: priorityColor,
+            borderLeftWidth: 5,
+          },
           highlighted && styles.cardHighlighted,
         ]}
       >
@@ -148,35 +294,65 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = fal
           <View style={[styles.glowOverlay, { backgroundColor: glowColor }]} />
         )}
         {highlighted && <View style={styles.highlightOverlay} />}
-        <Animated.View style={[styles.completionFlash, { opacity: flashOpacity }]} />
+        <Animated.View
+          style={[styles.completionFlash, { opacity: flashOpacity }]}
+        />
 
         <View style={styles.row}>
           {/* Checkbox */}
-          <TouchableOpacity onPress={() => onToggle(task)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Animated.View style={[styles.checkbox, task.completed && styles.checkboxDone, { transform: [{ scale: checkScale }] }]}>
-              {task.completed && <Feather name="check" size={12} color={colors.bg} />}
+          <TouchableOpacity
+            onPress={() => onToggle(task)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Animated.View
+              style={[
+                styles.checkbox,
+                task.completed && styles.checkboxDone,
+                { transform: [{ scale: checkScale }] },
+              ]}
+            >
+              {task.completed && (
+                <Feather name="check" size={12} color={colors.bg} />
+              )}
             </Animated.View>
           </TouchableOpacity>
 
           <View style={styles.content}>
             {/* Title row */}
             <View style={styles.titleRow}>
-              <Text style={[styles.title, task.completed && styles.titleCompleted]} numberOfLines={1}>
+              <Text
+                style={[styles.title, task.completed && styles.titleCompleted]}
+                numberOfLines={1}
+              >
                 {task.title}
               </Text>
               {displayPriority && (
-                <View style={[styles.badge, { backgroundColor: glowColor, borderColor: priorityColor }]}>
+                <View
+                  style={[
+                    styles.badge,
+                    { backgroundColor: glowColor, borderColor: priorityColor },
+                  ]}
+                >
                   {task.aiPriority && (
-                    <Feather name="zap" size={8} color={priorityColor} style={{ marginRight: 2 }} />
+                    <Feather
+                      name="zap"
+                      size={8}
+                      color={priorityColor}
+                      style={{ marginRight: 2 }}
+                    />
                   )}
-                  <Text style={[styles.badgeText, { color: priorityColor }]}>{displayPriority}</Text>
+                  <Text style={[styles.badgeText, { color: priorityColor }]}>
+                    {displayPriority}
+                  </Text>
                 </View>
               )}
             </View>
 
             {/* Meta row: class + recurrence + avoidance */}
             <View style={styles.metaRow}>
-              {task.className && <ClassTag className={task.className} size="sm" />}
+              {task.className && (
+                <ClassTag className={task.className} size="sm" />
+              )}
               {recurrenceLabel && (
                 <View style={styles.recurrenceChip}>
                   <Feather name="repeat" size={9} color={colors.accent} />
@@ -185,14 +361,22 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = fal
               )}
               {isBeingAvoided && (
                 <View style={styles.avoidanceChip}>
-                  <Feather name="alert-triangle" size={9} color={colors.medium} />
-                  <Text style={styles.avoidanceText}>{daysSinceTouched}d untouched</Text>
+                  <Feather
+                    name="alert-triangle"
+                    size={9}
+                    color={colors.medium}
+                  />
+                  <Text style={styles.avoidanceText}>
+                    {daysSinceTouched}d untouched
+                  </Text>
                 </View>
               )}
             </View>
 
             {task.description ? (
-              <Text style={styles.description} numberOfLines={2}>{task.description}</Text>
+              <Text style={styles.description} numberOfLines={2}>
+                {task.description}
+              </Text>
             ) : null}
 
             {task.aiReason ? (
@@ -206,31 +390,76 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = fal
             <View style={styles.footer}>
               {task.dueDate ? (
                 <View style={styles.dueDateRow}>
-                  <Feather name="calendar" size={11} color={isOverdue ? colors.high : colors.textMuted} />
-                  <Text style={[styles.dueDate, isOverdue && { color: colors.high }]}>
-                    {isOverdue ? "Overdue · " : ""}{format(new Date(task.dueDate), "MMM d")}
+                  <Feather
+                    name="calendar"
+                    size={11}
+                    color={isOverdue ? colors.high : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.dueDate,
+                      isOverdue && { color: colors.high },
+                    ]}
+                  >
+                    {isOverdue ? "Overdue · " : ""}
+                    {format(new Date(task.dueDate), "MMM d")}
                   </Text>
                   {Array.isArray(task.dueTime) && task.dueTime.length === 2 && (
                     <>
-                      <Text style={[styles.dueDate, { marginLeft: 4 }, isOverdue && { color: colors.high }]}>·</Text>
-                      <Feather name="clock" size={11} color={isOverdue ? colors.high : colors.textMuted} style={{ marginLeft: 4 }} />
-                      <Text style={[styles.dueDate, isOverdue && { color: colors.high }]}>
-                        {" "}{task.dueTime[0] % 12 === 0 ? 12 : task.dueTime[0] % 12}:{String(task.dueTime[1]).padStart(2,"0")} {task.dueTime[0] >= 12 ? "PM" : "AM"}
+                      <Text
+                        style={[
+                          styles.dueDate,
+                          { marginLeft: 4 },
+                          isOverdue && { color: colors.high },
+                        ]}
+                      >
+                        ·
+                      </Text>
+                      <Feather
+                        name="clock"
+                        size={11}
+                        color={isOverdue ? colors.high : colors.textMuted}
+                        style={{ marginLeft: 4 }}
+                      />
+                      <Text
+                        style={[
+                          styles.dueDate,
+                          isOverdue && { color: colors.high },
+                        ]}
+                      >
+                        {" "}
+                        {task.dueTime[0] % 12 === 0 ? 12 : task.dueTime[0] % 12}
+                        :{String(task.dueTime[1]).padStart(2, "0")}{" "}
+                        {task.dueTime[0] >= 12 ? "PM" : "AM"}
                       </Text>
                     </>
                   )}
                 </View>
-              ) : <View />}
+              ) : (
+                <View />
+              )}
               <View style={styles.actions}>
                 {onFocus && !task.completed && (
-                  <TouchableOpacity onPress={() => onFocus(task)} style={styles.focusBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => onFocus(task)}
+                    style={styles.focusBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
                     <Feather name="clock" size={14} color={colors.accent} />
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={() => onEdit(task)} style={styles.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity
+                  onPress={() => onEdit(task)}
+                  style={styles.actionBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
                   <Feather name="edit-2" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => onDelete(task)} style={styles.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity
+                  onPress={() => onDelete(task)}
+                  style={styles.actionBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
                   <Feather name="trash-2" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -241,6 +470,5 @@ const TaskCard = ({ task, onToggle, onEdit, onDelete, onFocus, highlighted = fal
     </Animated.View>
   );
 };
-
 
 export default TaskCard;

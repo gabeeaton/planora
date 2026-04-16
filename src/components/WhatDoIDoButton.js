@@ -28,11 +28,28 @@ const makeStyles = (colors) => StyleSheet.create({
 
   // Result card
   resultCard: {
-    backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md,
-    borderWidth: 1, borderColor: colors.border,
-    borderLeftWidth: 3, borderLeftColor: colors.accent,
-    ...shadows.accent,
-  },
+    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF", // Added #
+    borderRadius: radius.lg, 
+    padding: spacing.md,
+    borderWidth: 1, 
+    borderColor: colors.isDark ? colors.border : "transparent",
+    
+    // Use a separate styling for the accent line to avoid shadow clipping
+    borderLeftWidth: 5, 
+    borderLeftColor: colors.accent,
+
+    // SHADOW FIX
+    ...(colors.isDark
+      ? {}
+      : {
+          shadowColor: "#6B6B8A",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          elevation: 5,
+          backgroundColor: "#FFFFFF",
+        }),
+},
   resultHeader: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     marginBottom: spacing.sm,

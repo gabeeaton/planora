@@ -1,6 +1,15 @@
 // ============================================================
 // src/screens/ProfileScreen.js
 // ============================================================
+import * as Notifications from 'expo-notifications';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 import React, { useState, useEffect } from "react";
 import {
@@ -18,17 +27,51 @@ import { generateTerms, WORK_TIMES, GRADES, CREDIT_OPTS } from "../utils/termHel
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 // ── Styles ────────────────────────────────────────────────────
 const makeStyles = (colors) => StyleSheet.create({
   safe:   { flex: 1 },
   scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
 
-  header:       { alignItems: "center", paddingVertical: spacing.lg, marginBottom: spacing.md },
+  header: { 
+    alignItems: "center", 
+    paddingVertical: spacing.xl, // Increased for more "air"
+    marginBottom: spacing.md,
+    backgroundColor: colors.isDark ? 'transparent' : colors.bg, // Subtle grounding
+  },
   avatar: {
-    width: 72, height: 72, borderRadius: 36,
-    borderWidth: 2, alignItems: "center", justifyContent: "center",
-    marginBottom: spacing.sm,
+    width: 84, // Slightly larger for better presence
+    height: 84, 
+    borderRadius: 42,
+    alignItems: "center", 
+    justifyContent: "center",
+    marginBottom: spacing.md,
+    backgroundColor: colors.bgCard, // Solid base
+    
+    // Instead of a simple border, use a thick "halo" effect
+    borderWidth: 4, 
+    borderColor: colors.isDark ? colors.border : "#FFFFFF",
+
+    // Modern "Soft Glow" Shadow
+    ...(colors.isDark ? {} : {
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      elevation: 8,
+    }),
+  },
+  avatarText: { 
+    fontSize: 32, // Adjusted for the larger avatar
+    fontWeight: "800",
+    letterSpacing: -1,
   },
   avatarText:    { fontSize: 28, fontWeight: "800" },
   nameRow:       { flexDirection: "row", alignItems: "center", marginBottom: 8 },
@@ -74,9 +117,8 @@ const makeStyles = (colors) => StyleSheet.create({
   card: {
     backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
     borderRadius: radius.lg,
-    borderWidth: 0, // remove border entirely
     marginBottom: spacing.md,
-    overflow: "hidden",
+    overflow: "visible",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: colors.isDark ? 0 : 0.07,
@@ -313,6 +355,45 @@ const ProfileScreen = ({ navigation }) => {
     setModal(null);
   };
 
+  const triggerLocalTest = async () => {
+    console.log("🔔 [Step 1]: Button Pressed");
+  
+    try {
+      // Check Permissions
+      const { status } = await Notifications.requestPermissionsAsync();
+      console.log("🔔 [Step 2]: Permission Status:", status);
+  
+      if (status !== 'granted') {
+        console.log("❌ [Error]: Permission not granted!");
+        alert("Go to iPhone Settings > Planora > Notifications and Allow them!");
+        return;
+      }
+  
+      // Attempt to schedule
+      console.log("🔔 [Step 3]: Attempting to schedule...");
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Planora Scholar 🎓",
+          body: "Check your syllabus! New tasks detected.",
+          sound: true,
+        },
+        // CHANGED THIS:
+        trigger: { 
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, // Explicitly set the type
+          seconds: 2, 
+          repeats: false 
+        },
+      });
+  
+      console.log("✅ [Success]: Scheduled with ID:", id);
+      alert("Check your lock screen in 2 seconds!");
+  
+    } catch (error) {
+      console.log("❌ [Native Error]:", error);
+      alert("Internal Error: " + error.message);
+    }
+  };
+
   // ── Shared components ──
   const SectionHeader = ({ title }) =>
     title ? <Text style={styles.sectionHeader}>{title}</Text> : <View style={{ height: spacing.xs }} />;
@@ -497,6 +578,35 @@ const ProfileScreen = ({ navigation }) => {
         <View style={styles.card}>
           <Row icon="log-out" label="Sign Out" onPress={handleLogout} danger />
         </View>
+
+        <SectionHeader title="Developer Tools" />
+<View style={styles.card}>
+  <TouchableOpacity 
+    style={styles.classRow} 
+    onPress={triggerLocalTest}
+  >
+    <View style={styles.classRowInfo}>
+      <Text style={styles.className}>Test Notification</Text>
+      <Text style={styles.classMeta}>Triggers a local alert in 2s</Text>
+    </View>
+    <Feather name="bell" size={18} color={colors.accent} />
+  </TouchableOpacity>
+</View>
+<TouchableOpacity 
+  title="Check Pending Notifs" 
+  onPress={async () => {
+    const pending = await Notifications.getAllScheduledNotificationsAsync();
+    console.log("PENDING COUNT:", pending.length);
+    pending.forEach(n => console.log(n.content.title, n.trigger));
+  }} 
+><Text>see</Text></TouchableOpacity>
+<TouchableOpacity 
+  title="Wipe All Notifs" 
+  onPress={async () => {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    console.log("Cleared all 64 ghosts.");
+  }} 
+><Text>clear</Text></TouchableOpacity>
 
         <Text style={styles.version}>Planora v1.0.0</Text>
         <View style={{ height: 40 }} />

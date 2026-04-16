@@ -3,7 +3,7 @@
 //
 // Shown once, after the user has created or imported their first tasks.
 // Explains the value of notifications before asking permission —
-// "explain before you ask" dramatically improves grant rates.
+// "explxain before you ask" dramatically improves grant rates.
 //
 // Usage in DashboardScreen:
 //   <NotificationPermissionPrompt

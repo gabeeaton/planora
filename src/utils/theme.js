@@ -28,16 +28,15 @@ const DARK_BASE = {
 };
 
 const LIGHT_BASE = {
-  bg:            "#F2F2F7",
-  bgCard:        "#FAFAFA",
-  bgElevated:    "#E2E2E8",
-  bgInput:       "#E8E8EE",
-  textPrimary:   "#0A0A1A",
-  textSecondary: "#3C3C43",
-  textMuted:     "#4A4A5A",
-  border:        "#AEAEB8",
-  borderLight:   "#C8C8D0",
-  overlay:       "rgba(0,0,0,0.4)",
+  bg:            "#F7F7F9",   // was #F0F0F7 — less purple tint
+  bgCard:        "#FFFFFF",
+  bgElevated:    "#EFEFEF",   // was #E8E8F2
+  bgInput:       "#F2F2F5",   // was #F5F5FA
+  textPrimary:   "#0D0D14",   // was #0A0A1A — slightly softer
+  textSecondary: "#52526B",   // was #44445A — lighter, more readable
+  textMuted:     "#9898B0",   // was #8888A0
+  border:        "#E5E5EC",   // was #D8D8E8 — much softer
+  borderLight:   "#EFEFF5",   // was #E4E4F0
   isDark:        false,
 };
 

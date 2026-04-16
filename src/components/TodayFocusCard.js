@@ -31,14 +31,20 @@ const cleanText = (str) => {
 
 const makeStyles = (colors) => StyleSheet.create({
   card: {
-    backgroundColor: colors.bgCard, borderRadius: radius.lg,
+    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF", borderRadius: radius.lg,
+    borderColor: colors.isDark ? colors.border : "transparent",
     borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
-    borderLeftWidth: 3, borderLeftColor: colors.accent,
-    marginBottom: spacing.md, overflow: "hidden",
-    ...(colors.isDark ? {} : {
-      shadowColor: colors.accent, shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.18, shadowRadius: 8, elevation: 4,
-    }),
+    borderLeftWidth: 5, borderLeftColor: colors.accent,
+    marginBottom: spacing.md, overflow: "visible",
+    ...(colors.isDark
+      ? {}
+      : {
+          shadowColor: "#6B6B8A",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.18,
+          shadowRadius: 8,
+          elevation: 5,
+        }),
   },
   header: {
     flexDirection: "row", alignItems: "center", gap: 8,
@@ -52,11 +58,11 @@ const makeStyles = (colors) => StyleSheet.create({
     fontSize: 13, color: colors.textSecondary, fontStyle: "italic",
     paddingHorizontal: spacing.md, paddingBottom: spacing.sm, lineHeight: 18,
   },
-  divider: { height: 1, backgroundColor: colors.border, marginHorizontal: spacing.md },
+  divider: { height: 1, backgroundColor: colors.isDark ? colors.border : "transparent", marginHorizontal: spacing.md },
   taskRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
     paddingHorizontal: spacing.md, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "#F0F0F5",
   },
   taskRowLast: { borderBottomWidth: 0 },
   taskDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },

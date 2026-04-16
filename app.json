@@ -16,7 +16,8 @@
       "icon": "./icon.png",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification"
+          "remote-notification", 
+          "fetch"
         ],
         "NSUserTrackingUsageDescription": "Planora does not track you across other apps or websites.",
         "NSCameraUsageDescription": "Planora uses your camera to scan and import your course syllabus.",
