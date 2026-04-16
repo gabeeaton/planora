@@ -25,6 +25,7 @@ import {
 } from "../services/notifications";
 import { spawnNextRecurringTask } from "../services/recurringTasks";
 import { analyzePatterns } from "../services/patternAnalysis";
+import { syncNotificationWindow } from "../services/notifications";
 import { useAuth } from "./useAuth";
 import { useUserProfile } from "./useUserProfile";
 import {
@@ -76,18 +77,27 @@ export const useTasks = () => {
   // Reschedule morning digest whenever tasks change
   useEffect(() => {
     if (!user?.uid) return;
-    scheduleDailyDigest(tasks, bestTimeRef.current, user.uid);
+  
+    const timer = setTimeout(() => {
+      scheduleDailyDigest(tasks, bestTimeRef.current, user.uid);
+    }, 2000);
+  
+    return () => clearTimeout(timer);
   }, [tasks, user?.uid]);
 
   // Reschedule weekly summary whenever tasks or history change
   useEffect(() => {
     if (!user?.uid) return;
-    scheduleWeeklySummary(tasks, history, user.uid);
+  
+    const timer = setTimeout(() => {
+      scheduleWeeklySummary(tasks, history, user.uid);
+    }, 2000); // wait 2s for state to settle before rescheduling
+  
+    return () => clearTimeout(timer);
   }, [tasks, history, user?.uid]);
 
   useEffect(() => {
     if (!user) { setTasks([]); setHistory([]); setLoading(false); return; }
-
     // Load cached data immediately for snappy offline-first UI
     Promise.all([loadCachedTasks(), loadCachedHistory()]).then(([cachedTasks, cachedHistory]) => {
       if (cachedTasks.length > 0) {
@@ -118,6 +128,19 @@ export const useTasks = () => {
 
     return unsubscribe;
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.uid || tasks.length === 0) return;
+  
+    const onUpdate = (taskId, notificationIds) =>
+      updateTask(taskId, { notificationIds }).catch(() => {});
+  
+    const timer = setTimeout(() => {
+      syncNotificationWindow(tasks, bestTimeRef.current, user.uid, onUpdate);
+    }, 2000);
+  
+    return () => clearTimeout(timer);
+  }, [tasks, user?.uid]);
 
   // ── Create task ─────────────────────────────────────────────
 
@@ -195,7 +218,7 @@ export const useTasks = () => {
       const currentTask = tasks.find((t) => t.id === taskId);
 
       if (currentTask && "dueDate" in updates) {
-        const oldDue = currentTask.dueDate?.getTime?.() ?? null;
+        const oldDue = currentTask.dueDate?.toDate?.()?.getTime() ?? null;
         const newDue = updates.dueDate ? new Date(updates.dueDate).getTime() : null;
 
         if (oldDue !== newDue) {

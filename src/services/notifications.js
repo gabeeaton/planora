@@ -129,7 +129,7 @@ export const scheduleTaskReminder = async (task, bestTime = null) => {
 
   if (!task?.dueDate) return result;
 
-  const due = new Date(task.dueDate);
+  const due = task.dueDate?.toDate?.() ?? new Date(task.dueDate);
   const hasTime = Array.isArray(task.dueTime) && task.dueTime.length === 2;
   // Merge dueTime [h, m] into the date if provided, otherwise default to 9am
   if (hasTime) {
@@ -589,6 +589,50 @@ export const updateOverdueBadge = async (tasks) => {
 };
 
 // ── Internal helpers ──────────────────────────────────────────
+
+// ── Notification sync (rolling 7-day window) ──────────────────
+
+const SYNC_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Syncs scheduled notifications to match current task state.
+ * Only keeps notifications for tasks due within the next 7 days.
+ * Safe to call on every task list change — cancels stale, schedules missing.
+ *
+ * @param {Array}  tasks       All tasks
+ * @param {string} bestTime    "morning"|"afternoon"|"evening"|"night"
+ * @param {string} uid         Firebase user ID
+ * @param {Function} onUpdate  Callback(taskId, notificationIds) to persist IDs back to Firestore
+ */
+export const syncNotificationWindow = async (tasks, bestTime, uid, onUpdate) => {
+  if (!uid) return;
+
+  const granted = await checkNotificationPermissions();
+  if (!granted) return;
+
+  const now = new Date();
+  const windowEnd = new Date(now.getTime() + SYNC_WINDOW_MS);
+
+  for (const task of tasks) {
+    if (task.completed || !task.dueDate) continue;
+
+    const due = task.dueDate?.toDate?.() ?? new Date(task.dueDate);
+    const inWindow = due > now && due <= windowEnd;
+    const hasIds = task.notificationIds?.id24h || task.notificationIds?.id2h;
+
+    if (inWindow && !hasIds) {
+      // Task just entered the window — schedule it
+      const notificationIds = await scheduleTaskReminder(task, bestTime);
+      if (notificationIds.id24h || notificationIds.id2h) {
+        await onUpdate(task.id, notificationIds);
+      }
+    } else if (!inWindow && hasIds) {
+      // Task left the window (completed, deleted, date pushed out) — cancel
+      await cancelTaskReminder(task.notificationIds).catch(() => {});
+      await onUpdate(task.id, null);
+    }
+  }
+};
 
 const _formatDue = (date) => {
   const now   = new Date();
