@@ -6,7 +6,7 @@
 // ============================================================
 
 // ── Demo mode (set true for screenshots/TikTok, false for production) ──
-const DEMO_MODE = false;
+const DEMO_MODE = !false;
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
