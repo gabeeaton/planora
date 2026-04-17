@@ -95,7 +95,7 @@ const tabStyles = StyleSheet.create({
   },
   tab:      { flex: 1, alignItems: "center", gap: 4 },
   iconWrap: { width: 40, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 12 },
-  label:    { fontSize: 10, fontWeight: "600", color: "#44445A", textTransform: "uppercase", letterSpacing: 0.3 },
+  label:    { fontSize: 10, fontFamily: "Outfit-SemiBold", color: "#44445A", textTransform: "uppercase", letterSpacing: 0.3 },
 });
 
 // ── Main tab navigator ────────────────────────────────────────

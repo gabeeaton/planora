@@ -7,7 +7,7 @@ const makeStyles = () => StyleSheet.create({
   tag:    { borderWidth: 1, borderRadius: radius.full, alignSelf: "flex-start" },
   tagSm:  { paddingHorizontal: 6, paddingVertical: 2 },
   tagMd:  { paddingHorizontal: 10, paddingVertical: 4 },
-  text:   { fontWeight: "600" },
+  text:   { fontFamily: "Outfit-SemiBold" },
   textSm: { fontSize: 10 },
   textMd: { fontSize: 12 },
 });

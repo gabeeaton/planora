@@ -79,7 +79,7 @@ const makeStyles = (colors) =>
     },
     backBtn:        { padding: 4 },
     headerText:     { flex: 1 },
-    headerTitle:    { fontSize: 18, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.3 },
+    headerTitle:    { fontSize: 18, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, letterSpacing: -0.3 },
     headerSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
 
     scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: 32 },
@@ -105,13 +105,13 @@ const makeStyles = (colors) =>
       alignItems: "center", justifyContent: "center",
     },
     syncInfo:     { flex: 1 },
-    syncTitle:    { fontSize: 13, fontWeight: "700", color: colors.textPrimary },
+    syncTitle:    { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.textPrimary },
     syncSub:      { fontSize: 11, color: colors.textMuted, marginTop: 2 },
     syncBtn: {
       backgroundColor: colors.accent, borderRadius: radius.md,
       paddingHorizontal: 14, paddingVertical: 8,
     },
-    syncBtnText:  { color: "#fff", fontSize: 13, fontWeight: "700" },
+    syncBtnText:  { color: "#fff", fontSize: 13, fontFamily: "Outfit-Bold" },
     changeUrlBtn: { alignSelf: "flex-start", marginBottom: spacing.md, marginTop: 2 },
     changeUrlText:{ fontSize: 12, color: colors.textMuted },
 
@@ -123,11 +123,11 @@ const makeStyles = (colors) =>
       marginBottom: spacing.md,
     },
     infoText: { ...typography.bodySmall, color: colors.textSecondary, flex: 1, lineHeight: 18 },
-    infoLink: { color: colors.accent, fontWeight: "700" },
+    infoLink: { color: colors.accent, fontFamily: "Outfit-Bold" },
 
     // ── URL input ──
     label: {
-      fontSize: 10, fontWeight: "700", color: colors.textMuted,
+      fontSize: 10, fontFamily: "Outfit-Bold", color: colors.textMuted,
       letterSpacing: 1, marginBottom: 8, textTransform: "uppercase",
     },
     urlInputWrap: {
@@ -145,13 +145,13 @@ const makeStyles = (colors) =>
       backgroundColor: colors.accent, borderRadius: radius.md,
       flexDirection: "row", alignItems: "center", gap: 5,
     },
-    urlFetchBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+    urlFetchBtnText: { color: "#fff", fontFamily: "Outfit-Bold", fontSize: 13 },
 
     orDivider: {
       flexDirection: "row", alignItems: "center", gap: 8, marginVertical: spacing.sm,
     },
     orLine: { flex: 1, height: 1, backgroundColor: colors.border },
-    orText: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+    orText: { fontSize: 11, color: colors.textMuted, fontFamily: "Outfit-SemiBold" },
 
     // ── LMS instruction card ──
     stepsCard: {
@@ -159,7 +159,7 @@ const makeStyles = (colors) =>
       borderWidth: 1, borderColor: colors.border,
       padding: spacing.md, marginBottom: spacing.md,
     },
-    stepsTitle: { fontSize: 13, fontWeight: "700", color: colors.textPrimary, marginBottom: 12 },
+    stepsTitle: { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.textPrimary, marginBottom: 12 },
 
     // Platform tabs inside the card
     lmsTabs: {
@@ -172,7 +172,7 @@ const makeStyles = (colors) =>
       borderColor: colors.border, backgroundColor: colors.bgElevated,
     },
     lmsTabActive: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
-    lmsTabText:   { fontSize: 12, fontWeight: "600", color: colors.textMuted },
+    lmsTabText:   { fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
     lmsTabTextActive: { color: colors.accent },
 
     step: { flexDirection: "row", gap: 10, marginBottom: 10, alignItems: "flex-start" },
@@ -181,7 +181,7 @@ const makeStyles = (colors) =>
       backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent,
       alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1,
     },
-    stepNumText: { fontSize: 10, fontWeight: "800", color: colors.accent },
+    stepNumText: { fontSize: 10, fontFamily: "Outfit-ExtraBold", color: colors.accent },
     stepText:    { fontSize: 13, color: colors.textSecondary, flex: 1, lineHeight: 19 },
 
     tipRow: {
@@ -203,14 +203,14 @@ const makeStyles = (colors) =>
       backgroundColor: colors.bgElevated, borderWidth: 1, borderColor: colors.border,
       alignItems: "center", justifyContent: "center", marginBottom: 4,
     },
-    dropTitle: { fontSize: 14, fontWeight: "700", color: colors.textPrimary },
+    dropTitle: { fontSize: 14, fontFamily: "Outfit-Bold", color: colors.textPrimary },
     dropSub:   { fontSize: 12, color: colors.textSecondary, textAlign: "center", paddingHorizontal: 24 },
     dropBtn: {
       marginTop: 4, flexDirection: "row", alignItems: "center", gap: 6,
       backgroundColor: colors.accent, borderRadius: radius.full,
       paddingHorizontal: 16, paddingVertical: 8, ...shadows.accent,
     },
-    dropBtnText: { fontSize: 12, color: "#fff", fontWeight: "700" },
+    dropBtnText: { fontSize: 12, color: "#fff", fontFamily: "Outfit-Bold" },
 
     fileLoaded: {
       flexDirection: "row", alignItems: "center", gap: 12,
@@ -222,7 +222,7 @@ const makeStyles = (colors) =>
       width: 40, height: 40, borderRadius: 10,
       backgroundColor: "rgba(92,255,143,0.12)", alignItems: "center", justifyContent: "center",
     },
-    fileName:     { fontSize: 14, fontWeight: "700", color: colors.textPrimary, flex: 1 },
+    fileName:     { fontSize: 14, fontFamily: "Outfit-Bold", color: colors.textPrimary, flex: 1 },
     fileEventCount: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
     fileChangeBtn:  { padding: 6 },
 
@@ -241,7 +241,7 @@ const makeStyles = (colors) =>
       gap: 10, ...shadows.accent,
     },
     primaryBtnDisabled: { opacity: 0.45 },
-    primaryBtnText:     { color: "#fff", fontSize: 15, fontWeight: "700" },
+    primaryBtnText:     { color: "#fff", fontSize: 15, fontFamily: "Outfit-Bold" },
 
     // ── Results (task list) ──
     resultsBar: {
@@ -250,9 +250,9 @@ const makeStyles = (colors) =>
       borderBottomWidth: 1, borderBottomColor: colors.border,
       backgroundColor: colors.bgCard,
     },
-    resultsTitle:    { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+    resultsTitle:    { fontSize: 15, fontFamily: "Outfit-Bold", color: colors.textPrimary },
     resultsSubtitle: { fontSize: 11, color: colors.textSecondary, marginTop: 1 },
-    selectAllText:   { fontSize: 13, color: colors.accent, fontWeight: "700" },
+    selectAllText:   { fontSize: 13, color: colors.accent, fontFamily: "Outfit-Bold" },
 
     taskList: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 16 },
     taskRow: {
@@ -268,7 +268,7 @@ const makeStyles = (colors) =>
     },
     checkboxSelected: { backgroundColor: colors.accent, borderColor: colors.accent },
     taskContent:  { flex: 1 },
-    taskTitle:    { fontSize: 14, fontWeight: "600", color: colors.textPrimary, marginBottom: 6 },
+    taskTitle:    { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, marginBottom: 6 },
     taskTitleDeselected: { color: colors.textMuted },
     taskMeta:     { flexDirection: "row", gap: 6, flexWrap: "wrap" },
     metaChip: {
@@ -276,7 +276,7 @@ const makeStyles = (colors) =>
       borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
       borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgInput,
     },
-    metaText: { fontSize: 10, color: colors.textMuted, fontWeight: "600" },
+    metaText: { fontSize: 10, color: colors.textMuted, fontFamily: "Outfit-SemiBold" },
 
     // ── Sticky import footer ──
     stickyFooter: {
@@ -290,14 +290,14 @@ const makeStyles = (colors) =>
       paddingVertical: 14, paddingHorizontal: spacing.md,
       borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
     },
-    footerBackText: { color: colors.textSecondary, fontWeight: "600", fontSize: 14 },
+    footerBackText: { color: colors.textSecondary, fontFamily: "Outfit-SemiBold", fontSize: 14 },
     importBtn: {
       flex: 1, backgroundColor: colors.accent, borderRadius: radius.md,
       paddingVertical: 14, flexDirection: "row", alignItems: "center",
       justifyContent: "center", gap: 8, ...shadows.accent,
     },
     importBtnDisabled: { opacity: 0.45 },
-    importBtnText:     { color: "#fff", fontSize: 15, fontWeight: "700" },
+    importBtnText:     { color: "#fff", fontSize: 15, fontFamily: "Outfit-Bold" },
 
     // ── Success ──
     successWrap: {
@@ -306,12 +306,12 @@ const makeStyles = (colors) =>
     },
     successRing: {
       width: 88, height: 88, borderRadius: 44,
-      borderWidth: 2, borderColor: "#5CFF8F",
-      backgroundColor: "rgba(92,255,143,0.1)",
+      borderWidth: 2, borderColor: colors.low,
+      backgroundColor: colors.lowGlow,
       alignItems: "center", justifyContent: "center", marginBottom: spacing.lg,
     },
     successTitle: {
-      fontSize: 26, fontWeight: "800", color: colors.textPrimary,
+      fontSize: 26, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary,
       textAlign: "center", letterSpacing: -0.5, marginBottom: 10,
     },
     successSubtitle: {
@@ -323,13 +323,13 @@ const makeStyles = (colors) =>
       paddingVertical: 14, paddingHorizontal: spacing.xl,
       flexDirection: "row", alignItems: "center", gap: 10, ...shadows.accent,
     },
-    doneBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+    doneBtnText: { color: "#fff", fontSize: 16, fontFamily: "Outfit-Bold" },
     importingOverlay: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: "rgba(0,0,0,0.65)",
       alignItems: "center", justifyContent: "center", gap: 16,
     },
-    importingText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+    importingText: { color: "#fff", fontSize: 15, fontFamily: "Outfit-SemiBold" },
 
     gradeNudgeCard: {
       flexDirection: "row", alignItems: "center",
@@ -339,7 +339,7 @@ const makeStyles = (colors) =>
       gap: 10, width: "100%",
     },
     gradeNudgeLeft:  { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-    gradeNudgeTitle: { fontSize: 13, fontWeight: "700", color: colors.textPrimary },
+    gradeNudgeTitle: { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.textPrimary },
     gradeNudgeSub:   { fontSize: 11, color: colors.accent, marginTop: 2 },
   });
 
@@ -505,7 +505,7 @@ const SyllabusParserScreen = ({ navigation }) => {
       <SafeAreaView style={styles.safe}>
         <View style={styles.successWrap}>
           <View style={styles.successRing}>
-            <Feather name="check" size={36} color="#5CFF8F" />
+            <Feather name="check" size={36} color={colors.low} />
           </View>
           <Text style={styles.successTitle}>
             {importCount} task{importCount !== 1 ? "s" : ""} added!

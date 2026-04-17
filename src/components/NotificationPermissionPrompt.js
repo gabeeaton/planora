@@ -57,7 +57,7 @@ const makeStyles = (colors) => StyleSheet.create({
     ...shadows.accent,
   },
   title: {
-    fontSize: 22, fontWeight: "800", color: colors.textPrimary,
+    fontSize: 22, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary,
     textAlign: "center", letterSpacing: -0.3, marginBottom: spacing.xs,
   },
   subtitle: {
@@ -76,7 +76,7 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   benefitText: {
     flex: 1, fontSize: 14, color: colors.textPrimary,
-    fontWeight: "500", lineHeight: 19,
+    fontFamily: "Outfit-Medium", lineHeight: 19,
   },
   divider: {
     height: 1, backgroundColor: colors.border,
@@ -94,7 +94,7 @@ const makeStyles = (colors) => StyleSheet.create({
     ...shadows.accent,
   },
   allowBtnText: {
-    color: "#fff", fontSize: 16, fontWeight: "800",
+    color: "#fff", fontSize: 16, fontFamily: "Outfit-ExtraBold",
   },
   skipBtn: {
     paddingVertical: 10,

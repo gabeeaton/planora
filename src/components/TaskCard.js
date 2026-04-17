@@ -27,7 +27,7 @@ import { getRecurrenceLabel } from "../services/recurringTasks";
 const makeStyles = (colors) =>
   StyleSheet.create({
     card: {
-      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+      backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
       borderRadius: 14,
       padding: spacing.md,
       marginBottom: spacing.sm,
@@ -62,7 +62,7 @@ const makeStyles = (colors) =>
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: "rgba(92,255,143,0.2)",
+      backgroundColor: colors.lowGlow,
       borderRadius: 14,
       pointerEvents: "none",
     },
@@ -133,7 +133,7 @@ const makeStyles = (colors) =>
       borderWidth: 1,
       borderColor: colors.accent,
     },
-    recurrenceText: { fontSize: 9, color: colors.accent, fontWeight: "700"},
+    recurrenceText: { fontSize: 9, color: colors.accent, fontFamily: "Outfit-Bold"},
     avoidanceChip: {
    flexDirection: "row",
       alignItems: "center",
@@ -145,7 +145,7 @@ const makeStyles = (colors) =>
       borderWidth: 1,
       borderColor: colors.medium,
     },
-    avoidanceText: { fontSize: 9, color: colors.medium, fontWeight: "600" },
+    avoidanceText: { fontSize: 9, color: colors.medium, fontFamily: "Outfit-SemiBold" },
     description: {
       ...typography.bodySmall,
       color: colors.textSecondary,
@@ -255,10 +255,24 @@ const TaskCard = ({
     ? priorityGlow(colors.isDark)[displayPriority]
     : "transparent";
 
-  const todayStart = new Date();
+  const now = new Date();
+  const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
-  const isOverdue =
-    task.dueDate && !task.completed && new Date(task.dueDate) < todayStart;
+  const isOverdue = (() => {
+    if (!task.dueDate || task.completed) return false;
+    const due = new Date(task.dueDate);
+    const dueDay = new Date(due);
+    dueDay.setHours(0, 0, 0, 0);
+    if (dueDay < todayStart) return true;
+    if (dueDay.getTime() === todayStart.getTime()) {
+      if (Array.isArray(task.dueTime) && task.dueTime.length === 2) {
+        const dt = new Date(due);
+        dt.setHours(task.dueTime[0], task.dueTime[1], 0, 0);
+        return dt < now;
+      }
+    }
+    return false;
+  })();
 
   const lastTouched = task.lastTouchedAt ? new Date(task.lastTouchedAt) : null;
   const daysSinceTouched = lastTouched

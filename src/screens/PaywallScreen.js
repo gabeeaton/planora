@@ -42,7 +42,7 @@ const makeStyles = (colors) => StyleSheet.create({
     alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
     ...shadows.accent,
   },
-  heroTitle:    { fontSize: 26, fontWeight: "800", color: colors.textPrimary, textAlign: "center", letterSpacing: -0.5, marginBottom: 8 },
+  heroTitle:    { fontSize: 26, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, textAlign: "center", letterSpacing: -0.5, marginBottom: 8 },
   heroSubtitle: { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.sm },
   heroBadge: {
     flexDirection: "row", alignItems: "center", gap: 6,
@@ -50,7 +50,7 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 5,
     borderWidth: 1, borderColor: colors.accent,
   },
-  heroBadgeText: { fontSize: 12, color: colors.accent, fontWeight: "700" },
+  heroBadgeText: { fontSize: 12, color: colors.accent, fontFamily: "Outfit-Bold" },
   featuresLabel: { ...typography.label, color: colors.textMuted, marginBottom: spacing.sm, paddingLeft: 2 },
 
   featuresCard: {
@@ -65,7 +65,7 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.accentGlow, alignItems: "center", justifyContent: "center",
     borderWidth: 1, borderColor: colors.accent, flexShrink: 0,
   },
-  featureTitle: { fontSize: 14, fontWeight: "700", color: colors.textPrimary, marginBottom: 2 },
+  featureTitle: { fontSize: 14, fontFamily: "Outfit-Bold", color: colors.textPrimary, marginBottom: 2 },
   featureDesc:  { fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
 
   plansRow:     { flexDirection: "column", gap: 10, marginBottom: spacing.md },
@@ -80,12 +80,12 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.accent, borderRadius: radius.full,
     paddingHorizontal: 8, paddingVertical: 3, marginLeft: spacing.sm, alignSelf: "center",
   },
-  planBadgeText:   { fontSize: 9, color: "#fff", fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" },
-  planLabel:       { fontSize: 16, color: colors.textPrimary, fontWeight: "700" },
+  planBadgeText:   { fontSize: 9, color: "#fff", fontFamily: "Outfit-ExtraBold", letterSpacing: 0.5, textTransform: "uppercase" },
+  planLabel:       { fontSize: 16, color: colors.textPrimary, fontFamily: "Outfit-Bold" },
   planSub:         { fontSize: 12, color: colors.textMuted, marginTop: 3 },
-  planPrice:       { fontSize: 20, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.5 },
+  planPrice:       { fontSize: 20, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, letterSpacing: -0.5 },
   planPer:         { fontSize: 11, color: colors.textMuted, marginTop: 2 },
-  planSavings:     { fontSize: 12, color: colors.accent, fontWeight: "700", marginTop: 3 },
+  planSavings:     { fontSize: 12, color: colors.accent, fontFamily: "Outfit-Bold", marginTop: 3 },
   planCheck: {
     width: 22, height: 22, borderRadius: 11,
     backgroundColor: colors.accent, alignItems: "center", justifyContent: "center",
@@ -104,7 +104,7 @@ const makeStyles = (colors) => StyleSheet.create({
     ...shadows.accent,
   },
   ctaBtnDisabled: { opacity: 0.6 },
-  ctaBtnText:     { color: "#fff", fontSize: 17, fontWeight: "800" },
+  ctaBtnText:     { color: "#fff", fontSize: 17, fontFamily: "Outfit-ExtraBold" },
   ctaNote:        { fontSize: 12, color: colors.textMuted, textAlign: "center", marginBottom: spacing.sm },
 
   restoreBtn:     { alignItems: "center", paddingVertical: 8 },

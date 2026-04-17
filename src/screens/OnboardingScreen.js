@@ -65,13 +65,13 @@ const makeStyles = (colors) =>
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
     },
-    brandName: { fontSize: 16, fontWeight: "800", color: colors.textPrimary },
+    brandName: { fontSize: 16, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary },
 
     scroll: { paddingHorizontal: spacing.lg, paddingBottom: 40 },
     stepContainer: { paddingTop: spacing.md },
     stepTitle: {
       fontSize: 26,
-      fontWeight: "800",
+      fontFamily: "Outfit-ExtraBold",
       color: colors.textPrimary,
       marginBottom: 8,
       letterSpacing: -0.5,
@@ -83,7 +83,7 @@ const makeStyles = (colors) =>
     },
     fieldLabel: {
       fontSize: 11,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.textMuted,
       letterSpacing: 0.8,
       marginBottom: 8,
@@ -118,9 +118,9 @@ const makeStyles = (colors) =>
     optionText: {
       fontSize: 15,
       color: colors.textSecondary,
-      fontWeight: "500",
+      fontFamily: "Outfit-Medium",
     },
-    optionTextSelected: { color: colors.accent, fontWeight: "700" },
+    optionTextSelected: { color: colors.accent, fontFamily: "Outfit-Bold" },
     systemToggleRow: {
       flexDirection: "row",
       backgroundColor: colors.bgCard,
@@ -137,7 +137,7 @@ const makeStyles = (colors) =>
       justifyContent: "center",
     },
     systemToggleBtnActive: { backgroundColor: colors.accent },
-    systemToggleText: { fontSize: 14, fontWeight: "600", color: colors.textMuted },
+    systemToggleText: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
     systemToggleTextActive: { color: "#fff" },
     classCard: {
       backgroundColor: colors.bgCard,
@@ -156,13 +156,13 @@ const makeStyles = (colors) =>
     classCardLabel: {
       fontSize: 12,
       color: colors.textMuted,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       textTransform: "uppercase",
     },
     subLabel: {
       fontSize: 11,
       color: colors.textMuted,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
       marginTop: 10,
       marginBottom: 6,
     },
@@ -182,7 +182,7 @@ const makeStyles = (colors) =>
     chipSmText: {
       fontSize: 12,
       color: colors.textSecondary,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
     },
     chipSmTextSelected: { color: colors.accent },
     addClassBtn: {
@@ -196,7 +196,7 @@ const makeStyles = (colors) =>
       borderColor: colors.accent,
       borderRadius: radius.md,
     },
-    addClassText: { color: colors.accent, fontWeight: "600", fontSize: 14 },
+    addClassText: { color: colors.accent, fontFamily: "Outfit-SemiBold", fontSize: 14 },
 
     bottomNav: {
       flexDirection: "row",
@@ -221,7 +221,7 @@ const makeStyles = (colors) =>
       ...shadows.accent,
     },
     nextBtnDisabled: { opacity: 0.4 },
-    nextBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+    nextBtnText: { color: "#fff", fontSize: 15, fontFamily: "Outfit-Bold" },
 
     // ── Import step styles ─────────────────────────────────
     importHero: {
@@ -252,7 +252,7 @@ const makeStyles = (colors) =>
       marginBottom: spacing.sm,
     },
     parseBtnDisabled: { opacity: 0.45 },
-    parseBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+    parseBtnText: { color: "#fff", fontSize: 14, fontFamily: "Outfit-Bold" },
 
     infoCard: {
       flexDirection: "row",
@@ -271,7 +271,7 @@ const makeStyles = (colors) =>
       flex: 1,
       lineHeight: 18,
     },
-    infoLink: { color: colors.accent, fontWeight: "700" },
+    infoLink: { color: colors.accent, fontFamily: "Outfit-Bold" },
     urlInputWrap: {
       flexDirection: "row",
       alignItems: "center",
@@ -298,7 +298,7 @@ const makeStyles = (colors) =>
       alignItems: "center",
       gap: 5,
     },
-    fetchBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+    fetchBtnText: { color: "#fff", fontFamily: "Outfit-Bold", fontSize: 13 },
     orRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -306,7 +306,7 @@ const makeStyles = (colors) =>
       marginVertical: 10,
     },
     orLine: { flex: 1, height: 1, backgroundColor: colors.border },
-    orText: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+    orText: { fontSize: 11, color: colors.textMuted, fontFamily: "Outfit-SemiBold" },
     pickFileBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -322,7 +322,7 @@ const makeStyles = (colors) =>
     pickFileBtnText: {
       fontSize: 14,
       color: colors.textMuted,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
     },
     stepsCard: {
       backgroundColor: colors.bgCard,
@@ -334,7 +334,7 @@ const makeStyles = (colors) =>
     },
     stepsTitle: {
       fontSize: 12,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.textPrimary,
       marginBottom: 8,
     },
@@ -354,7 +354,7 @@ const makeStyles = (colors) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    stepNumText: { fontSize: 9, fontWeight: "800", color: colors.accent },
+    stepNumText: { fontSize: 9, fontFamily: "Outfit-ExtraBold", color: colors.accent },
     stepText: {
       fontSize: 12,
       color: colors.textSecondary,
@@ -379,7 +379,7 @@ const makeStyles = (colors) =>
     },
     parsedTitle: {
       fontSize: 14,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.textPrimary,
       flex: 1,
     },
@@ -533,12 +533,12 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
           style={[
             styles.importHeroIcon,
             {
-              borderColor: "#5CFF8F",
-              backgroundColor: "rgba(92,255,143,0.12)",
+              borderColor: colors.low,
+              backgroundColor: colors.lowGlow,
             },
           ]}
         >
-          <Feather name="check" size={32} color="#5CFF8F" />
+          <Feather name="check" size={32} color={colors.low} />
         </View>
         <Text style={[styles.stepTitle, { textAlign: "center" }]}>
           {importCount} tasks added!
@@ -555,7 +555,7 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
       <View>
         <View style={styles.parsedPreview}>
           <View style={styles.parsedHeader}>
-            <Feather name="check-circle" size={16} color="#5CFF8F" />
+            <Feather name="check-circle" size={16} color={colors.low} />
             <Text style={styles.parsedTitle}>
               {parsedTasks.length} assignments found
             </Text>
@@ -1084,10 +1084,10 @@ const OnboardingScreen = ({ navigation }) => {
               flex: 1, flexDirection: "column", alignItems: "center",
               gap: 4, paddingVertical: spacing.md,
             }]}>
-              <Text style={{ fontSize: 28, fontWeight: "800", color: "#22C55E" }}>
+              <Text style={{ fontSize: 28, fontFamily: "Outfit-ExtraBold", color: "#22C55E" }}>
                 {importedCount}
               </Text>
-              <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: "600" }}>
+              <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: "Outfit-SemiBold" }}>
                 tasks imported
               </Text>
             </View>
@@ -1096,10 +1096,10 @@ const OnboardingScreen = ({ navigation }) => {
                 flex: 1, flexDirection: "column", alignItems: "center",
                 gap: 4, paddingVertical: spacing.md,
               }]}>
-                <Text style={{ fontSize: 28, fontWeight: "800", color: colors.accent }}>
+                <Text style={{ fontSize: 28, fontFamily: "Outfit-ExtraBold", color: colors.accent }}>
                   {detectedClasses.length}
                 </Text>
-                <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: "600" }}>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: "Outfit-SemiBold" }}>
                   classes found
                 </Text>
               </View>

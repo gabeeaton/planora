@@ -84,13 +84,13 @@ export const setActiveTheme = () => {};
 export const getActiveTheme = () => COLOR_THEMES.purple;
 
 export const typography = {
-  display:   { fontWeight: "800", fontSize: 32, letterSpacing: -1   },
-  h1:        { fontWeight: "700", fontSize: 24, letterSpacing: -0.5 },
-  h2:        { fontWeight: "600", fontSize: 18, letterSpacing: -0.3 },
-  h3:        { fontWeight: "600", fontSize: 15 },
-  body:      { fontWeight: "400", fontSize: 14, lineHeight: 20 },
-  bodySmall: { fontWeight: "400", fontSize: 12, lineHeight: 17 },
-  label:     { fontWeight: "600", fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase" },
+  display:   { fontFamily: "Outfit-ExtraBold", fontSize: 32, letterSpacing: -1   },
+  h1:        { fontFamily: "Outfit-Bold",      fontSize: 24, letterSpacing: -0.5 },
+  h2:        { fontFamily: "Outfit-SemiBold",  fontSize: 18, letterSpacing: -0.3 },
+  h3:        { fontFamily: "Outfit-SemiBold",  fontSize: 15 },
+  body:      { fontFamily: "Outfit-Regular",   fontSize: 14, lineHeight: 20 },
+  bodySmall: { fontFamily: "Outfit-Regular",   fontSize: 12, lineHeight: 17 },
+  label:     { fontFamily: "Outfit-SemiBold",  fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase" },
 };
 
 export const spacing  = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 };

@@ -24,7 +24,7 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingVertical: 16, paddingHorizontal: spacing.md,
     flexDirection: "row", alignItems: "center", gap: 10, ...shadows.accent,
   },
-  buttonText: { color: "#fff", fontSize: 15, fontWeight: "700", flex: 1 },
+  buttonText: { color: "#fff", fontSize: 15, fontFamily: "Outfit-Bold", flex: 1 },
 
   // Result card
   resultCard: {
@@ -60,9 +60,9 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3,
     borderWidth: 1, borderColor: colors.accent,
   },
-  aiChipText: { fontSize: 10, color: colors.accent, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  aiChipText: { fontSize: 10, color: colors.accent, fontFamily: "Outfit-Bold", textTransform: "uppercase", letterSpacing: 0.5 },
   recommendation: {
-    fontSize: 17, fontWeight: "800", color: colors.textPrimary,
+    fontSize: 17, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary,
     lineHeight: 24, marginBottom: spacing.sm,
   },
   reasoning: {
@@ -76,8 +76,8 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   actionBtnOutline: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgElevated },
   actionBtnFilled:  { backgroundColor: colors.accent, ...shadows.accent },
-  actionBtnText:    { fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
-  actionBtnTextFilled: { fontSize: 12, color: "#fff", fontWeight: "700" },
+  actionBtnText:    { fontSize: 12, color: colors.textSecondary, fontFamily: "Outfit-SemiBold" },
+  actionBtnTextFilled: { fontSize: 12, color: "#fff", fontFamily: "Outfit-Bold" },
 
   // Priority done state
   priorityDoneBadge: {
@@ -86,7 +86,7 @@ const makeStyles = (colors) => StyleSheet.create({
     borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 5,
     borderWidth: 1, borderColor: "#5CFF8F",
   },
-  priorityDoneText: { fontSize: 12, color: "#5CFF8F", fontWeight: "600" },
+  priorityDoneText: { fontSize: 12, color: "#5CFF8F", fontFamily: "Outfit-SemiBold" },
 
   errorCard: {
     flexDirection: "row", alignItems: "center",

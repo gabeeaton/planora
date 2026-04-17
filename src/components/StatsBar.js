@@ -67,8 +67,8 @@ const styles = StyleSheet.create({
   },
   stat:     { alignItems: "center", flex: 1 },
   iconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 6 },
-  value:    { fontSize: 22, fontWeight: "800", letterSpacing: -0.5 },
-  label:    { fontSize: 11, fontWeight: "500", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
+  value:    { fontFamily: "Outfit-ExtraBold", fontSize: 22, letterSpacing: -0.5 },
+  label:    { fontFamily: "Outfit-Medium",    fontSize: 11, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
   divider:  { width: 1, height: 40 },
 });
 

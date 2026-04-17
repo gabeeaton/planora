@@ -17,9 +17,9 @@ const makeStyles = (colors) => StyleSheet.create({
     borderWidth: 1, borderColor: colors.border, borderStyle: "dashed",
   },
   icon: { width: 28, height: 28, borderRadius: 8, backgroundColor: colors.accentGlow, alignItems: "center", justifyContent: "center" },
-  label: { flex: 1, fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
+  label: { flex: 1, fontSize: 13, color: colors.textSecondary, fontFamily: "Outfit-Medium" },
   badge: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.accentGlow, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: colors.accent },
-  badgeText: { fontSize: 10, color: colors.accent, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
+  badgeText: { fontSize: 10, color: colors.accent, fontFamily: "Outfit-Bold", letterSpacing: 0.3, textTransform: "uppercase" },
 });
 
 const SubscriptionGate = ({ children, featureName = "This feature", onUpgrade }) => {

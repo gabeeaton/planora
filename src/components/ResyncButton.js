@@ -19,7 +19,7 @@ const makeStyles = (colors) => StyleSheet.create({
     borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: spacing.md,
     marginBottom: spacing.md, justifyContent: "center",
   },
-  text:    { fontSize: 13, color: colors.textMuted, fontWeight: "600" },
+  text:    { fontSize: 13, color: colors.textMuted, fontFamily: "Outfit-SemiBold" },
   subtext: { fontSize: 11, color: colors.textMuted },
 });
 

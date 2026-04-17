@@ -27,7 +27,7 @@ const makeStyles = (colors) => StyleSheet.create({
   navDisabled: { opacity: 0.3 },
   monthTitle: {
     fontSize: 15,
-    fontWeight: "700",
+    fontFamily: "Outfit-Bold",
     color: colors.textPrimary,
   },
   // Week header row — mirrors grid row exactly
@@ -45,7 +45,7 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   weekLabel: {
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: "Outfit-SemiBold",
     color: colors.textMuted,
     textTransform: "uppercase",
   },
@@ -75,16 +75,16 @@ const makeStyles = (colors) => StyleSheet.create({
   cellText: {
     fontSize: 14,
     color: colors.textPrimary,
-    fontWeight: "400",
+    fontFamily: "Outfit-Regular",
     textAlign: "center",
   },
   cellTextSelected: {
     color: "#FFFFFF",
-    fontWeight: "700",
+    fontFamily: "Outfit-Bold",
   },
   cellTextToday: {
     color: colors.accent,
-    fontWeight: "700",
+    fontFamily: "Outfit-Bold",
   },
   cellTextPast: {
     color: colors.textMuted,
@@ -102,7 +102,7 @@ const makeStyles = (colors) => StyleSheet.create({
   clearText: {
     color: "#FF6B6B",
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: "Outfit-SemiBold",
   },
 });
 

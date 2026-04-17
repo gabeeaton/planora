@@ -41,7 +41,7 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 6,
   },
   importBtnDisabled: { opacity: 0.5 },
-  importBtnText:     { color: "#fff", fontSize: 13, fontWeight: "700" },
+  importBtnText:     { color: "#fff", fontSize: 13, fontFamily: "Outfit-Bold" },
 
   scroll:         { flex: 1 },
   scrollContent:  { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 40 },
@@ -65,7 +65,7 @@ const makeStyles = (colors) => StyleSheet.create({
     width: 8, height: 8, borderRadius: 4, marginTop: 5, flexShrink: 0,
   },
   titleInput: {
-    flex: 1, fontSize: 14, fontWeight: "600",
+    flex: 1, fontSize: 14, fontFamily: "Outfit-SemiBold",
     color: colors.textPrimary, padding: 0,
   },
   removeBtn:    { padding: 4 },
@@ -79,7 +79,7 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3,
     borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
   },
-  metaChipText: { fontSize: 11, color: colors.textSecondary, fontWeight: "500" },
+  metaChipText: { fontSize: 11, color: colors.textSecondary, fontFamily: "Outfit-Medium" },
   classInput: {
     flex: 1, fontSize: 11, color: colors.textSecondary,
     backgroundColor: colors.bgInput, borderRadius: radius.full,
@@ -93,7 +93,7 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: radius.full, borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
   },
-  priorityBtnText: { fontSize: 11, fontWeight: "600", color: colors.textMuted },
+  priorityBtnText: { fontSize: 11, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
 
   summaryRow: {
     flexDirection: "row", alignItems: "center", gap: 8,
@@ -117,18 +117,18 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  gradeSheetTitle: { fontSize: 17, fontWeight: "800", color: colors.textPrimary, marginBottom: 4 },
+  gradeSheetTitle: { fontSize: 17, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, marginBottom: 4 },
   gradeSheetSub:   { fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
   gradeClassItem:  { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  gradeClassName:  { fontSize: 14, fontWeight: "700", color: colors.textPrimary, marginBottom: 10 },
+  gradeClassName:  { fontSize: 14, fontFamily: "Outfit-Bold", color: colors.textPrimary, marginBottom: 10 },
   gradeChipsRow:   { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   gradeChip:         { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.bg },
   gradeChipSelected: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
-  gradeChipText:         { fontSize: 13, fontWeight: "700", color: colors.textMuted },
+  gradeChipText:         { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.textMuted },
   gradeChipTextSelected: { color: colors.accent },
   gradeActions:    { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: 10 },
   gradeSaveBtn:    { backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 14, alignItems: "center" },
-  gradeSaveBtnText:{ color: "#fff", fontSize: 15, fontWeight: "700" },
+  gradeSaveBtnText:{ color: "#fff", fontSize: 15, fontFamily: "Outfit-Bold" },
   gradeSkipBtn:    { alignItems: "center", paddingVertical: 10 },
   gradeSkipText:   { fontSize: 13, color: colors.textMuted },
 });

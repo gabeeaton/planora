@@ -6,6 +6,7 @@ import { ThemeProvider } from "./src/utils/ThemeContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { configurePurchases } from "./src/services/purchases";
+import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold } from "@expo-google-fonts/outfit";
 
 // Configure RevenueCat early — before any purchase calls
 configurePurchases(null);
@@ -39,7 +40,14 @@ const useInitialTheme = () => {
 
 function App() {
   const { ready, savedTheme, savedDark } = useInitialTheme();
-  if (!ready) return null;
+  const [fontsLoaded] = useFonts({
+    "Outfit-Regular":   Outfit_400Regular,
+    "Outfit-Medium":    Outfit_500Medium,
+    "Outfit-SemiBold":  Outfit_600SemiBold,
+    "Outfit-Bold":      Outfit_700Bold,
+    "Outfit-ExtraBold": Outfit_800ExtraBold,
+  });
+  if (!ready || !fontsLoaded) return null;
 
   return (
     <ThemeProvider initialTheme={savedTheme} initialDark={savedDark}>

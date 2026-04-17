@@ -92,7 +92,7 @@ const makeStyles = (colors) =>
       paddingTop: spacing.md,
       paddingBottom: spacing.xs,
       borderBottomWidth: 1,
-      borderBottomColor: colors.isDark ? colors.border : "transparent",
+      borderBottomColor: colors.isDark ? colors.border : "#EAEAF0",
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
@@ -115,17 +115,16 @@ const makeStyles = (colors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
-      backgroundColor: colors.isDark ? colors.mediumGlow : "rgba(255, 165, 0, 0.08)",
+      backgroundColor: colors.isDark ? colors.mediumGlow : "rgba(217,119,6,0.1)",
       borderRadius: radius.full,
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderWidth: 1,
-      borderColor: colors.medium,
-      borderColor: colors.isDark ? colors.medium + "40" : "rgba(255, 165, 0, 0.3)",
+      borderColor: colors.isDark ? colors.medium + "40" : "rgba(217,119,6,0.35)",
     },
 
-    streakText: { fontSize: 13, fontWeight: "700", color: colors.medium },
-    streakLabel: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+    streakText: { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.medium },
+    streakLabel: { fontSize: 11, color: colors.textMuted, fontFamily: "Outfit-SemiBold" },
 
     scroll: { flex: 1 },
     scrollContent: {
@@ -141,11 +140,16 @@ const makeStyles = (colors) =>
       marginBottom: spacing.sm,
       marginTop: spacing.xl,
     },
+    sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    sectionDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accent },
     sectionTitle: {
-      ...typography.label,
-      color: colors.isDark ? colors.textMuted : colors.accent,
+      fontSize: 11,
+      fontFamily: "Outfit-ExtraBold",
+      letterSpacing: 1,
+      textTransform: "uppercase",
+      color: colors.isDark ? colors.textSecondary : colors.textPrimary,
     },
-    sectionMeta: { fontSize: 11, color: colors.textMuted, fontWeight: "500" },
+    sectionMeta: { fontSize: 11, color: colors.textMuted, fontFamily: "Outfit-Medium" },
 
     // ── Stat cards ──────────────────────────────────────────────
     statsRow: { flexDirection: "row", gap: spacing.sm },
@@ -193,14 +197,14 @@ const makeStyles = (colors) =>
     },
     statValue: {
       fontSize: 26,
-      fontWeight: "800",
+      fontFamily: "Outfit-ExtraBold",
       color: colors.textPrimary,
       letterSpacing: -0.5,
     },
     statLabel: {
       fontSize: 10,
       color: colors.textMuted,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
       textTransform: "uppercase",
       letterSpacing: 0.3,
     },
@@ -230,12 +234,12 @@ const makeStyles = (colors) =>
     },
     activityCardTitle: {
       fontSize: 14,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.textPrimary,
     },
     activityCardCount: {
       fontSize: 13,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.accent,
     },
     activityBars: {
@@ -253,7 +257,7 @@ const makeStyles = (colors) =>
     },
     activityCount: {
       fontSize: 10,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.accent,
       marginBottom: 2,
     },
@@ -262,7 +266,7 @@ const makeStyles = (colors) =>
     activityDayCell: { flex: 1, alignItems: "center" },
     activityDayText: {
       fontSize: 10,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
       color: colors.textMuted,
     },
 
@@ -301,20 +305,20 @@ const makeStyles = (colors) =>
     },
     semesterDays: {
       fontSize: 30,
-      fontWeight: "800",
+      fontFamily: "Outfit-ExtraBold",
       color: colors.textPrimary,
       letterSpacing: -1,
     },
     semesterLabel: {
       fontSize: 12,
       color: colors.textMuted,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
       marginTop: 1,
     },
     semesterMotivation: {
       fontSize: 12,
       color: colors.accent,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
       marginTop: 3,
     },
     semProgressRow: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -328,7 +332,7 @@ const makeStyles = (colors) =>
     semBarFill: { height: 6, borderRadius: 3 },
     semPctText: {
       fontSize: 11,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.textMuted,
       width: 32,
       textAlign: "right",
@@ -365,12 +369,12 @@ const makeStyles = (colors) =>
     dueSoonTitle: {
       flex: 1,
       fontSize: 13,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
       color: colors.textPrimary,
     },
     dueSoonRight: { alignItems: "flex-end", gap: 2 },
     dueSoonClass: { fontSize: 11, color: colors.textMuted },
-    dueSoonDue: { fontSize: 11, fontWeight: "700" },
+    dueSoonDue: { fontSize: 11, fontFamily: "Outfit-Bold" },
 
     // ── Classes ─────────────────────────────────────────────────
     classesCard: {
@@ -411,7 +415,7 @@ const makeStyles = (colors) =>
     className: {
       flex: 1,
       fontSize: 13,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.textPrimary,
     },
     classMeta: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
@@ -424,7 +428,7 @@ const makeStyles = (colors) =>
       borderRadius: radius.full,
       borderWidth: 1,
     },
-    healthBadgeText: { fontSize: 11, fontWeight: "700" },
+    healthBadgeText: { fontSize: 11, fontFamily: "Outfit-Bold" },
     barRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     barTrack: {
       flex: 1,
@@ -436,7 +440,7 @@ const makeStyles = (colors) =>
     barFill: { height: 5, borderRadius: 3 },
     barPct: {
       fontSize: 12,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.textMuted,
       width: 32,
       textAlign: "right",
@@ -475,7 +479,7 @@ const makeStyles = (colors) =>
     priorityLabel: {
       fontSize: 13,
       color: colors.textPrimary,
-      fontWeight: "500",
+      fontFamily: "Outfit-Medium",
     },
     priorityBarTrack: {
       flex: 2,
@@ -487,7 +491,7 @@ const makeStyles = (colors) =>
     priorityBarFill: { height: 6, borderRadius: 3 },
     priorityCount: {
       fontSize: 13,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       marginLeft: 8,
       width: 24,
       textAlign: "right",
@@ -521,14 +525,14 @@ const makeStyles = (colors) =>
     gpaBlock: { flex: 1, alignItems: "center" },
     gpaValue: {
       fontSize: 36,
-      fontWeight: "800",
+      fontFamily: "Outfit-ExtraBold",
       color: colors.textPrimary,
       letterSpacing: -1,
     },
     gpaLabel: {
       fontSize: 10,
       color: colors.textMuted,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
       marginTop: 3,
       textTransform: "uppercase",
       letterSpacing: 0.8,
@@ -557,7 +561,7 @@ const makeStyles = (colors) =>
     gpaClassName: {
       flex: 1,
       fontSize: 14,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
       color: colors.textPrimary,
     },
     gpaClassMeta: {
@@ -574,10 +578,10 @@ const makeStyles = (colors) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    gpaGradeText: { fontSize: 13, fontWeight: "800" },
+    gpaGradeText: { fontSize: 13, fontFamily: "Outfit-ExtraBold" },
     gpaClassPoints: {
       fontSize: 13,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.isDark ? colors.textSecondary : "#9090A8",
       width: 28,
       textAlign: "right",
@@ -605,7 +609,7 @@ const makeStyles = (colors) =>
     
     gpaPriorTitle: {
       fontSize: 10,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.isDark ? colors.textMuted : "#A0A0B8",
       letterSpacing: 1,
       textTransform: "uppercase",
@@ -619,7 +623,7 @@ const makeStyles = (colors) =>
     gpaPriorField: { flex: 1 },
     gpaPriorFieldLabel: {
       fontSize: 10,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
       color: colors.isDark ? colors.textMuted : "#A0A0B8",
       marginBottom: 4,
       textTransform: "uppercase",
@@ -633,7 +637,7 @@ const makeStyles = (colors) =>
       paddingHorizontal: 10,
       paddingVertical: 8,
       fontSize: 15,
-      fontWeight: "600",
+      fontFamily: "Outfit-SemiBold",
       color: colors.textPrimary,
     },
     gpaPriorHint: { fontSize: 10, color: colors.textMuted, marginTop: 4 },
@@ -657,7 +661,7 @@ const makeStyles = (colors) =>
       backgroundColor: colors.isDark ? colors.border : "#E8E8F0",
       shadowOpacity: 0,
     },
-    gpaPriorCalcText: { fontSize: 13, fontWeight: "700", color: "#fff" },
+    gpaPriorCalcText: { fontSize: 13, fontFamily: "Outfit-Bold", color: "#fff" },
 
     // Empty state
     emptyState: {
@@ -679,7 +683,7 @@ const makeStyles = (colors) =>
     },
     emptyTitle: {
       fontSize: 18,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.textPrimary,
       marginBottom: spacing.xs,
     },
@@ -1086,7 +1090,10 @@ const StatsScreen = () => {
       >
         {/* ── Overview ── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>OVERVIEW</Text>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionDot} />
+            <Text style={styles.sectionTitle}>OVERVIEW</Text>
+          </View>
         </View>
         <View style={styles.statsRow}>
           {/* Completed */}
@@ -1111,7 +1118,7 @@ const StatsScreen = () => {
                 styles.statAccentBar,
                 {
                   backgroundColor:
-                    totalOverdue > 0 ? colors.high : colors.border,
+                    totalOverdue > 0 ? colors.high : colors.low,
                 },
               ]}
             />
@@ -1120,20 +1127,20 @@ const StatsScreen = () => {
                 styles.statIconWrap,
                 {
                   backgroundColor:
-                    totalOverdue > 0 ? colors.highGlow : colors.border + "30",
+                    totalOverdue > 0 ? colors.highGlow : colors.lowGlow,
                 },
               ]}
             >
               <Feather
-                name="alert-circle"
+                name={totalOverdue > 0 ? "alert-circle" : "check-circle"}
                 size={16}
-                color={totalOverdue > 0 ? colors.high : colors.textMuted}
+                color={totalOverdue > 0 ? colors.high : colors.low}
               />
             </View>
             <Text
               style={[
                 styles.statValue,
-                { color: totalOverdue > 0 ? colors.high : colors.textPrimary },
+                { color: totalOverdue > 0 ? colors.high : colors.low },
               ]}
             >
               {totalOverdue}
@@ -1162,7 +1169,10 @@ const StatsScreen = () => {
 
         {/* ── 7-day activity ── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>LAST 7 DAYS</Text>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionDot} />
+            <Text style={styles.sectionTitle}>LAST 7 DAYS</Text>
+          </View>
         </View>
         <View style={styles.activityCard}>
           <View style={styles.activityCardTop}>
@@ -1209,7 +1219,7 @@ const StatsScreen = () => {
                 <Text
                   style={[
                     styles.activityDayText,
-                    d.isToday && { color: colors.accent, fontWeight: "800" },
+                    d.isToday && { color: colors.accent, fontFamily: "Outfit-ExtraBold" },
                   ]}
                 >
                   {d.label}
@@ -1223,7 +1233,10 @@ const StatsScreen = () => {
         {daysLeft !== null && daysLeft > 0 && daysLeft < 120 && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>TERM</Text>
+              <View style={styles.sectionTitleRow}>
+                <View style={styles.sectionDot} />
+                <Text style={styles.sectionTitle}>TERM</Text>
+              </View>
               <Text style={styles.sectionMeta}>{semPct}% through</Text>
             </View>
             <View style={styles.semesterCard}>
@@ -1264,7 +1277,10 @@ const StatsScreen = () => {
         {gpaClasses.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>GPA</Text>
+              <View style={styles.sectionTitleRow}>
+                <View style={styles.sectionDot} />
+                <Text style={styles.sectionTitle}>GPA</Text>
+              </View>
             </View>
             <View style={styles.gpaCardShadow}>
             <View style={styles.gpaCard}>
@@ -1378,7 +1394,10 @@ const StatsScreen = () => {
         {upcoming.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>DUE SOON</Text>
+              <View style={styles.sectionTitleRow}>
+                <View style={styles.sectionDot} />
+                <Text style={styles.sectionTitle}>DUE SOON</Text>
+              </View>
               <Text style={styles.sectionMeta}>Next 3 days</Text>
             </View>
             <View style={styles.dueSoonCard}>
@@ -1433,7 +1452,10 @@ const StatsScreen = () => {
         {byClass.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>CLASSES</Text>
+              <View style={styles.sectionTitleRow}>
+                <View style={styles.sectionDot} />
+                <Text style={styles.sectionTitle}>CLASSES</Text>
+              </View>
               <Text style={styles.sectionMeta}>
                 {onTrackCount}/{byClass.length} on track
               </Text>
@@ -1516,7 +1538,10 @@ const StatsScreen = () => {
         {priorityBreakdown.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>PENDING BY PRIORITY</Text>
+              <View style={styles.sectionTitleRow}>
+                <View style={styles.sectionDot} />
+                <Text style={styles.sectionTitle}>PENDING BY PRIORITY</Text>
+              </View>
               <Text style={styles.sectionMeta}>{totalPending} tasks</Text>
             </View>
             <View style={styles.priorityCard}>

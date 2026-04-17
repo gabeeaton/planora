@@ -40,11 +40,11 @@ const makeStyles = (colors) => StyleSheet.create({
   safe:   { flex: 1 },
   scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
 
-  header: { 
-    alignItems: "center", 
-    paddingVertical: spacing.xl, // Increased for more "air"
+  header: {
+    alignItems: "center",
+    paddingVertical: spacing.xl,
     marginBottom: spacing.md,
-    backgroundColor: colors.isDark ? 'transparent' : colors.bg, // Subtle grounding
+    backgroundColor: colors.isDark ? "transparent" : colors.bg,
   },
   avatar: {
     width: 84, // Slightly larger for better presence
@@ -57,7 +57,7 @@ const makeStyles = (colors) => StyleSheet.create({
     
     // Instead of a simple border, use a thick "halo" effect
     borderWidth: 4, 
-    borderColor: colors.isDark ? colors.border : "#FFFFFF",
+    borderColor: colors.isDark ? colors.border : colors.accent,
 
     // Modern "Soft Glow" Shadow
     ...(colors.isDark ? {} : {
@@ -70,12 +70,12 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   avatarText: { 
     fontSize: 32, // Adjusted for the larger avatar
-    fontWeight: "800",
+    fontFamily: "Outfit-ExtraBold",
     letterSpacing: -1,
   },
-  avatarText:    { fontSize: 28, fontWeight: "800" },
+  avatarText:    { fontSize: 28, fontFamily: "Outfit-ExtraBold" },
   nameRow:       { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  displayName:   { fontSize: 16, fontWeight: "600", color: colors.textPrimary },
+  displayName:   { fontSize: 16, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
   nameEditRow:   { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   nameInput: {
     flex: 1, backgroundColor: colors.bgCard, borderWidth: 1,
@@ -94,7 +94,7 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.bgCard, borderRadius: radius.full,
     paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: colors.border,
   },
-  planText: { fontSize: 12, color: colors.textMuted, fontWeight: "700" },
+  planText: { fontSize: 12, color: colors.textMuted, fontFamily: "Outfit-Bold" },
 
   upgradeCard: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
@@ -102,7 +102,7 @@ const makeStyles = (colors) => StyleSheet.create({
     marginBottom: spacing.md, borderWidth: 1.5,
   },
   upgradeLeft:     { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
-  upgradeTitle:    { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+  upgradeTitle:    { fontSize: 15, fontFamily: "Outfit-Bold", color: colors.textPrimary },
   upgradeSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 
   sectionHeader: {
@@ -130,7 +130,7 @@ const makeStyles = (colors) => StyleSheet.create({
   themeItem:     { alignItems: "center", gap: 4 },
   themeDot:      { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   themeDotActive:{ borderWidth: 3, borderColor: "#fff" },
-  themeLabel:    { fontSize: 10, color: colors.textMuted, fontWeight: "500" },
+  themeLabel:    { fontSize: 10, color: colors.textMuted, fontFamily: "Outfit-Medium" },
 
   modeToggleRow: {
     flexDirection: "row",
@@ -141,7 +141,7 @@ const makeStyles = (colors) => StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
   },
-  modeToggleLabel: { fontSize: 14, fontWeight: "600", color: colors.textPrimary },
+  modeToggleLabel: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
   modeToggleSub:   { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   modeToggleBtns:  { flexDirection: "row", gap: 8 },
   modeBtn: {
@@ -150,7 +150,7 @@ const makeStyles = (colors) => StyleSheet.create({
     borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border,
   },
   modeBtnActive:  { borderColor: colors.accent, backgroundColor: colors.accentGlow },
-  modeBtnText:    { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+  modeBtnText:    { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
   modeBtnTextActive: { color: colors.accent },
 
   row: {
@@ -164,7 +164,7 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   rowIcon:       { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   rowIconDanger: { backgroundColor: colors.highGlow },
-  rowLabel:      { flex: 1, fontSize: 15, color: colors.textPrimary, fontWeight: "500" },
+  rowLabel:      { flex: 1, fontSize: 15, color: colors.textPrimary, fontFamily: "Outfit-Medium" },
   rowRight:      { flexDirection: "row", alignItems: "center", gap: 6 },
   rowValue:      { fontSize: 13, color: colors.textSecondary },
   divider: {
@@ -175,12 +175,12 @@ const makeStyles = (colors) => StyleSheet.create({
 
   classRow:      { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: 12, gap: 10 },
   classRowInfo:  { flex: 1 },
-  className:     { fontSize: 14, fontWeight: "600", color: colors.textPrimary },
+  className:     { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
   classMeta:     { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   gradeChip: {
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.full, borderWidth: 1,
   },
-  gradeChipText: { fontSize: 11, fontWeight: "700" },
+  gradeChipText: { fontSize: 11, fontFamily: "Outfit-Bold" },
 
   version: { textAlign: "center", fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
 
@@ -198,12 +198,12 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  sheetTitle:  { fontSize: 17, fontWeight: "700", color: colors.textPrimary },
+  sheetTitle:  { fontSize: 17, fontFamily: "Outfit-Bold", color: colors.textPrimary },
   sheetDone: {
     paddingHorizontal: spacing.md, paddingVertical: 6,
     backgroundColor: colors.accent, borderRadius: radius.sm,
   },
-  sheetDoneText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  sheetDoneText: { color: "#fff", fontFamily: "Outfit-Bold", fontSize: 14 },
 
   optionBtn: {
     paddingHorizontal: spacing.md, paddingVertical: 14,
@@ -211,7 +211,7 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
   optionText:         { fontSize: 15, color: colors.textPrimary },
-  optionTextSelected: { color: colors.accent, fontWeight: "700" },
+  optionTextSelected: { color: colors.accent, fontFamily: "Outfit-Bold" },
   systemToggleRow: {
     flexDirection: "row", backgroundColor: colors.bg,
     borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
@@ -219,7 +219,7 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   systemToggleBtn:       { flex: 1, paddingVertical: 10, alignItems: "center" },
   systemToggleBtnActive: { backgroundColor: colors.accent },
-  systemToggleText:      { fontSize: 14, fontWeight: "600", color: colors.textMuted },
+  systemToggleText:      { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
   systemToggleTextActive:{ color: "#fff" },
 
   // ── Classes editor ──
@@ -240,7 +240,7 @@ const makeStyles = (colors) => StyleSheet.create({
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg,
   },
   classChipSelected: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
-  classChipText:     { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
+  classChipText:     { fontSize: 12, color: colors.textMuted, fontFamily: "Outfit-SemiBold" },
   classChipTextSelected: { color: colors.accent },
   classChipLabel: { fontSize: 11, color: colors.textMuted, marginBottom: 4 },
   removeClassBtn: { alignSelf: "flex-start", padding: 4 },
@@ -248,7 +248,7 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 6,
     marginHorizontal: spacing.lg, marginTop: 4, paddingVertical: 8,
   },
-  addClassText: { fontSize: 14, color: colors.accent, fontWeight: "600" },
+  addClassText: { fontSize: 14, color: colors.accent, fontFamily: "Outfit-SemiBold" },
 });
 
 // ── ProfileScreen ─────────────────────────────────────────────
@@ -516,7 +516,7 @@ const ProfileScreen = ({ navigation }) => {
                   >
                     {isActive && <Feather name="check" size={14} color="#fff" />}
                   </TouchableOpacity>
-                  <Text style={[styles.themeLabel, isActive && { color: theme.accent, fontWeight: "700" }]}>
+                  <Text style={[styles.themeLabel, isActive && { color: theme.accent, fontFamily: "Outfit-Bold" }]}>
                     {theme.label}
                   </Text>
                 </View>

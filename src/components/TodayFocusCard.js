@@ -18,6 +18,29 @@ import { Feather } from "@expo/vector-icons";
 import { spacing, radius, priorityColors } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { getTodayFocus, invalidateTodayFocusCache } from "../services/openai";
+import { isToday, isTomorrow, differenceInCalendarDays } from "date-fns";
+
+const formatDueDate = (dueDate, dueTime) => {
+  if (!dueDate) return null;
+  const d = dueDate instanceof Date ? dueDate : new Date(dueDate);
+  if (isNaN(d)) return null;
+
+  const daysOut = differenceInCalendarDays(d, new Date());
+  let datePart;
+  if (isToday(d))       datePart = "Today";
+  else if (isTomorrow(d)) datePart = "Tomorrow";
+  else if (daysOut < 0) return `${Math.abs(daysOut)}d overdue`;
+  else                  datePart = `${d.getMonth() + 1}/${d.getDate()}`;
+
+  if (Array.isArray(dueTime) && dueTime.length === 2) {
+    const [h, m] = dueTime;
+    const suffix  = h >= 12 ? "PM" : "AM";
+    const display = h % 12 === 0 ? 12 : h % 12;
+    const mins    = String(m).padStart(2, "0");
+    return `${datePart} ${display}:${mins} ${suffix}`;
+  }
+  return datePart;
+};
 
 // Strip any [ID:xxxx] or [id:xxxx] tokens the model echoed back
 const cleanText = (str) => {
@@ -51,7 +74,7 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: 6,
   },
   headerLabel: {
-    fontSize: 10, fontWeight: "800", color: colors.accent,
+    fontSize: 10, fontFamily: "Outfit-ExtraBold", color: colors.accent,
     textTransform: "uppercase", letterSpacing: 1, flex: 1,
   },
   taskRow: {
@@ -61,13 +84,17 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   taskRowLast: { borderBottomWidth: 0 },
   taskDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
-  taskTitle: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.textPrimary, lineHeight: 19 },
-  taskClass: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
+  taskTitle: { flex: 1, fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, lineHeight: 19 },
+  taskMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 },
+  taskClass: { fontSize: 11, color: colors.textMuted },
+  taskDot2: { fontSize: 11, color: colors.textMuted },
+  taskDue: { fontSize: 11, color: colors.textMuted },
+  taskDueOverdue: { fontSize: 11, color: colors.isDark ? "#FF5C5C" : "#DC2626", fontFamily: "Outfit-SemiBold" },
   taskChip: {
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.full,
     borderWidth: 1,
   },
-  taskChipText: { fontSize: 10, fontWeight: "700" },
+  taskChipText: { fontSize: 10, fontFamily: "Outfit-Bold" },
   shimmer: {
     paddingHorizontal: spacing.md, paddingVertical: spacing.md,
     flexDirection: "row", alignItems: "center", gap: 10,
@@ -78,7 +105,7 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: spacing.md,
   },
   errorText: { fontSize: 13, color: colors.textMuted, flex: 1 },
-  retryText: { fontSize: 13, color: colors.accent, fontWeight: "600" },
+  retryText: { fontSize: 13, color: colors.accent, fontFamily: "Outfit-SemiBold" },
 });
 
 const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
@@ -190,8 +217,6 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
         </TouchableOpacity>
       </View>
 
-    
-
       {focusTasks.map((task, idx) => {
         const isLast    = idx === focusTasks.length - 1;
         const priority  = task.aiPriority ?? task.priority;
@@ -208,7 +233,17 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
             <View style={[styles.taskDot, chipColor && { backgroundColor: chipColor }]} />
             <View style={{ flex: 1 }}>
               <Text style={styles.taskTitle} numberOfLines={2}>{title}</Text>
-              {task.className ? <Text style={styles.taskClass}>{task.className}</Text> : null}
+              {(task.className || task.dueDate) ? (
+                <View style={styles.taskMeta}>
+                  {task.className ? <Text style={styles.taskClass}>{task.className}</Text> : null}
+                  {task.className && task.dueDate ? <Text style={styles.taskDot2}>·</Text> : null}
+                  {task.dueDate ? (() => {
+                    const label = formatDueDate(task.dueDate, task.dueTime);
+                    const isOverdue = label?.includes("overdue");
+                    return <Text style={isOverdue ? styles.taskDueOverdue : styles.taskDue}>{label}</Text>;
+                  })() : null}
+                </View>
+              ) : null}
             </View>
             {chipColor ? (
               <View style={[styles.taskChip, { borderColor: chipColor + "66", backgroundColor: chipColor + "18" }]}>

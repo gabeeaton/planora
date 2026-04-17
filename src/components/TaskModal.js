@@ -35,18 +35,18 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", justifyContent: "space-between",
     alignItems: "center", marginBottom: 20,
   },
-  headerTitle: { fontSize: 20, fontWeight: "700", color: colors.textPrimary },
+  headerTitle: { fontSize: 20, fontFamily: "Outfit-Bold", color: colors.textPrimary },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   calBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
     paddingHorizontal: 10, paddingVertical: 6,
     borderRadius: radius.full, borderWidth: 1,
   },
-  calBtnText: { fontSize: 12, fontWeight: "600" },
+  calBtnText: { fontSize: 12, fontFamily: "Outfit-SemiBold" },
   closeBtn:   { padding: 4 },
   field:      { marginBottom: 16 },
   label: {
-    fontSize: 11, fontWeight: "700", color: colors.textMuted,
+    fontSize: 11, fontFamily: "Outfit-Bold", color: colors.textMuted,
     letterSpacing: 0.8, marginBottom: 8, textTransform: "uppercase",
   },
   input: {
@@ -63,19 +63,19 @@ const makeStyles = (colors) => StyleSheet.create({
     borderWidth: 1, backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7",
     borderColor: colors.isDark ? colors.border : "#D8D8E0",
   },
-  classChipText:    { fontSize: 13, color: colors.textSecondary, fontWeight: "600" },
+  classChipText:    { fontSize: 13, color: colors.textSecondary, fontFamily: "Outfit-SemiBold" },
   priorityRow:      { flexDirection: "row", gap: 8 },
   priorityBtn: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
     paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.isDark ? colors.border : "#D8D8E0",
   },
-  priorityLabel:    { fontSize: 14, color: colors.textMuted, fontWeight: "600" },
+  priorityLabel:    { fontSize: 14, color: colors.textMuted, fontFamily: "Outfit-SemiBold" },
   dateHeaderRow:    { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   dateBadge: {
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
     borderWidth: 1,
   },
-  dateBadgeText:    { fontSize: 12, fontWeight: "700" },
+  dateBadgeText:    { fontSize: 12, fontFamily: "Outfit-Bold" },
 
   // Recurrence styles
   recurrenceRow:    { flexDirection: "row", gap: 6, flexWrap: "wrap" },
@@ -87,7 +87,7 @@ const makeStyles = (colors) => StyleSheet.create({
   recurrenceChipActive: {
     borderColor: colors.accent, backgroundColor: colors.accentGlow,
   },
-  recurrenceChipText:       { fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
+  recurrenceChipText:       { fontSize: 12, color: colors.textSecondary, fontFamily: "Outfit-SemiBold" },
   recurrenceChipTextActive: { color: colors.accent },
   dayRow:  { flexDirection: "row", gap: 6, marginTop: 10, flexWrap: "wrap" },
   dayChip: {
@@ -97,15 +97,15 @@ const makeStyles = (colors) => StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   dayChipActive:      { borderColor: colors.accent, backgroundColor: colors.accentGlow },
-  dayChipText:        { fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
-  dayChipTextActive:  { color: colors.accent, fontWeight: "700" },
+  dayChipText:        { fontSize: 12, color: colors.textSecondary, fontFamily: "Outfit-SemiBold" },
+  dayChipTextActive:  { color: colors.accent, fontFamily: "Outfit-Bold" },
   recurrencePreview: {
     flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8,
     backgroundColor: colors.accentGlow, borderRadius: radius.sm,
     paddingHorizontal: 10, paddingVertical: 5, alignSelf: "flex-start",
     borderWidth: 1, borderColor: colors.accent,
   },
-  recurrencePreviewText: { fontSize: 11, color: colors.accent, fontWeight: "600" },
+  recurrencePreviewText: { fontSize: 11, color: colors.accent, fontFamily: "Outfit-SemiBold" },
 
   timeToggleBtn: {
     flexDirection: "row", alignItems: "center", gap: 8,
@@ -115,7 +115,7 @@ const makeStyles = (colors) => StyleSheet.create({
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
   },
   timeToggleText:   { flex: 1, fontSize: 15, color: colors.textMuted },
-  clearTimeText:    { fontSize: 12, color: colors.high, fontWeight: "600" },
+  clearTimeText:    { fontSize: 12, color: colors.high, fontFamily: "Outfit-SemiBold" },
 
   nativePicker: {
     marginTop: 4,
@@ -131,7 +131,7 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: spacing.sm, paddingVertical: 10,
     marginBottom: spacing.md,
   },
-  calExportText:    { flex: 1, fontSize: 13, fontWeight: "500" },
+  calExportText:    { flex: 1, fontSize: 13, fontFamily: "Outfit-Medium" },
 
   customClassInput: {
     backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.accent,
@@ -144,7 +144,7 @@ const makeStyles = (colors) => StyleSheet.create({
     borderRadius: 12, paddingVertical: 15,
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 8,
   },
-  saveBtnText:      { color: "#fff", fontSize: 16, fontWeight: "700" },
+  saveBtnText:      { color: "#fff", fontSize: 16, fontFamily: "Outfit-Bold" },
 });
 
 const PRIORITIES = ["HIGH", "MEDIUM", "LOW"];
@@ -420,7 +420,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
               <>
                 <Text style={[styles.label, { marginBottom: 4, marginTop: 4, fontSize: 13, textTransform: "none", letterSpacing: 0, color: colors.textSecondary }]}>
                   Task saved! Want to add{" "}
-                  <Text style={{ color: colors.accent, fontWeight: "700" }}>{pendingClassName}</Text>
+                  <Text style={{ color: colors.accent, fontFamily: "Outfit-Bold" }}>{pendingClassName}</Text>
                   {" "}to your classes for grade tracking?
                 </Text>
 
@@ -681,8 +681,21 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                       display="spinner"
                       value={(() => {
                         const d = dueDate ? new Date(dueDate) : new Date();
-                        if (dueTime) { d.setHours(dueTime[0], dueTime[1], 0, 0); }
-                        else { d.setHours(12, 0, 0, 0); }
+                        if (dueTime) {
+                          d.setHours(dueTime[0], dueTime[1], 0, 0);
+                        } else {
+                          // Default to now+1min for today, noon for future dates
+                          const now = new Date();
+                          const isToday = dueDate &&
+                            dueDate.getFullYear() === now.getFullYear() &&
+                            dueDate.getMonth() === now.getMonth() &&
+                            dueDate.getDate() === now.getDate();
+                          if (isToday) {
+                            d.setHours(now.getHours(), now.getMinutes() + 1, 0, 0);
+                          } else {
+                            d.setHours(12, 0, 0, 0);
+                          }
+                        }
                         return d;
                       })()}
                       onChange={(_, date) => {

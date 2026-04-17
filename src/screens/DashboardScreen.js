@@ -66,24 +66,26 @@ const makeStyles = (colors, insets) =>
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.md,
       paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.isDark ? colors.border : "#EAEAF0",
     },
     headerLeft: { flex: 1 },
     greeting: {
-      fontSize: 22, fontWeight: "800",
+      fontFamily: "Outfit-ExtraBold", fontSize: 22,
       color: colors.textPrimary, letterSpacing: -0.3,
     },
     dateRow:   { flexDirection: "row", alignItems: "center", marginTop: 2, gap: 8, paddingTop: 2 },
-    date: { fontSize: 13, color: colors.isDark ? colors.textSecondary : "#9999AA" },
+    date: { fontSize: 13, color: colors.textMuted },
     streakPill: {
       flexDirection: "row", alignItems: "center", gap: 4,
-      backgroundColor: colors.isDark ? colors.mediumGlow : "rgba(255, 165, 0, 0.08)",
+      backgroundColor: colors.isDark ? colors.mediumGlow : "rgba(217,119,6,0.1)",
       borderRadius: radius.full,
       paddingHorizontal: 8, paddingVertical: 3,
       borderWidth: 1,
-      borderColor: colors.isDark ? colors.medium + "40" : "rgba(255, 165, 0, 0.3)",
+      borderColor: colors.isDark ? colors.medium + "40" : "rgba(217,119,6,0.35)",
     },
     streakText: {
-      fontSize: 11, fontWeight: "700",
+      fontSize: 11, fontFamily: "Outfit-Bold",
       color: colors.isDark ? colors.medium : "#CC6600",
     },
     importBtn: {
@@ -97,7 +99,7 @@ const makeStyles = (colors, insets) =>
       shadowOpacity: colors.isDark ? 0 : 0.06, shadowRadius: 4, elevation: 2,
     },
     importBtnText: {
-      fontSize: 12, fontWeight: "700",
+      fontSize: 12, fontFamily: "Outfit-Bold",
       color: colors.isDark ? colors.accent : colors.textPrimary,
     },
     clearBtn: {
@@ -112,7 +114,7 @@ const makeStyles = (colors, insets) =>
       borderWidth: 1,
       borderColor: colors.high,
     },
-    clearBtnText: { fontSize: 13, fontWeight: "600", color: colors.high },
+    clearBtnText: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.high },
 
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 80 },
@@ -129,14 +131,12 @@ const makeStyles = (colors, insets) =>
       paddingVertical: 11,
       marginBottom: spacing.sm,
     },
-    insightText: { fontSize: 13, fontWeight: "500", flex: 1, lineHeight: 18 },
+    insightText: { fontSize: 13, fontFamily: "Outfit-Medium", flex: 1, lineHeight: 18 },
 
     segmentedControl: {
       flexDirection: "row",
-      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+      backgroundColor: colors.isDark ? colors.bgCard : "#E8E8EE",
       borderRadius: radius.md,
-      borderWidth: colors.cardBorderW,
-      borderColor: colors.cardBorder,
       marginBottom: spacing.md,
       padding: 3,
     },
@@ -147,9 +147,16 @@ const makeStyles = (colors, insets) =>
       justifyContent: "center",
       borderRadius: radius.sm,
     },
-    segmentActive: { backgroundColor: colors.accent },
-    segmentText: { fontSize: 12, fontWeight: "600", color: colors.isDark ? colors.textSecondary : colors.textPrimary },
-    segmentTextActive: { color: "#fff" },
+    segmentActive: {
+      backgroundColor: colors.isDark ? colors.bgElevated : "#FFFFFF",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: colors.isDark ? 0 : 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    segmentText: { fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.textSecondary },
+    segmentTextActive: { color: colors.isDark ? colors.textPrimary : colors.accent },
 
     bucketHeader: {
       flexDirection: "row",
@@ -162,20 +169,20 @@ const makeStyles = (colors, insets) =>
     bucketDot: { width: 8, height: 8, borderRadius: 4 },
     bucketLabel: {
       fontSize: 11,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       letterSpacing: 0.8,
       textTransform: "uppercase",
       flex: 1,
     },
     bucketCount: {
-      fontSize: 11, fontWeight: "700",
+      fontSize: 11, fontFamily: "Outfit-Bold",
       paddingHorizontal: 7, paddingVertical: 2,
       borderRadius: radius.full,
       overflow: "hidden",
     },
     sectionLabel: {
       fontSize: 11,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       color: colors.isDark ? colors.textMuted : colors.accent,
       letterSpacing: 0.8,
       textTransform: "uppercase",
@@ -204,7 +211,7 @@ const makeStyles = (colors, insets) =>
     },
     emptyTitle: {
       fontSize: 20,
-      fontWeight: "800",
+      fontFamily: "Outfit-ExtraBold",
       color: colors.textPrimary,
       marginBottom: spacing.xs,
       textAlign: "center",
@@ -240,10 +247,10 @@ const makeStyles = (colors, insets) =>
       borderWidth: 1,
       borderColor: colors.accent,
     },
-    emptyBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+    emptyBtnText: { color: "#fff", fontFamily: "Outfit-Bold", fontSize: 13 },
     emptyBtnOutlineText: {
       color: colors.accent,
-      fontWeight: "700",
+      fontFamily: "Outfit-Bold",
       fontSize: 13,
     },
 
@@ -265,7 +272,7 @@ const makeStyles = (colors, insets) =>
     },
     allDoneTitle: {
       fontSize: 20,
-      fontWeight: "800",
+      fontFamily: "Outfit-ExtraBold",
       color: colors.textPrimary,
       marginBottom: spacing.xs,
       letterSpacing: -0.3,
@@ -755,6 +762,7 @@ const DashboardScreen = ({ navigation }) => {
           />
         }
       >
+        <View style={{ height: spacing.md }} />
         <StatsBar
           todayCount={todaysTasks.length}
           pendingCount={pendingTasks.length}

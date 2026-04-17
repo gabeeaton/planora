@@ -45,8 +45,8 @@ const makeStyles = (colors) => StyleSheet.create({
     overflow: "hidden",
   },
   logoImg:      { width: "100%", height: "100%" },
-  brandName:    { fontSize: 32, fontWeight: "800", color: colors.textPrimary, letterSpacing: -1 },
-  brandTagline: { fontSize: 15, color: colors.textSecondary, marginTop: 4, fontWeight: "400" },
+  brandName:    { fontSize: 32, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, letterSpacing: -1 },
+  brandTagline: { fontSize: 15, color: colors.textSecondary, marginTop: 4, fontFamily: "Outfit-Regular" },
 
   // ── Divider ──
   divider: {
@@ -55,7 +55,7 @@ const makeStyles = (colors) => StyleSheet.create({
   },
 
   // ── Form ──
-  formTitle: { fontSize: 20, fontWeight: "700", color: colors.textPrimary, marginBottom: spacing.lg, letterSpacing: -0.3 },
+  formTitle: { fontSize: 20, fontFamily: "Outfit-Bold", color: colors.textPrimary, marginBottom: spacing.lg, letterSpacing: -0.3 },
 
   field:     { marginBottom: spacing.sm },
   inputWrap: { position: "relative" },
@@ -87,14 +87,14 @@ const makeStyles = (colors) => StyleSheet.create({
     shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
   submitBtnDisabled: { opacity: 0.6 },
-  submitText: { color: "#fff", fontSize: 16, fontWeight: "700", letterSpacing: 0.1 },
+  submitText: { color: "#fff", fontSize: 16, fontFamily: "Outfit-Bold", letterSpacing: 0.1 },
 
   forgotBtn:  { alignItems: "center", marginTop: spacing.md },
-  forgotText: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
+  forgotText: { fontSize: 13, color: colors.textSecondary, fontFamily: "Outfit-Medium" },
 
   toggleRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: spacing.md },
   toggleText: { fontSize: 14, color: colors.textSecondary },
-  toggleLink: { fontSize: 14, color: colors.accent, fontWeight: "600" },
+  toggleLink: { fontSize: 14, color: colors.accent, fontFamily: "Outfit-SemiBold" },
 
   legalText: { fontSize: 11, color: colors.textMuted, textAlign: "center", marginTop: spacing.md, lineHeight: 16 },
   legalLink:  { color: colors.textMuted, textDecorationLine: "underline" },
@@ -488,12 +488,12 @@ export const EmailVerificationScreen = ({ navigation, route }) => {
         }}>
           <Feather name="mail" size={36} color={colors.accent} />
         </View>
-        <Text style={{ fontSize: 24, fontWeight: "800", color: colors.textPrimary, textAlign: "center", marginBottom: 12 }}>
+        <Text style={{ fontSize: 24, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, textAlign: "center", marginBottom: 12 }}>
           Check your email
         </Text>
         <Text style={{ fontSize: 15, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: 32 }}>
           We sent a verification link to{"\n"}
-          <Text style={{ color: colors.textPrimary, fontWeight: "700" }}>{email}</Text>
+          <Text style={{ color: colors.textPrimary, fontFamily: "Outfit-Bold" }}>{email}</Text>
           {"\n\n"}Tap the link in the email to activate your account, then come back and sign in.
         </Text>
         <TouchableOpacity
@@ -504,7 +504,7 @@ export const EmailVerificationScreen = ({ navigation, route }) => {
             borderRadius: 12, width: "100%", alignItems: "center",
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>Back to Sign In</Text>
+          <Text style={{ color: "#fff", fontFamily: "Outfit-Bold", fontSize: 16 }}>Back to Sign In</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

@@ -6,7 +6,7 @@
 // ============================================================
 
 // ── Demo mode (set true for screenshots/TikTok, false for production) ──
-const DEMO_MODE = !false;
+const DEMO_MODE = false;
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
@@ -404,7 +404,7 @@ export default function ChatScreen() {
           <TouchableOpacity style={styles.limitBanner} onPress={() => navigation.navigate("Paywall")} activeOpacity={0.85}>
             <Feather name="zap" size={13} color={colors.accent} />
             <Text style={styles.limitBannerText}>
-              Daily limit reached · <Text style={{ fontWeight: "800" }}>Upgrade to Scholar</Text> for unlimited
+              Daily limit reached · <Text style={{ fontFamily: "Outfit-ExtraBold" }}>Upgrade to Scholar</Text> for unlimited
             </Text>
           </TouchableOpacity>
         )}
@@ -448,7 +448,7 @@ const makeStyles = (colors) => StyleSheet.create({
   header: {
     flexDirection: "row", alignItems: "center",
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: "transparent",
+    borderBottomWidth: 1, borderBottomColor: colors.isDark ? "transparent" : "#EAEAF0",
     gap: 10,
   },
   headerAvatar: {
@@ -458,7 +458,7 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   backBtn:      { padding: 4 },
   headerCenter: { flex: 1 },
-  headerTitle:  { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+  headerTitle:  { fontSize: 15, fontFamily: "Outfit-Bold", color: colors.textPrimary },
   headerSub:    { fontSize: 11, color: colors.textMuted, marginTop: 1 },
   clearBtn:     { padding: 4 },
 
@@ -472,7 +472,7 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
     alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
   },
-  emptyTitle: { fontSize: 18, fontWeight: "800", color: colors.textPrimary, marginBottom: spacing.xs, textAlign: "center" },
+  emptyTitle: { fontSize: 18, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, marginBottom: spacing.xs, textAlign: "center" },
   emptySub:   { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.md },
   starters:   { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   starterBtn: {
@@ -482,12 +482,12 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
     borderColor: colors.isDark ? colors.border : "#E5E5EA",
   },
-  starterText: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
+  starterText: { fontSize: 13, color: colors.textSecondary, fontFamily: "Outfit-Medium" },
 
   // Date separators
   dateSepRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 12 },
   dateSepLine: { flex: 1, height: 1, backgroundColor: colors.isDark ? colors.border : "#E5E5EA" },
-  dateSepText: { fontSize: 11, fontWeight: "600", color: colors.textMuted, letterSpacing: 0.5 },
+  dateSepText: { fontSize: 11, fontFamily: "Outfit-SemiBold", color: colors.textMuted, letterSpacing: 0.5 },
 
   // Messages
   list: { padding: spacing.md, gap: 12, paddingBottom: spacing.md },
@@ -510,7 +510,7 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   bubbleError:     { borderColor: colors.high, backgroundColor: colors.highGlow },
   bubbleConfirm:   { borderColor: colors.accent, backgroundColor: colors.accentGlow },
-  bubbleTextConfirm: { color: colors.accent, fontWeight: "600" },
+  bubbleTextConfirm: { color: colors.accent, fontFamily: "Outfit-SemiBold" },
   bubbleText:      { fontSize: 15, lineHeight: 22 },
   bubbleTextUser:  { color: "#fff" },
   bubbleTextAI:    { color: colors.textPrimary },
@@ -526,7 +526,7 @@ const makeStyles = (colors) => StyleSheet.create({
   limitBannerText: { fontSize: 13, color: colors.accent, flex: 1 },
   limitHint: {
     position: "absolute", top: -18, right: spacing.md + 50,
-    fontSize: 10, color: colors.textMuted, fontWeight: "600",
+    fontSize: 10, color: colors.textMuted, fontFamily: "Outfit-SemiBold",
   },
 
   // Input bar
