@@ -197,11 +197,7 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
         </TouchableOpacity>
       </View>
 
-      {coachLine ? (
-        <Text style={styles.coachLine}>{coachLine}</Text>
-      ) : null}
-
-      <View style={styles.divider} />
+    
 
       {focusTasks.map((task, idx) => {
         const isLast    = idx === focusTasks.length - 1;

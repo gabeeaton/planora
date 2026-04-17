@@ -895,9 +895,24 @@ const StatsScreen = () => {
 
   const totalCompleted = completedTasks.length;
   const totalPending = tasks.filter((t) => !t.completed).length;
-  const totalOverdue = tasks.filter(
-    (t) => !t.completed && t.dueDate && (toDate(t.dueDate) ?? 0) < today
-  ).length;
+  const totalOverdue = tasks.filter(t => {
+    if (t.completed || !t.dueDate) return false;
+    const due = toDate(t.dueDate);
+    if (!due) return false;
+    const dueDay = new Date(due);
+    dueDay.setHours(0, 0, 0, 0);
+    if (dueDay < todayStart) return true; // past day — always overdue
+    if (dueDay.getTime() === todayStart.getTime()) {
+      // due today — overdue only if the time has passed
+      if (Array.isArray(t.dueTime) && t.dueTime.length === 2) {
+        const dueDateTime = new Date(due);
+        dueDateTime.setHours(t.dueTime[0], t.dueTime[1], 0, 0);
+        return dueDateTime < today;
+      }
+      return false; // no time set — not overdue until end of day
+    }
+    return false;
+  }).length;
   const completionRate = useMemo(() => {
     const total = totalCompleted + totalPending;
     return total > 0 ? Math.round((totalCompleted / total) * 100) : 0;
@@ -940,8 +955,22 @@ const StatsScreen = () => {
       if (!map[key]) map[key] = { total: 0, done: 0, overdue: 0 };
       map[key].total++;
       if (t.completed) map[key].done++;
-      else if (t.dueDate && (toDate(t.dueDate) ?? 0) < todayStart)
-        map[key].overdue++;
+      else if (t.dueDate) {
+        const due = toDate(t.dueDate);
+        if (due) {
+          const dueDay = new Date(due);
+          dueDay.setHours(0, 0, 0, 0);
+          if (dueDay < todayStart) {
+            map[key].overdue++;
+          } else if (dueDay.getTime() === todayStart.getTime()) {
+            if (Array.isArray(t.dueTime) && t.dueTime.length === 2) {
+              const dueDateTime = new Date(due);
+              dueDateTime.setHours(t.dueTime[0], t.dueTime[1], 0, 0);
+              if (dueDateTime < today) map[key].overdue++;
+            }
+          }
+        }
+      }
     });
     return Object.entries(map)
       .map(([name, { total, done, overdue }]) => {
