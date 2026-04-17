@@ -448,7 +448,7 @@ const makeStyles = (colors) => StyleSheet.create({
   header: {
     flexDirection: "row", alignItems: "center",
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "#E0E0E8",
+    borderBottomWidth: 1, borderBottomColor: "transparent",
     gap: 10,
   },
   headerAvatar: {

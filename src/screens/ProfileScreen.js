@@ -355,44 +355,44 @@ const ProfileScreen = ({ navigation }) => {
     setModal(null);
   };
 
-  const triggerLocalTest = async () => {
-    console.log("🔔 [Step 1]: Button Pressed");
+  // const triggerLocalTest = async () => {
+  //   console.log("🔔 [Step 1]: Button Pressed");
   
-    try {
-      // Check Permissions
-      const { status } = await Notifications.requestPermissionsAsync();
-      console.log("🔔 [Step 2]: Permission Status:", status);
+  //   try {
+  //     // Check Permissions
+  //     const { status } = await Notifications.requestPermissionsAsync();
+  //     console.log("🔔 [Step 2]: Permission Status:", status);
   
-      if (status !== 'granted') {
-        console.log("❌ [Error]: Permission not granted!");
-        alert("Go to iPhone Settings > Planora > Notifications and Allow them!");
-        return;
-      }
+  //     if (status !== 'granted') {
+  //       console.log("❌ [Error]: Permission not granted!");
+  //       alert("Go to iPhone Settings > Planora > Notifications and Allow them!");
+  //       return;
+  //     }
   
-      // Attempt to schedule
-      console.log("🔔 [Step 3]: Attempting to schedule...");
-      const id = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "Planora Scholar 🎓",
-          body: "Check your syllabus! New tasks detected.",
-          sound: true,
-        },
-        // CHANGED THIS:
-        trigger: { 
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, // Explicitly set the type
-          seconds: 2, 
-          repeats: false 
-        },
-      });
+  //     // Attempt to schedule
+  //     console.log("🔔 [Step 3]: Attempting to schedule...");
+  //     const id = await Notifications.scheduleNotificationAsync({
+  //       content: {
+  //         title: "Planora Scholar 🎓",
+  //         body: "Check your syllabus! New tasks detected.",
+  //         sound: true,
+  //       },
+  //       // CHANGED THIS:
+  //       trigger: { 
+  //         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, // Explicitly set the type
+  //         seconds: 2, 
+  //         repeats: false 
+  //       },
+  //     });
   
-      console.log("✅ [Success]: Scheduled with ID:", id);
-      alert("Check your lock screen in 2 seconds!");
+  //     console.log("✅ [Success]: Scheduled with ID:", id);
+  //     alert("Check your lock screen in 2 seconds!");
   
-    } catch (error) {
-      console.log("❌ [Native Error]:", error);
-      alert("Internal Error: " + error.message);
-    }
-  };
+  //   } catch (error) {
+  //     console.log("❌ [Native Error]:", error);
+  //     alert("Internal Error: " + error.message);
+  //   }
+  // };
 
   // ── Shared components ──
   const SectionHeader = ({ title }) =>
@@ -579,8 +579,8 @@ const ProfileScreen = ({ navigation }) => {
           <Row icon="log-out" label="Sign Out" onPress={handleLogout} danger />
         </View>
 
-        <SectionHeader title="Developer Tools" />
-<View style={styles.card}>
+        {/* <SectionHeader title="Developer Tools" /> */}
+{/* <View style={styles.card}>
   <TouchableOpacity 
     style={styles.classRow} 
     onPress={triggerLocalTest}
@@ -591,8 +591,8 @@ const ProfileScreen = ({ navigation }) => {
     </View>
     <Feather name="bell" size={18} color={colors.accent} />
   </TouchableOpacity>
-</View>
-<TouchableOpacity 
+</View> */}
+{/* <TouchableOpacity 
   title="Check Pending Notifs" 
   onPress={async () => {
     const pending = await Notifications.getAllScheduledNotificationsAsync();
@@ -606,7 +606,7 @@ const ProfileScreen = ({ navigation }) => {
     await Notifications.cancelAllScheduledNotificationsAsync();
     console.log("Cleared all 64 ghosts.");
   }} 
-><Text>clear</Text></TouchableOpacity>
+><Text>clear</Text></TouchableOpacity> */}
 
         <Text style={styles.version}>Planora v1.0.0</Text>
         <View style={{ height: 40 }} />
