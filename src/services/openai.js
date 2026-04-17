@@ -195,7 +195,7 @@ export const getTodayFocus = async (tasks, userProfile, patterns) => {
       )
       .join(", ") ?? "Not specified";
 
-  const prompt = `You are a focused academic coach. Pick the 2-3 most important tasks for a student to work on TODAY and write one short coaching line.
+  const prompt = `You are a focused academic coach. Pick the 2-3 most important tasks for a student to work on TODAY.
 
 Today: ${today()}
 Classes: ${classes}
@@ -211,13 +211,11 @@ Rules:
 - Pick 2-3 tasks MAX. Not more.
 - STRICT priority order: overdue first, then due today, then due this week, then HIGH priority tasks, then MEDIUM — NEVER pick a LOW priority task or a task due more than 2 weeks away if there are HIGH priority or sooner-due tasks available
 - Factor in assumed complexity using this order: final exam / midterm > major project / paper / presentation > quiz / discussion post > reading / participation — readings should almost never appear unless nothing more important exists
-- The coachLine should be 1 sentence, specific, and reference a real pattern or deadline — not generic advice
 - Use EXACT task IDs from the list above
 
 Respond ONLY with this JSON, no markdown:
 {
-  "taskIds": ["id1", "id2"],
-  "coachLine": "One specific sentence referencing their actual situation."
+  "taskIds": ["id1", "id2"]
 }`;
 
   try {

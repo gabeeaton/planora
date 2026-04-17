@@ -54,11 +54,6 @@ const makeStyles = (colors) => StyleSheet.create({
     fontSize: 10, fontWeight: "800", color: colors.accent,
     textTransform: "uppercase", letterSpacing: 1, flex: 1,
   },
-  coachLine: {
-    fontSize: 13, color: colors.textSecondary, fontStyle: "italic",
-    paddingHorizontal: spacing.md, paddingBottom: spacing.sm, lineHeight: 18,
-  },
-  divider: { height: 1, backgroundColor: colors.isDark ? colors.border : "transparent", marginHorizontal: spacing.md },
   taskRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
     paddingHorizontal: spacing.md, paddingVertical: 10,
@@ -184,8 +179,6 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
   }
 
   if (!focus || focusTasks.length === 0) return null;
-
-  const coachLine = cleanText(focus.coachLine);
 
   return (
     <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
