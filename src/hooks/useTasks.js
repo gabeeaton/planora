@@ -160,8 +160,11 @@ export const useTasks = () => {
   useEffect(() => {
     if (!user?.uid || tasks.length === 0) return;
 
-    const onUpdate = (taskId, notificationIds) =>
+    const onUpdate = (taskId, notificationIds) => {
       updateTask(taskId, { notificationIds }).catch(() => {});
+      // Remove from pending after Firestore has had time to propagate back
+      setTimeout(() => pendingTaskIdsRef.current.delete(taskId), 15_000);
+    };
 
     const timer = setTimeout(() => {
       if (Date.now() - lastEditTimeRef.current < 15_000) return;

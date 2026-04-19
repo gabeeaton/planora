@@ -341,7 +341,8 @@ export default function ChatScreen() {
       } else if (action?.type === "completeTask" && action.taskId) {
         try {
           const target = tasks.find((t) => t.id === action.taskId);
-          await completeTask(action.taskId);
+          if (!target) throw new Error("Task not found");
+          await completeTask(target);
           invalidateTodayFocusCache();
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           setMessages((prev) => [...prev, {

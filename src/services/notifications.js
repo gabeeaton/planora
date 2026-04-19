@@ -708,12 +708,17 @@ export const syncNotificationWindow = async (
   const granted = await checkNotificationPermissions();
   if (!granted) return;
 
-  // notifications.js — inside syncNotificationWindow, before the for loop
   const now = new Date();
   const windowEnd = new Date(now.getTime() + SYNC_WINDOW_MS);
 
-  // Sort: HIGH priority first, then by due date ascending
-  // iOS allows max 64 scheduled local notifications — prioritize ruthlessly
+  // Fetch OS-scheduled IDs once — used to detect stale Firestore IDs
+  // (e.g. after sign-out which cancels all OS notifications but leaves Firestore IDs intact)
+  let osScheduledIds = new Set();
+  try {
+    const all = await Notifications.getAllScheduledNotificationsAsync();
+    osScheduledIds = new Set(all.map((n) => n.identifier));
+  } catch {}
+
   const sortedTasks = [...tasks].sort((a, b) => {
     if (a.priority === "HIGH" && b.priority !== "HIGH") return -1;
     if (b.priority === "HIGH" && a.priority !== "HIGH") return 1;
@@ -721,7 +726,7 @@ export const syncNotificationWindow = async (
   });
 
   let scheduledCount = 0;
-  const MAX_TASK_NOTIFICATIONS = 58; // leave 6 slots for digest, weekly, streak, etc.
+  const MAX_TASK_NOTIFICATIONS = 58;
 
   for (const task of sortedTasks) {
     if (task.completed || !task.dueDate) continue;
@@ -730,12 +735,18 @@ export const syncNotificationWindow = async (
 
     const due = task.dueDate?.toDate?.() ?? new Date(task.dueDate);
     const inWindow = due > now && due <= windowEnd;
-    const hasIds = task.notificationIds?.id24h || task.notificationIds?.id2h;
+
+    // A task "has valid IDs" only if the OS actually has them scheduled
+    const id24hLive = task.notificationIds?.id24h && osScheduledIds.has(task.notificationIds.id24h);
+    const id2hLive  = task.notificationIds?.id2h  && osScheduledIds.has(task.notificationIds.id2h);
+    const hasIds = id24hLive || id2hLive;
 
     if (inWindow && !hasIds) {
       await _withLock(`task-${task.id}`, async () => {
         const notificationIds = await scheduleTaskReminder(task, bestTime);
         if (notificationIds.id24h || notificationIds.id2h) {
+          // Mark pending so the next sync (triggered by the Firestore write) skips this task
+          pendingIds.add(task.id);
           await onUpdate(task.id, notificationIds);
           scheduledCount++;
         }
@@ -744,8 +755,7 @@ export const syncNotificationWindow = async (
       await _withLock(`task-${task.id}`, async () => {
         await cancelTaskReminder(task.notificationIds).catch(() => {});
         await onUpdate(task.id, null);
-      }
-      );
+      });
     }
   }
 };
