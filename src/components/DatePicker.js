@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
 
+const CELL = 44;
 
 const makeStyles = (colors) => StyleSheet.create({
   container: {
@@ -15,30 +16,37 @@ const makeStyles = (colors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: 4,
-    paddingBottom: 4,
+    paddingBottom: 6,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing.md,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  navBtn: { padding: 4 },
-  navDisabled: { opacity: 0.3 },
   monthTitle: {
     fontSize: 15,
     fontFamily: "Outfit-Bold",
     color: colors.textPrimary,
   },
-  // Week header row — mirrors grid row exactly
+  yearText: {
+    color: colors.textSecondary,
+    fontFamily: "Outfit-Regular",
+  },
+  navBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.isDark ? colors.bgElevated : "#F0F0F5",
+  },
+  navDisabled: { opacity: 0.3 },
   weekRow: {
     flexDirection: "row",
     paddingHorizontal: 8,
-    paddingTop: 10,
-    paddingBottom: 4,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   weekCell: {
     flex: 1,
@@ -51,8 +59,8 @@ const makeStyles = (colors) => StyleSheet.create({
     fontFamily: "Outfit-SemiBold",
     color: colors.textMuted,
     textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
-  // Each row is a flex row — cells use flex:1 so they're equally spaced
   gridRow: {
     flexDirection: "row",
     paddingHorizontal: 8,
@@ -67,18 +75,22 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   cellSelected: {
     backgroundColor: colors.accent,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
   },
   cellToday: {
-    borderWidth: 1.5,
-    borderColor: colors.accent,
+    backgroundColor: colors.accentGlow,
   },
   cellPast: {
-    opacity: 0.25,
+    opacity: 0.22,
   },
   cellText: {
     fontSize: 14,
     color: colors.textPrimary,
-    fontFamily: "Outfit-Regular",
+    fontFamily: "Outfit-Medium",
     textAlign: "center",
   },
   cellTextSelected: {
@@ -92,9 +104,14 @@ const makeStyles = (colors) => StyleSheet.create({
   cellTextPast: {
     color: colors.textMuted,
   },
+  todayDot: {
+    width: 4, height: 4, borderRadius: 2,
+    backgroundColor: colors.accent,
+    marginTop: 2,
+  },
   clearBtn: {
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     marginTop: 6,
@@ -112,11 +129,6 @@ const makeStyles = (colors) => StyleSheet.create({
 const MONTHS = ["January","February","March","April","May","June",
                  "July","August","September","October","November","December"];
 const DAYS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
-
-// Fixed cell size — 7 cells + 8px padding on each side + 6 gaps of 2px = grid width
-// We keep it simple: CELL px square, no gap between cells, horizontal padding = (containerWidth - 7*CELL) / 2
-// Instead, we just let the grid be full width and use flex, but with explicit width+height (not aspectRatio)
-const CELL = 40;
 
 function daysInMonth(month, year) {
   return new Date(year, month + 1, 0).getDate();
@@ -180,7 +192,6 @@ const DatePicker = ({ value, onChange, onClear }) => {
     todayMonth === viewMonth &&
     today.getDate() === day;
 
-  // Build grid: empty cells + day numbers
   const cells = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= totalDays; d++) cells.push(d);
@@ -195,21 +206,24 @@ const DatePicker = ({ value, onChange, onClear }) => {
           disabled={!canGoPrev}
           style={[styles.navBtn, !canGoPrev && styles.navDisabled]}
         >
-          <Feather name="chevron-left" size={20} color={canGoPrev ? colors.textPrimary : colors.textMuted} />
+          <Feather name="chevron-left" size={18} color={canGoPrev ? colors.textPrimary : colors.textMuted} />
         </TouchableOpacity>
 
-        <Text style={styles.monthTitle}>{MONTHS[viewMonth]} {viewYear}</Text>
+        <Text style={styles.monthTitle}>
+          {MONTHS[viewMonth]}{" "}
+          <Text style={styles.yearText}>{viewYear}</Text>
+        </Text>
 
         <TouchableOpacity
           onPress={() => { tap(); nextMonth(); }}
           disabled={!canGoNext}
           style={[styles.navBtn, !canGoNext && styles.navDisabled]}
         >
-          <Feather name="chevron-right" size={20} color={canGoNext ? colors.textPrimary : colors.textMuted} />
+          <Feather name="chevron-right" size={18} color={canGoNext ? colors.textPrimary : colors.textMuted} />
         </TouchableOpacity>
       </View>
 
-      {/* Day-of-week labels — one per column, matching grid columns */}
+      {/* Day-of-week labels */}
       <View style={styles.weekRow}>
         {DAYS.map((d) => (
           <View key={d} style={styles.weekCell}>
@@ -218,7 +232,7 @@ const DatePicker = ({ value, onChange, onClear }) => {
         ))}
       </View>
 
-      {/* Calendar grid — rows of 7 */}
+      {/* Calendar grid */}
       {Array.from({ length: cells.length / 7 }).map((_, rowIdx) => (
         <View key={rowIdx} style={styles.gridRow}>
           {cells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => {
@@ -247,6 +261,7 @@ const DatePicker = ({ value, onChange, onClear }) => {
                 ]}>
                   {day}
                 </Text>
+                {tod && !sel && <View style={styles.todayDot} />}
               </TouchableOpacity>
             );
           })}
@@ -261,6 +276,5 @@ const DatePicker = ({ value, onChange, onClear }) => {
     </View>
   );
 };
-
 
 export default DatePicker;
