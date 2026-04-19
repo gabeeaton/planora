@@ -99,6 +99,49 @@ export const testImmediateNotification = async () => {
  * @param {Array}  tasks   All tasks (picks first pending one for task reminders)
  * @param {number} streak  Current streak count
  */
+/**
+ * Fire batch notification scenarios in sequence so you can verify copy/grouping.
+ * Fires 5 scenarios over ~40 seconds.
+ */
+export const testBatchNotifications = async () => {
+  const granted = await checkNotificationPermissions();
+  if (!granted) return;
+
+  const schedule = (delaySecs, title, body) => {
+    const fire = new Date(Date.now() + delaySecs * 1000);
+    return Notifications.scheduleNotificationAsync({
+      content: { title, body, sound: true },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fire },
+    }).catch(() => {});
+  };
+
+  // 1 — single task due tomorrow
+  await schedule(4,
+    "📚 Due tomorrow: Research Paper Draft",
+    "ENGL 301 — due tomorrow at 11:59 PM"
+  );
+  // 2 — 3 tasks due tomorrow
+  await schedule(12,
+    "📚 3 assignments due tomorrow",
+    "Research Paper Draft, CHEM 201 Lab Report, MATH 240 Problem Set"
+  );
+  // 3 — 6 tasks due tomorrow (count + truncate)
+  await schedule(20,
+    "📚 6 assignments due tomorrow",
+    "Research Paper Draft, CHEM 201 Lab Report, MATH 240 Problem Set +3 more"
+  );
+  // 4 — single 2h reminder
+  await schedule(28,
+    "⚠️ Due in 2 hours: CHEM 201 Lab Report",
+    "CHEM 201 — due very soon!"
+  );
+  // 5 — multiple 2h reminder
+  await schedule(36,
+    "⚠️ 4 assignments due in ~2 hours",
+    "CHEM 201 Lab Report, MATH 240 Problem Set, HIST 110 Essay +1 more"
+  );
+};
+
 export const testAllNotifications = async (tasks = [], streak = 3) => {
   const granted = await checkNotificationPermissions();
   if (!granted) return;
@@ -176,98 +219,144 @@ const checkNotificationPermissions = async () => {
   }
 };
 
-// ── Schedule a reminder for one task ─────────────────────────
+// ── Batch reminder helpers ────────────────────────────────────
 
-/**
- * Schedule up to 2 reminders for a task:
- *   1. Day-before reminder — snapped to user's productive hour if possible,
- *      falls back to due - 24h.
- *   2. 2 hours before due date (HIGH priority only)
- *
- * Returns an object: { id24h, id2h } — store this on the task
- * in Firestore as `notificationIds` so you can cancel later.
- *
- * @param {object} task      - must have: id, title, dueDate, priority
- * @param {string} bestTime  - "morning"|"afternoon"|"evening"|"night" (optional)
- * @returns {Promise<{id24h: string|null, id2h: string|null}>}
- */
-export const scheduleTaskReminder = async (task, bestTime = null) => {
-  const result = { id24h: null, id2h: null };
+const batchManifestKey = (uid) => `@planora_batch_manifest_${uid}`;
 
-  if (!task?.dueDate) return result;
+const _saveBatchManifest = async (uid, entries) => {
+  await AsyncStorage.setItem(batchManifestKey(uid), JSON.stringify(entries)).catch(() => {});
+};
 
+const _loadBatchManifest = async (uid) => {
+  try {
+    const raw = await AsyncStorage.getItem(batchManifestKey(uid));
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+};
+
+const _cancelAllBatchNotifications = async (uid) => {
+  const entries = await _loadBatchManifest(uid);
+  await Promise.all(
+    entries.map(({ id }) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {}))
+  );
+  await AsyncStorage.removeItem(batchManifestKey(uid)).catch(() => {});
+};
+
+const _taskDueDate = (task) => {
   const due = task.dueDate?.toDate?.() ?? new Date(task.dueDate);
   const hasTime = Array.isArray(task.dueTime) && task.dueTime.length === 2;
-  if (hasTime) {
-    due.setHours(task.dueTime[0], task.dueTime[1], 0, 0);
-  } else {
-    due.setHours(23, 59, 0, 0);
+  due.setHours(hasTime ? task.dueTime[0] : 23, hasTime ? task.dueTime[1] : 59, 0, 0);
+  return due;
+};
+
+const _build24hContent = (tasks, dueDateObj) => {
+  const count = tasks.length;
+  if (count === 1) {
+    const t = tasks[0];
+    return {
+      title: `📚 Due tomorrow: ${t.title}`,
+      body: t.className ? `${t.className} — due ${_formatDue(dueDateObj)}` : `Due ${_formatDue(dueDateObj)}`,
+    };
   }
+  const names = tasks.slice(0, 3).map((t) => t.title).join(", ");
+  const extra  = count > 3 ? ` +${count - 3} more` : "";
+  return {
+    title: `📚 ${count} assignments due tomorrow`,
+    body: names + extra,
+  };
+};
 
-  const now = new Date();
-  if (due <= now) return result;
+const _build2hContent = (tasks) => {
+  const count = tasks.length;
+  if (count === 1) {
+    const t = tasks[0];
+    return {
+      title: `⚠️ Due in 2 hours: ${t.title}`,
+      body: t.className ? `${t.className} — due very soon!` : "Due very soon!",
+    };
+  }
+  const names = tasks.slice(0, 3).map((t) => t.title).join(", ");
+  const extra  = count > 3 ? ` +${count - 3} more` : "";
+  return {
+    title: `⚠️ ${count} assignments due in ~2 hours`,
+    body: names + extra,
+  };
+};
 
-  const granted = await checkNotificationPermissions();
-  if (!granted) return result;
+/**
+ * Schedule batch reminders for all pending tasks within the next 7 days.
+ * Groups tasks by due date → one "due tomorrow" notification per date,
+ * one "due in 2 hours" notification per unique due-time cluster.
+ * Always cancels existing batch notifications first — safe to call any time.
+ */
+export const scheduleBatchReminders = async (tasks, bestTime, uid) => {
+  if (!uid) return;
+  await _withLock(`batch-${uid}`, async () => {
+    const granted = await checkNotificationPermissions();
+    if (!granted) return;
 
-  // ── Day-before reminder ───────────────────────────────────
-  const dayBefore = new Date(due);
-  dayBefore.setDate(dayBefore.getDate() - 1);
-  const fireHour = bestTime && PRODUCTIVE_TIME_HOURS[bestTime] !== undefined
-    ? PRODUCTIVE_TIME_HOURS[bestTime]
-    : 9;
-  dayBefore.setHours(fireHour, 0, 0, 0);
-  const remind24h = dayBefore;
+    await _cancelAllBatchNotifications(uid);
 
-  // ── 2-hour reminder ───────────────────────────────────────
-  const remind2h = new Date(due.getTime() - 2 * 60 * 60 * 1000);
+    const now       = new Date();
+    const windowEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const fireHour  = PRODUCTIVE_TIME_HOURS[bestTime] ?? 9;
+    const manifest  = [];
 
-  // Skip 24h reminder if it would fire after the 2h reminder
-  const skip24h = remind24h >= remind2h;
-
-  if (remind24h > now && !skip24h) {
-    try {
-      result.id24h = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `📚 Due tomorrow: ${task.title}`,
-          body: task.className
-            ? `${task.className} — due ${_formatDue(due)}`
-            : `Due ${_formatDue(due)}`,
-          data: { taskId: task.id },
-          sound: true,
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: remind24h,
-        },
-      });
-    } catch (err) {
-      console.warn("Failed to schedule 24h reminder:", err);
+    // Group pending tasks by date string (YYYY-MM-DD)
+    const byDate = new Map();
+    for (const task of tasks) {
+      if (task.completed || !task.dueDate) continue;
+      const due = _taskDueDate(task);
+      if (due <= now || due > windowEnd) continue;
+      const dateStr = due.toISOString().slice(0, 10);
+      if (!byDate.has(dateStr)) byDate.set(dateStr, []);
+      byDate.get(dateStr).push({ task, due });
     }
-  }
 
-  if (remind2h > now) {
-    try {
-      result.id2h = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `⚠️ Due in 2 hours: ${task.title}`,
-          body: task.className
-            ? `${task.className} assignment due very soon!`
-            : "This task is due very soon!",
-          data: { taskId: task.id },
-          sound: true,
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: remind2h,
-        },
-      });
-    } catch (err) {
-      console.warn("Failed to schedule 2h reminder:", err);
+    for (const [dateStr, entries] of byDate) {
+      const taskList = entries.map((e) => e.task);
+
+      // ── Day-before (24h) batch ──────────────────────────
+      const dayBefore = new Date(dateStr + "T00:00:00");
+      dayBefore.setDate(dayBefore.getDate() - 1);
+      dayBefore.setHours(fireHour, 0, 0, 0);
+
+      if (dayBefore > now) {
+        const { title, body } = _build24hContent(taskList, new Date(dateStr + "T23:59:00"));
+        try {
+          const id = await Notifications.scheduleNotificationAsync({
+            content: { title, body, data: { type: "batch-24h", date: dateStr }, sound: true },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: dayBefore },
+          });
+          manifest.push({ id, label: `24h-${dateStr}` });
+        } catch (err) { console.warn("batch 24h failed:", err); }
+      }
+
+      // ── 2-hour batch — group by fire time (nearest 15 min) ─
+      const byFireTime = new Map();
+      for (const { task, due } of entries) {
+        const fireAt = new Date(due.getTime() - 2 * 60 * 60 * 1000);
+        if (fireAt <= now) continue;
+        const bucket = Math.round(fireAt.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000);
+        if (!byFireTime.has(bucket)) byFireTime.set(bucket, []);
+        byFireTime.get(bucket).push(task);
+      }
+
+      for (const [bucket, group] of byFireTime) {
+        const fireDate = new Date(bucket);
+        const { title, body } = _build2hContent(group);
+        try {
+          const id = await Notifications.scheduleNotificationAsync({
+            content: { title, body, data: { type: "batch-2h", date: dateStr }, sound: true },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireDate },
+          });
+          manifest.push({ id, label: `2h-${dateStr}-${bucket}` });
+        } catch (err) { console.warn("batch 2h failed:", err); }
+      }
     }
-  }
 
-  return result;
+    await _saveBatchManifest(uid, manifest);
+  });
 };
 
 // ── Cancel reminders for one task ────────────────────────────
@@ -401,6 +490,7 @@ export const cancelAllNotifications = async (uid) => {
       `@planora_weekly_summary_id_${uid}`,
       `@planora_digest_notif_id_${uid}`,
       `@planora_avoidance_alerted_${uid}`,
+      `@planora_batch_manifest_${uid}`,
     ]).catch(() => {});
   }
 };
@@ -682,82 +772,14 @@ export const updateOverdueBadge = async (tasks) => {
 
 // ── Internal helpers ──────────────────────────────────────────
 
-// ── Notification sync (rolling 7-day window) ──────────────────
-
-const SYNC_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+// ── Notification sync — delegates to batch scheduler ─────────
 
 /**
- * Syncs scheduled notifications to match current task state.
- * Only keeps notifications for tasks due within the next 7 days.
- * Safe to call on every task list change — cancels stale, schedules missing.
- *
- * @param {Array}  tasks       All tasks
- * @param {string} bestTime    "morning"|"afternoon"|"evening"|"night"
- * @param {string} uid         Firebase user ID
- * @param {Function} onUpdate  Callback(taskId, notificationIds) to persist IDs back to Firestore
+ * Kept for backward-compat call sites in useTasks.
+ * Simply calls scheduleBatchReminders — all grouping logic lives there.
  */
-export const syncNotificationWindow = async (
-  tasks,
-  bestTime,
-  uid,
-  onUpdate,
-  pendingIds = new Set()
-) => {
-  if (!uid) return;
-
-  const granted = await checkNotificationPermissions();
-  if (!granted) return;
-
-  const now = new Date();
-  const windowEnd = new Date(now.getTime() + SYNC_WINDOW_MS);
-
-  // Fetch OS-scheduled IDs once — used to detect stale Firestore IDs
-  // (e.g. after sign-out which cancels all OS notifications but leaves Firestore IDs intact)
-  let osScheduledIds = new Set();
-  try {
-    const all = await Notifications.getAllScheduledNotificationsAsync();
-    osScheduledIds = new Set(all.map((n) => n.identifier));
-  } catch {}
-
-  const sortedTasks = [...tasks].sort((a, b) => {
-    if (a.priority === "HIGH" && b.priority !== "HIGH") return -1;
-    if (b.priority === "HIGH" && a.priority !== "HIGH") return 1;
-    return new Date(a.dueDate) - new Date(b.dueDate);
-  });
-
-  let scheduledCount = 0;
-  const MAX_TASK_NOTIFICATIONS = 58;
-
-  for (const task of sortedTasks) {
-    if (task.completed || !task.dueDate) continue;
-    if (pendingIds.has(task.id)) continue;
-    if (scheduledCount >= MAX_TASK_NOTIFICATIONS) break;
-
-    const due = task.dueDate?.toDate?.() ?? new Date(task.dueDate);
-    const inWindow = due > now && due <= windowEnd;
-
-    // A task "has valid IDs" only if the OS actually has them scheduled
-    const id24hLive = task.notificationIds?.id24h && osScheduledIds.has(task.notificationIds.id24h);
-    const id2hLive  = task.notificationIds?.id2h  && osScheduledIds.has(task.notificationIds.id2h);
-    const hasIds = id24hLive || id2hLive;
-
-    if (inWindow && !hasIds) {
-      await _withLock(`task-${task.id}`, async () => {
-        const notificationIds = await scheduleTaskReminder(task, bestTime);
-        if (notificationIds.id24h || notificationIds.id2h) {
-          // Mark pending so the next sync (triggered by the Firestore write) skips this task
-          pendingIds.add(task.id);
-          await onUpdate(task.id, notificationIds);
-          scheduledCount++;
-        }
-      });
-    } else if (!inWindow && hasIds) {
-      await _withLock(`task-${task.id}`, async () => {
-        await cancelTaskReminder(task.notificationIds).catch(() => {});
-        await onUpdate(task.id, null);
-      });
-    }
-  }
+export const syncNotificationWindow = async (tasks, bestTime, uid) => {
+  await scheduleBatchReminders(tasks, bestTime, uid);
 };
 
 const _formatDue = (date) => {

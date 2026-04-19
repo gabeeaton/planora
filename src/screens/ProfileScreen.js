@@ -26,7 +26,7 @@ import { typography, spacing, radius, shadows, COLOR_THEMES } from "../utils/the
 import { generateTerms, WORK_TIMES, GRADES, CREDIT_OPTS } from "../utils/termHelpers";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
-import { testAllNotifications } from "../services/notifications";
+import { testAllNotifications, testBatchNotifications } from "../services/notifications";
 import { useTasks } from "../hooks/useTasks";
 
 Notifications.setNotificationHandler({
@@ -582,33 +582,27 @@ const ProfileScreen = ({ navigation }) => {
           <Row icon="log-out" label="Sign Out" onPress={handleLogout} danger />
         </View>
 
-        {/* <SectionHeader title="Developer" />
+        <SectionHeader title="Developer" />
         <View style={styles.card}>
           <Row
+            icon="layers"
+            label="Test Batch Notifications"
+            value="5 scenarios over 40s"
+            onPress={() => {
+              testBatchNotifications();
+              Alert.alert("Batch tests scheduled", "Lock your phone — 5 batch scenarios arriving over the next 40 seconds.");
+            }}
+          />
+          <Row
             icon="bell"
-            label="Test All Notifications"
-            value="Fires 6 types over 45s"
+            label="Test All Notification Types"
+            value="6 types over 45s"
             onPress={() => {
               testAllNotifications(tasks, streak);
               Alert.alert("Notifications scheduled", "Lock your phone — 6 notifications will arrive over the next 45 seconds.");
             }}
           />
-        </View> */}
-{/* <TouchableOpacity 
-  title="Check Pending Notifs" 
-  onPress={async () => {
-    const pending = await Notifications.getAllScheduledNotificationsAsync();
-    console.log("PENDING COUNT:", pending.length);
-    pending.forEach(n => console.log(n.content.title, n.trigger));
-  }} 
-><Text>see</Text></TouchableOpacity>
-<TouchableOpacity 
-  title="Wipe All Notifs" 
-  onPress={async () => {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    console.log("Cleared all 64 ghosts.");
-  }} 
-><Text>clear</Text></TouchableOpacity> */}
+        </View>
 
         <Text style={styles.version}>Planora v1.0.0</Text>
         <View style={{ height: 40 }} />

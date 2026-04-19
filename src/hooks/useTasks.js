@@ -26,15 +26,15 @@ import {
   loadCachedHistory,
 } from "../services/offlineStorage";
 import {
-  scheduleTaskReminder,
   cancelTaskReminder,
   updateOverdueBadge,
   scheduleDailyDigest,
   scheduleWeeklySummary,
+  scheduleBatchReminders,
+  syncNotificationWindow,
 } from "../services/notifications";
 import { spawnNextRecurringTask } from "../services/recurringTasks";
 import { analyzePatterns } from "../services/patternAnalysis";
-import { syncNotificationWindow } from "../services/notifications";
 import { useAuth } from "./useAuth";
 import { useUserProfile } from "./useUserProfile";
 import {
@@ -160,21 +160,9 @@ export const useTasks = () => {
   useEffect(() => {
     if (!user?.uid || tasks.length === 0) return;
 
-    const onUpdate = (taskId, notificationIds) => {
-      updateTask(taskId, { notificationIds }).catch(() => {});
-      // Remove from pending after Firestore has had time to propagate back
-      setTimeout(() => pendingTaskIdsRef.current.delete(taskId), 15_000);
-    };
-
     const timer = setTimeout(() => {
       if (Date.now() - lastEditTimeRef.current < 15_000) return;
-      syncNotificationWindow(
-        tasks,
-        bestTimeRef.current,
-        user.uid,
-        onUpdate,
-        pendingTaskIdsRef.current
-      );
+      syncNotificationWindow(tasks, bestTimeRef.current, user.uid);
     }, 12000);
 
     return () => clearTimeout(timer);
@@ -254,42 +242,16 @@ export const useTasks = () => {
   const editTask = useCallback(
     async (taskId, updates) => {
       try {
-        const currentTask = tasks.find((t) => t.id === taskId);
-
-        if (currentTask && ("dueDate" in updates || "dueTime" in updates)) {
-          const oldDue = currentTask.dueDate instanceof Date
-            ? currentTask.dueDate.getTime()
-            : currentTask.dueDate?.toDate?.()?.getTime() ?? null;
-          const newDue = updates.dueDate ? new Date(updates.dueDate).getTime() : null;
-        
-          const oldTime = JSON.stringify(currentTask.dueTime ?? null);
-          const newTime = JSON.stringify(updates.dueTime ?? null);
-        
-          if (oldDue !== newDue || oldTime !== newTime) {
-            lastEditTimeRef.current = Date.now();
-            pendingTaskIdsRef.current.add(taskId);
-            setTimeout(() => pendingTaskIdsRef.current.delete(taskId), 15_000);
-
-            if (currentTask.notificationIds) {
-              await cancelTaskReminder(currentTask.notificationIds).catch(
-                () => {}
-              );
-            }
-
-            const updatedTask = { ...currentTask, ...updates, id: taskId };
-            const notificationIds = await scheduleTaskReminder(
-              updatedTask,
-              bestTimeRef.current
-            );
-
-            updates.notificationIds =
-              notificationIds.id24h || notificationIds.id2h
-                ? notificationIds
-                : null;
-          }
-        }
-
         await updateTask(taskId, updates);
+
+        // Reschedule batch notifications immediately when date/time changes
+        if ("dueDate" in updates || "dueTime" in updates) {
+          lastEditTimeRef.current = Date.now();
+          const updatedTasks = tasksRef.current.map((t) =>
+            t.id === taskId ? { ...t, ...updates } : t
+          );
+          scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+        }
       } catch (err) {
         const msg = err.message?.includes("permission")
           ? "Permission denied."
@@ -298,7 +260,7 @@ export const useTasks = () => {
         throw new Error(msg);
       }
     },
-    [tasks]
+    [tasks, user]
   );
 
   // ── Complete / toggle task ──────────────────────────────────
@@ -327,10 +289,11 @@ export const useTasks = () => {
           // Record for pattern analysis
           await recordTaskCompletion({ ...task, userId: user.uid });
 
-          // Cancel reminders — no point reminding about a done task
-          if (task.notificationIds) {
-            await cancelTaskReminder(task.notificationIds).catch(() => {});
-          }
+          // Reschedule batch reminders excluding this completed task
+          const updatedTasks = tasksRef.current.map((t) =>
+            t.id === task.id ? { ...t, completed: true } : t
+          );
+          scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
 
           // Refresh history so patterns update after completion
           loadTaskHistory(user.uid, 100)
@@ -340,16 +303,11 @@ export const useTasks = () => {
             })
             .catch(() => {});
         } else {
-          // Task is being un-completed — reschedule reminder if future due date
-          if (task.dueDate && new Date(task.dueDate) > new Date()) {
-            const notificationIds = await scheduleTaskReminder(
-              task,
-              bestTimeRef.current
-            );
-            if (notificationIds.id24h || notificationIds.id2h) {
-              await updateTask(task.id, { notificationIds }).catch(() => {});
-            }
-          }
+          // Task is being un-completed — reschedule batch with it included
+          const updatedTasks = tasksRef.current.map((t) =>
+            t.id === task.id ? { ...t, completed: false } : t
+          );
+          scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
         }
       } catch (err) {
         setError(err.message || "Failed to update task.");
@@ -360,18 +318,17 @@ export const useTasks = () => {
 
   // ── Delete task ─────────────────────────────────────────────
 
-  const removeTask = useCallback(async (taskId, notificationIds) => {
+  const removeTask = useCallback(async (taskId) => {
     try {
       await deleteTask(taskId);
-      if (notificationIds) {
-        await cancelTaskReminder(notificationIds).catch(() => {});
-      }
+      const updatedTasks = tasksRef.current.filter((t) => t.id !== taskId);
+      scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
     } catch (err) {
       const msg = err.message || "Failed to delete task.";
       setError(msg);
       throw new Error(msg);
     }
-  }, []);
+  }, [user]);
 
   // ── Clear all completed tasks ───────────────────────────────
 
