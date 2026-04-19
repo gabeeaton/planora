@@ -31,19 +31,6 @@ import { differenceInCalendarDays, subDays, format } from "date-fns";
 
 // ── Helpers ───────────────────────────────────────────────────
 
-const useCountUp = (target, resetKey = 0, duration = 700) => {
-  const [display, setDisplay] = useState(0);
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    anim.stopAnimation();
-    anim.setValue(0);
-    setDisplay(0);
-    const id = anim.addListener(({ value }) => setDisplay(Math.round(value)));
-    Animated.timing(anim, { toValue: target, duration, useNativeDriver: false }).start();
-    return () => { anim.stopAnimation(); anim.removeListener(id); };
-  }, [target, resetKey]);
-  return display;
-};
 
 const toDate = (val) => {
   if (!val) return null;
@@ -959,19 +946,6 @@ const StatsScreen = () => {
   const activityMax = Math.max(...activityDays.map((d) => d.count), 1);
   const weekTotal = activityDays.reduce((s, d) => s + d.count, 0);
 
-  const [focusTick, setFocusTick] = useState(0);
-  const barProgress = useRef(new Animated.Value(0)).current;
-  useFocusEffect(useCallback(() => {
-    setFocusTick(t => t + 1);
-    barProgress.setValue(0);
-    Animated.timing(barProgress, { toValue: 1, duration: 600, delay: 200, useNativeDriver: false }).start();
-  }, []));
-
-  const displayCompleted = useCountUp(totalCompleted, focusTick);
-  const displayOverdue = useCountUp(totalOverdue, focusTick);
-  const displayRate = useCountUp(completionRate, focusTick);
-  const displayStreak = useCountUp(streak, focusTick);
-  const displayWeekTotal = useCountUp(weekTotal, focusTick);
 
   // Semester
   const semBounds = getSemesterBounds(profile?.semester);
@@ -1028,6 +1002,7 @@ const StatsScreen = () => {
     (c) => c.health.label === "On track" || c.health.label === "Okay"
   ).length;
 
+
   // Tasks due in next 3 days
   const upcoming = useMemo(() => {
     const in3 = new Date(today);
@@ -1071,6 +1046,31 @@ const StatsScreen = () => {
     ].filter((p) => p.count > 0);
   }, [tasks]);
 
+  // ── Staggered section entrance — native thread, always smooth ──
+  const sectionAnims = useRef(
+    Array.from({ length: 6 }, () => ({
+      opacity: new Animated.Value(0),
+      translateY: new Animated.Value(18),
+    }))
+  ).current;
+  useFocusEffect(useCallback(() => {
+    sectionAnims.forEach(({ opacity, translateY }) => {
+      opacity.setValue(0);
+      translateY.setValue(18);
+    });
+    Animated.parallel(
+      sectionAnims.map(({ opacity, translateY }, i) =>
+        Animated.sequence([
+          Animated.delay(i * 70),
+          Animated.parallel([
+            Animated.timing(opacity,     { toValue: 1, duration: 280, useNativeDriver: true }),
+            Animated.spring(translateY,  { toValue: 0, speed: 22, bounciness: 3, useNativeDriver: true }),
+          ]),
+        ])
+      )
+    ).start();
+  }, []));
+
   // ── Empty state ──────────────────────────────────────────────
   if (tasks.length === 0 && completedTasks.length === 0) {
     return (
@@ -1097,6 +1097,11 @@ const StatsScreen = () => {
     );
   }
 
+  const sectionStyle = (i) => ({
+    opacity: sectionAnims[i].opacity,
+    transform: [{ translateY: sectionAnims[i].translateY }],
+  });
+
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       {/* Header */}
@@ -1110,7 +1115,7 @@ const StatsScreen = () => {
             <Text>🔥</Text>
             <View>
               <Text style={styles.streakText}>
-                {displayStreak} day{displayStreak !== 1 ? "s" : ""}
+                {streak} day{streak !== 1 ? "s" : ""}
               </Text>
             </View>
           </View>
@@ -1123,6 +1128,7 @@ const StatsScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Overview ── */}
+        <Animated.View style={sectionStyle(0)}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
             <View style={styles.sectionDot} />
@@ -1141,7 +1147,7 @@ const StatsScreen = () => {
               <Feather name="check-circle" size={16} color={colors.low} />
             </View>
             <Text style={[styles.statValue, { color: colors.low }]}>
-              {displayCompleted}
+              {totalCompleted}
             </Text>
             <Text style={styles.statLabel}>Completed</Text>
           </View>
@@ -1177,7 +1183,7 @@ const StatsScreen = () => {
                 { color: totalOverdue > 0 ? colors.high : colors.low },
               ]}
             >
-              {displayOverdue}
+              {totalOverdue}
             </Text>
             <Text style={styles.statLabel}>Overdue</Text>
           </View>
@@ -1195,13 +1201,15 @@ const StatsScreen = () => {
               <Feather name="trending-up" size={16} color={colors.accent} />
             </View>
             <Text style={[styles.statValue, { color: colors.accent }]}>
-              {displayRate}%
+              {completionRate}%
             </Text>
             <Text style={styles.statLabel}>Complete</Text>
           </View>
         </View>
+        </Animated.View>
 
         {/* ── 7-day activity ── */}
+        <Animated.View style={sectionStyle(1)}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
             <View style={styles.sectionDot} />
@@ -1211,7 +1219,7 @@ const StatsScreen = () => {
         <View style={styles.activityCard}>
           <View style={styles.activityCardTop}>
             <Text style={styles.activityCardTitle}>Daily completions</Text>
-            <Text style={styles.activityCardCount}>{displayWeekTotal} this week</Text>
+            <Text style={styles.activityCardCount}>{weekTotal} this week</Text>
           </View>
           <View style={styles.activityBars}>
             {activityDays.map((d, i) => (
@@ -1226,14 +1234,11 @@ const StatsScreen = () => {
                     {d.count}
                   </Text>
                 )}
-                <Animated.View
+                <View
                   style={[
                     styles.activityBar,
                     {
-                      height: barProgress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, Math.max(4, Math.round((d.count / activityMax) * 48))],
-                      }),
+                      height: Math.max(4, Math.round((d.count / activityMax) * 48)),
                       backgroundColor: d.isToday
                         ? colors.accent
                         : d.count > 0
@@ -1262,10 +1267,11 @@ const StatsScreen = () => {
             ))}
           </View>
         </View>
+        </Animated.View>
 
         {/* ── Semester ── */}
         {daysLeft !== null && daysLeft > 0 && daysLeft < 120 && (
-          <>
+          <Animated.View style={sectionStyle(2)}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
                 <View style={styles.sectionDot} />
@@ -1304,7 +1310,7 @@ const StatsScreen = () => {
                 <Text style={styles.semPctText}>{semPct}%</Text>
               </View>
             </View>
-          </>
+          </Animated.View>
         )}
 
         {/* ── GPA ── (commented out)
@@ -1480,7 +1486,7 @@ const StatsScreen = () => {
 
         {/* ── Classes ── */}
         {byClass.length > 0 && (
-          <>
+          <Animated.View style={sectionStyle(3)}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
                 <View style={styles.sectionDot} />
@@ -1546,10 +1552,7 @@ const StatsScreen = () => {
                             <View
                               style={[
                                 styles.barFill,
-                                {
-                                  width: `${pct}%`,
-                                  backgroundColor: accentColor,
-                                },
+                                { width: `${pct}%`, backgroundColor: accentColor },
                               ]}
                             />
                           </View>
@@ -1561,12 +1564,12 @@ const StatsScreen = () => {
                 }
               )}
             </View>
-          </>
+          </Animated.View>
         )}
 
         {/* ── Priority breakdown ── */}
         {priorityBreakdown.length > 0 && (
-          <>
+          <Animated.View style={sectionStyle(4)}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
                 <View style={styles.sectionDot} />
@@ -1592,13 +1595,10 @@ const StatsScreen = () => {
                       <Text style={styles.priorityLabel}>{label}</Text>
                     </View>
                     <View style={styles.priorityBarTrack}>
-                      <Animated.View
+                      <View
                         style={[
                           styles.priorityBarFill,
-                          {
-                            width: barProgress.interpolate({ inputRange: [0, 1], outputRange: ["0%", `${pct}%`] }),
-                            backgroundColor: color,
-                          },
+                          { width: `${pct}%`, backgroundColor: color },
                         ]}
                       />
                     </View>
@@ -1609,7 +1609,7 @@ const StatsScreen = () => {
                 );
               })}
             </View>
-          </>
+          </Animated.View>
         )}
       </ScrollView>
     </SafeAreaView>

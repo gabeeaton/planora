@@ -191,8 +191,12 @@ const makeStyles = (colors) => StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: colors.bgCard, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingBottom: 32,
+    backgroundColor: colors.bgCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingBottom: 36,
+  },
+  sheetHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: colors.border, alignSelf: "center", marginTop: 10, marginBottom: 4,
   },
   sheetHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
@@ -207,21 +211,48 @@ const makeStyles = (colors) => StyleSheet.create({
   sheetDoneText: { color: "#fff", fontFamily: "Outfit-Bold", fontSize: 14 },
 
   optionBtn: {
-    paddingHorizontal: spacing.md, paddingVertical: 14,
+    paddingHorizontal: spacing.lg, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: colors.border,
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
+  optionBtnSelected: {
+    backgroundColor: colors.accentGlow,
+  },
   optionText:         { fontSize: 15, color: colors.textPrimary },
   optionTextSelected: { color: colors.accent, fontFamily: "Outfit-Bold" },
+
   systemToggleRow: {
-    flexDirection: "row", backgroundColor: colors.bg,
+    flexDirection: "row", backgroundColor: colors.bgElevated,
     borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
-    overflow: "hidden", marginBottom: spacing.sm,
+    marginHorizontal: spacing.lg, marginTop: spacing.md, marginBottom: spacing.sm,
+    padding: 3, gap: 2,
   },
-  systemToggleBtn:       { flex: 1, paddingVertical: 10, alignItems: "center" },
-  systemToggleBtnActive: { backgroundColor: colors.accent },
-  systemToggleText:      { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
-  systemToggleTextActive:{ color: "#fff" },
+  systemToggleBtn: {
+    flex: 1, paddingVertical: 9, alignItems: "center", justifyContent: "center",
+    borderRadius: radius.sm,
+  },
+  systemToggleBtnActive: {
+    backgroundColor: colors.accent,
+    shadowColor: colors.accent, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25, shadowRadius: 4, elevation: 3,
+  },
+  systemToggleText:       { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
+  systemToggleTextActive: { color: "#fff" },
+
+  // Work time option
+  workTimeBtn: {
+    paddingHorizontal: spacing.lg, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: "row", alignItems: "center", gap: 14,
+  },
+  workTimeBtnSelected: { backgroundColor: colors.accentGlow },
+  workTimeIconWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: "center", justifyContent: "center",
+  },
+  workTimeLabel:    { fontSize: 15, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
+  workTimeLabelSel: { color: colors.accent },
+  workTimeSub:      { fontSize: 12, color: colors.textMuted, marginTop: 1 },
 
   // ── Classes editor ──
   classEditorRow: {
@@ -615,13 +646,13 @@ const ProfileScreen = ({ navigation }) => {
       <Modal visible={modal === "semester"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { tap(); setModal(null); }}>
           <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Select Term</Text>
               <TouchableOpacity onPress={() => { tap(); setModal(null); }}>
                 <Feather name="x" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
-            {/* System toggle */}
             <View style={styles.systemToggleRow}>
               {["semester", "quarter"].map((sys) => {
                 const active = (profile?.schoolSystem ?? "semester") === sys;
@@ -638,12 +669,15 @@ const ProfileScreen = ({ navigation }) => {
                 );
               })}
             </View>
-            {generateTerms(profile?.schoolSystem ?? "semester").map((s) => (
-              <TouchableOpacity key={s} style={styles.optionBtn} onPress={() => { tap(); pickSemester(s); }}>
-                <Text style={[styles.optionText, profile?.semester === s && styles.optionTextSelected]}>{s}</Text>
-                {profile?.semester === s && <Feather name="check" size={16} color={colors.accent} />}
-              </TouchableOpacity>
-            ))}
+            {generateTerms(profile?.schoolSystem ?? "semester").map((s) => {
+              const sel = profile?.semester === s;
+              return (
+                <TouchableOpacity key={s} style={[styles.optionBtn, sel && styles.optionBtnSelected]} onPress={() => { tap(); pickSemester(s); }}>
+                  <Text style={[styles.optionText, sel && styles.optionTextSelected]}>{s}</Text>
+                  {sel && <Feather name="check" size={16} color={colors.accent} />}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -652,18 +686,33 @@ const ProfileScreen = ({ navigation }) => {
       <Modal visible={modal === "worktime"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { tap(); setModal(null); }}>
           <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Best Work Time</Text>
               <TouchableOpacity onPress={() => { tap(); setModal(null); }}>
                 <Feather name="x" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
-            {WORK_TIMES.map((t) => (
-              <TouchableOpacity key={t} style={styles.optionBtn} onPress={() => { tap(); pickWorkTime(t); }}>
-                <Text style={[styles.optionText, profile?.preferredWorkTime === t && styles.optionTextSelected]}>{t}</Text>
-                {profile?.preferredWorkTime === t && <Feather name="check" size={16} color={colors.accent} />}
-              </TouchableOpacity>
-            ))}
+            {[
+              { label: "Morning",   sub: "6am – 12pm",      icon: "sun",    val: WORK_TIMES[0] },
+              { label: "Afternoon", sub: "12pm – 5pm",      icon: "cloud",  val: WORK_TIMES[1] },
+              { label: "Evening",   sub: "5pm – 9pm",       icon: "sunset", val: WORK_TIMES[2] },
+              { label: "Night",     sub: "9pm and later",   icon: "moon",   val: WORK_TIMES[3] },
+            ].map(({ label, sub, icon, val }) => {
+              const sel = profile?.preferredWorkTime === val;
+              return (
+                <TouchableOpacity key={val} style={[styles.workTimeBtn, sel && styles.workTimeBtnSelected]} onPress={() => { tap(); pickWorkTime(val); }}>
+                  <View style={[styles.workTimeIconWrap, { backgroundColor: sel ? colors.accentGlow : colors.bgElevated }]}>
+                    <Feather name={icon} size={18} color={sel ? colors.accent : colors.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.workTimeLabel, sel && styles.workTimeLabelSel]}>{label}</Text>
+                    <Text style={styles.workTimeSub}>{sub}</Text>
+                  </View>
+                  {sel && <Feather name="check" size={16} color={colors.accent} />}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </TouchableOpacity>
       </Modal>
