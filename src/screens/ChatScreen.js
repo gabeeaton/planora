@@ -12,7 +12,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   FlatList, KeyboardAvoidingView, Platform, ActivityIndicator,
-  Alert, Animated,
+  Alert, Animated, Modal, ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -34,11 +34,32 @@ const todayKey        = () => new Date().toISOString().slice(0, 10); // YYYY-MM-
 const COUNT_KEY       = (uid) => `@planora_chat_count_${uid}_${todayKey()}`;
 
 // ── Suggested starter prompts ─────────────────────────────────
-const STARTERS = [
+const ASK_STARTERS = [
   { text: "Am I going to be okay this week?" },
   { text: "I'm overwhelmed — help me prioritize." },
-  { text: "Break down a task into subtasks", sub: "Adds them to your task list", icon: "git-branch" },
   { text: "Which class needs the most attention?" },
+];
+
+const ACTION_STARTERS = [
+  { text: "Break down a task into subtasks",  sub: "Adds them to your task list",    icon: "git-branch" },
+  { text: "Reschedule a task to a new date",  sub: "Moves it in your list",          icon: "calendar"   },
+  { text: "Mark a task as done",              sub: "Completes it instantly",          icon: "check-circle"},
+  { text: "Log a grade on an assignment",     sub: "Saves it to the task",           icon: "award"      },
+];
+
+// ── Capabilities sheet data ────────────────────────────────────
+const CAPABILITIES = [
+  { section: "Ask anything" },
+  { icon: "help-circle",    text: "How am I tracking this week?",      sub: "Real assessment of your workload" },
+  { icon: "alert-triangle", text: "What's most urgent right now?",     sub: "Ranked by deadline and grade impact" },
+  { icon: "layers",         text: "Which class needs attention?",      sub: "Based on upcoming due dates" },
+  { icon: "message-circle", text: "I'm overwhelmed — what do I do?",  sub: "Step-by-step plan from your tasks" },
+  { section: "Actions it can take" },
+  { icon: "plus-circle",   text: "Add a task to your list",            sub: "\"Add a paper due Friday for HIST 110\"" },
+  { icon: "git-branch",    text: "Break an assignment into subtasks",  sub: "\"Break down my term paper\"" },
+  { icon: "calendar",      text: "Reschedule a task",                  sub: "\"Move my essay to Thursday\"" },
+  { icon: "check-circle",  text: "Mark a task complete",               sub: "\"Mark my CHEM lab as done\"" },
+  { icon: "award",         text: "Log a grade",                        sub: "\"I got an 88 on my HIST exam\"" },
 ];
 
 // ── Date separator label ──────────────────────────────────────
@@ -161,6 +182,7 @@ export default function ChatScreen() {
   const [typing, setTyping]          = useState(false);
   const [historyLoaded, setHistLoaded] = useState(false);
   const [dailyCount, setDailyCount]  = useState(0);
+  const [showCapabilities, setShowCapabilities] = useState(false);
 
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -414,12 +436,48 @@ export default function ChatScreen() {
           <Text style={styles.headerTitle}>Academic Coach</Text>
           <Text style={styles.headerSub}>Powered by your real schedule</Text>
         </View>
-        {messages.length > 0 && (
-          <TouchableOpacity onPress={clearChat} style={styles.clearBtn}>
-            <Feather name="trash-2" size={18} color={colors.textMuted} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          {messages.length > 0 && (
+            <TouchableOpacity onPress={clearChat} style={styles.clearBtn}>
+              <Feather name="trash-2" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => setShowCapabilities(true)} style={styles.clearBtn}>
+            <Feather name="info" size={18} color={colors.textMuted} />
           </TouchableOpacity>
-        )}
+        </View>
       </View>
+
+      {/* Capabilities sheet */}
+      <Modal visible={showCapabilities} transparent animationType="slide" onRequestClose={() => setShowCapabilities(false)}>
+        <TouchableOpacity style={styles.capOverlay} activeOpacity={1} onPress={() => setShowCapabilities(false)}>
+          <View style={styles.capSheet} onStartShouldSetResponder={() => true}>
+            <View style={styles.capHandle} />
+            <Text style={styles.capTitle}>What I can do</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {CAPABILITIES.map((item, i) =>
+                item.section ? (
+                  <Text key={i} style={styles.capSection}>{item.section.toUpperCase()}</Text>
+                ) : (
+                  <View key={i} style={styles.capRow}>
+                    <View style={styles.capIconWrap}>
+                      <Feather name={item.icon} size={15} color={colors.accent} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.capItemText}>{item.text}</Text>
+                      <Text style={styles.capItemSub}>{item.sub}</Text>
+                    </View>
+                  </View>
+                )
+              )}
+              <View style={{ height: 8 }} />
+            </ScrollView>
+            <TouchableOpacity style={styles.capCloseBtn} onPress={() => setShowCapabilities(false)}>
+              <Text style={styles.capCloseTxt}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -428,7 +486,12 @@ export default function ChatScreen() {
       >
         {/* Empty state with starters */}
         {isEmpty ? (
-          <View style={styles.emptyWrap}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.emptyWrap}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.emptyIcon}>
               <Feather name="zap" size={28} color={colors.accent} />
             </View>
@@ -436,21 +499,38 @@ export default function ChatScreen() {
               {firstName ? `Hi ${firstName}.` : "What's on your mind?"}
             </Text>
             <Text style={styles.emptySub}>
-              Ask about your workload, upcoming deadlines, or what to tackle next.
+              Ask about your workload or let me take action on your tasks.
             </Text>
+
+            <Text style={styles.starterLabel}>ASK</Text>
             <View style={styles.startersCard}>
-              {STARTERS.map((s, i) => (
+              {ASK_STARTERS.map((s, i) => (
                 <TouchableOpacity
                   key={s.text}
-                  style={[styles.starterBtn, i === STARTERS.length - 1 && { borderBottomWidth: 0 }]}
+                  style={[styles.starterBtn, i === ASK_STARTERS.length - 1 && { borderBottomWidth: 0 }]}
                   onPress={() => send(s.text)}
                   activeOpacity={0.6}
                 >
-                  {s.icon && (
-                    <View style={styles.starterIconWrap}>
-                      <Feather name={s.icon} size={13} color={colors.accent} />
-                    </View>
-                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.starterText}>{s.text}</Text>
+                  </View>
+                  <Feather name="chevron-right" size={14} color={colors.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.starterLabel, { marginTop: spacing.md }]}>ACTIONS</Text>
+            <View style={styles.startersCard}>
+              {ACTION_STARTERS.map((s, i) => (
+                <TouchableOpacity
+                  key={s.text}
+                  style={[styles.starterBtn, i === ACTION_STARTERS.length - 1 && { borderBottomWidth: 0 }]}
+                  onPress={() => send(s.text)}
+                  activeOpacity={0.6}
+                >
+                  <View style={styles.starterIconWrap}>
+                    <Feather name={s.icon} size={13} color={colors.accent} />
+                  </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.starterText}>{s.text}</Text>
                     {s.sub && <Text style={styles.starterSub}>{s.sub}</Text>}
@@ -459,7 +539,7 @@ export default function ChatScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+          </ScrollView>
         ) : (
           <FlatList
             ref={listRef}
@@ -576,11 +656,55 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   starterText: { fontSize: 14, color: colors.textSecondary, fontFamily: "Outfit-Medium" },
   starterSub:  { fontSize: 11, color: colors.accent, fontFamily: "Outfit-SemiBold", marginTop: 2 },
+  starterLabel: {
+    fontSize: 11, fontFamily: "Outfit-ExtraBold", color: colors.textMuted,
+    letterSpacing: 1, marginBottom: 6, paddingLeft: 2, alignSelf: "flex-start",
+  },
   starterIconWrap: {
     width: 26, height: 26, borderRadius: 8,
     backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent,
     alignItems: "center", justifyContent: "center", marginRight: 2,
   },
+
+  // Capabilities modal
+  capOverlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end",
+  },
+  capSheet: {
+    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingHorizontal: spacing.lg, paddingBottom: 32, paddingTop: 12,
+    maxHeight: "80%",
+  },
+  capHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: colors.border, alignSelf: "center", marginBottom: 16,
+  },
+  capTitle: {
+    fontSize: 18, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  capSection: {
+    fontSize: 11, fontFamily: "Outfit-ExtraBold", color: colors.textMuted,
+    letterSpacing: 1, marginTop: spacing.md, marginBottom: 8,
+  },
+  capRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "#F0F0F5",
+  },
+  capIconWrap: {
+    width: 32, height: 32, borderRadius: 9,
+    backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent,
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
+  },
+  capItemText: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
+  capItemSub:  { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  capCloseBtn: {
+    marginTop: spacing.md, backgroundColor: colors.isDark ? colors.border : "#F2F2F7",
+    borderRadius: radius.md, paddingVertical: 14, alignItems: "center",
+  },
+  capCloseTxt: { fontSize: 15, fontFamily: "Outfit-Bold", color: colors.textPrimary },
 
   // Date separators
   dateSepRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 12 },
