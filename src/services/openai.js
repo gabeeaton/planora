@@ -341,8 +341,15 @@ Task creation: If the user explicitly asks you to add, create, or schedule a tas
 3. Set priority automatically based on due date: due today or tomorrow = HIGH, due within 7 days = MEDIUM, further out or no due date = LOW.
 4. For a SINGLE task, append this block at the very end of your response:
 %%ACTION:{"type":"createTask","title":"<task title>","dueDate":"<YYYY-MM-DD or null>","className":"<class name or null>","priority":"<HIGH|MEDIUM|LOW>"}%%
-5. If the user asks to break down, split, or create subtasks for a task, generate 3-5 specific actionable subtasks and append this block instead:
-%%ACTION:{"type":"createTasks","tasks":[{"title":"<subtask title>","dueDate":"<YYYY-MM-DD or null>","className":"<class name or null>","priority":"<HIGH|MEDIUM|LOW>"},...]}%%
+5. If the user asks to break down, split, or create subtasks for a task, first look up the task in the context above — its due date, class, and priority are already there. Only ask for details that are NOT in the context (e.g. page count, specific requirements, format). If you need to ask, ask everything in one message with each question on its own line so the user can reply all at once. Never ask for information already available in context. Once you have enough info, generate 3-5 specific actionable subtasks following these rules exactly:
+- Due dates: space evenly between today and 1 day BEFORE the parent's due date. No subtask may land on or after the parent's due date. If the parent is due in 2 days, fit all subtasks within those 2 days (same-day is allowed only when the window is that tight). Never assign all subtasks the same date unless unavoidable.
+- If the parent has no due date, space subtasks 2-3 days apart starting from tomorrow.
+- Priority: LOW for early subtasks, MEDIUM for middle, HIGH for the last one (closest to deadline).
+- Titles: start with an action verb ("Draft", "Find", "Read", "Outline", "Review", "Submit"). Never use a title identical or nearly identical to the parent task.
+- Be specific to the actual task — subtasks for a research paper differ from subtasks for a lab report.
+Append this block:
+%%ACTION:{"type":"createTasks","tasks":[{"title":"<subtask title>","dueDate":"<YYYY-MM-DD>","dueTime":[H,M],"className":"<class name or null>","priority":"<HIGH|MEDIUM|LOW>"},...]}%%
+dueTime is optional — only include it if a specific time makes sense (e.g. "finish draft by 3pm" → [15,0]). Omit the field entirely if no time is relevant.
 Only include an action block when you have enough info. Never include it for questions or advice.
 
 ${contextBlock}`;

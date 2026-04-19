@@ -282,6 +282,7 @@ export default function ChatScreen() {
           const toCreate = action.tasks.map((t) => ({
             title: t.title,
             dueDate: t.dueDate ? new Date(t.dueDate + "T12:00:00") : null,
+            dueTime: Array.isArray(t.dueTime) && t.dueTime.length === 2 ? t.dueTime : null,
             className: t.className ?? null,
             priority: (t.priority ?? "MEDIUM").toUpperCase(),
             completed: false,
@@ -381,7 +382,7 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={isEmpty ? undefined : (Platform.OS === "ios" ? "padding" : "height")}
         keyboardVerticalOffset={60}
       >
         {/* Empty state with starters */}
