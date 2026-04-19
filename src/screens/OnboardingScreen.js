@@ -142,21 +142,31 @@ const makeStyles = (colors) =>
     optionTextSelected: { color: colors.accent, fontFamily: "Outfit-Bold" },
     systemToggleRow: {
       flexDirection: "row",
-      backgroundColor: colors.bgCard,
+      backgroundColor: colors.bgElevated,
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
       overflow: "hidden",
       marginBottom: spacing.sm,
+      padding: 3,
+      gap: 2,
     },
     systemToggleBtn: {
       flex: 1,
-      paddingVertical: 11,
+      paddingVertical: 10,
       alignItems: "center",
       justifyContent: "center",
+      borderRadius: radius.sm,
     },
-    systemToggleBtnActive: { backgroundColor: colors.accent },
-    systemToggleText: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
+    systemToggleBtnActive: {
+      backgroundColor: colors.accent,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    systemToggleText: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textSecondary },
     systemToggleTextActive: { color: "#fff" },
     classCard: {
       backgroundColor: colors.bgCard,
@@ -610,6 +620,8 @@ const STEP_COUNT = 4;
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // ── Import Step Sub-component ─────────────────────────────────
+const tap = () => Haptics.selectionAsync().catch(() => {});
+
 const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors }) => {
   const { createManyTasks } = useTasks();
   const [icsUrl, setIcsUrl] = useState("");
@@ -771,7 +783,7 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
 
         <TouchableOpacity
           style={[styles.parseBtn, importing && styles.parseBtnDisabled]}
-          onPress={handleImport}
+          onPress={() => { tap(); handleImport(); }}
           disabled={importing}
         >
           {importing ? (
@@ -785,7 +797,7 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => setParsedTasks(null)}
+          onPress={() => { tap(); setParsedTasks(null); }}
           style={styles.skipBtn}
         >
           <Text style={styles.skipBtnText}>← Try a different method</Text>
@@ -825,7 +837,7 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
                 styles.fetchBtn,
                 (icsLoading || !icsUrl.trim()) && { opacity: 0.5 },
               ]}
-              onPress={handleFetchUrl}
+              onPress={() => { tap(); handleFetchUrl(); }}
               disabled={icsLoading || !icsUrl.trim()}
             >
               {icsLoading ? (
@@ -843,12 +855,12 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
             <Text style={styles.stepsTitle}>How to get your calendar URL</Text>
 
             {/* Platform row */}
-            <View style={[styles.systemToggleRow, { marginBottom: 0, borderBottomLeftRadius: (selectedLms === "Canvas" || selectedLms === "Blackboard") ? 0 : radius.md, borderBottomRightRadius: (selectedLms === "Canvas" || selectedLms === "Blackboard") ? 0 : radius.md }]}>
+            <View style={[styles.systemToggleRow, { marginBottom: (selectedLms === "Canvas" || selectedLms === "Blackboard") ? 6 : spacing.sm }]}>
               {["Canvas", "Brightspace", "Blackboard", "Moodle"].map((lms) => (
                 <TouchableOpacity
                   key={lms}
                   style={[styles.systemToggleBtn, selectedLms === lms && styles.systemToggleBtnActive]}
-                  onPress={() => { setSelectedLms(lms); setSelectedMethod("Web"); }}
+                  onPress={() => { tap(); setSelectedLms(lms); setSelectedMethod("Web"); }}
                 >
                   <Text style={[styles.systemToggleText, selectedLms === lms && styles.systemToggleTextActive, { fontSize: 12 }]}>{lms}</Text>
                 </TouchableOpacity>
@@ -857,12 +869,12 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
 
             {/* Method row — only for Canvas and Blackboard */}
             {(selectedLms === "Canvas" || selectedLms === "Blackboard") && (
-              <View style={[styles.systemToggleRow, { marginBottom: spacing.sm, borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 }]}>
+              <View style={[styles.systemToggleRow, { marginBottom: spacing.sm }]}>
                 {["Mobile App","Web"].map((m) => (
                   <TouchableOpacity
                     key={m}
                     style={[styles.systemToggleBtn, selectedMethod === m && styles.systemToggleBtnActive]}
-                    onPress={() => setSelectedMethod(m)}
+                    onPress={() => { tap(); setSelectedMethod(m); }}
                   >
                     <Text style={[styles.systemToggleText, selectedMethod === m && styles.systemToggleTextActive, { fontSize: 12 }]}>{m}</Text>
                   </TouchableOpacity>
@@ -924,7 +936,7 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
 
           <TouchableOpacity
             style={[styles.pickFileBtn, icsLoading && { opacity: 0.5 }]}
-            onPress={handlePickFile}
+            onPress={() => { tap(); handlePickFile(); }}
             disabled={icsLoading}
           >
             <Feather name="upload" size={15} color={colors.textMuted} />
@@ -950,7 +962,7 @@ const OnboardingScreen = ({ navigation }) => {
   const { user } = useAuth();
   const { profile } = useUserProfile();
 
-  const isEditing = !!profile?.onboardingComplete;
+  const isEditing = useRef(!!profile?.onboardingComplete).current;
   const { createTask, removeTask } = useTasks();
 
   const [step, setStepp] = useState(0);
@@ -1213,7 +1225,7 @@ const OnboardingScreen = ({ navigation }) => {
           <TouchableOpacity
             key={sys}
             style={[styles.systemToggleBtn, schoolSystem === sys && styles.systemToggleBtnActive]}
-            onPress={() => { setSchoolSystem(sys); setSemester(null); }}
+            onPress={() => { tap(); setSchoolSystem(sys); setSemester(null); }}
           >
             <Text style={[styles.systemToggleText, schoolSystem === sys && styles.systemToggleTextActive]}>
               {sys.charAt(0).toUpperCase() + sys.slice(1)}
@@ -1229,7 +1241,7 @@ const OnboardingScreen = ({ navigation }) => {
         <ScalePressable
           key={s}
           style={[styles.optionBtn, semester === s && styles.optionBtnSelected]}
-          onPress={() => setSemester(s)}
+          onPress={() => { tap(); setSemester(s); }}
         >
           <Text style={[styles.optionText, semester === s && styles.optionTextSelected]}>{s}</Text>
           {semester === s && <Feather name="check" size={16} color={colors.accent} />}
@@ -1250,7 +1262,7 @@ const OnboardingScreen = ({ navigation }) => {
           <View style={styles.classCardHeader}>
             <Text style={styles.classCardLabel}>Class {idx + 1}</Text>
             {classes.length > 1 && (
-              <TouchableOpacity onPress={() => removeClass(cls.id)}>
+              <TouchableOpacity onPress={() => { tap(); removeClass(cls.id); }}>
                 <Feather name="x" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             )}
@@ -1271,7 +1283,7 @@ const OnboardingScreen = ({ navigation }) => {
                   styles.chipSm,
                   cls.creditHours === c && styles.chipSmSelected,
                 ]}
-                onPress={() => updateClass(cls.id, "creditHours", c)}
+                onPress={() => { tap(); updateClass(cls.id, "creditHours", c); }}
               >
                 <Text
                   style={[
@@ -1293,7 +1305,7 @@ const OnboardingScreen = ({ navigation }) => {
                   styles.chipSm,
                   cls.grade === g && styles.chipSmSelected,
                 ]}
-                onPress={() => updateClass(cls.id, "grade", g)}
+                onPress={() => { tap(); updateClass(cls.id, "grade", g); }}
               >
                 <Text
                   style={[
@@ -1309,7 +1321,7 @@ const OnboardingScreen = ({ navigation }) => {
         </View>
       ))}
 
-      <TouchableOpacity style={styles.addClassBtn} onPress={addClass}>
+      <TouchableOpacity style={styles.addClassBtn} onPress={() => { tap(); addClass(); }}>
         <Feather name="plus" size={16} color={colors.accent} />
         <Text style={styles.addClassText}>Add Another Class</Text>
       </TouchableOpacity>
@@ -1327,7 +1339,7 @@ const OnboardingScreen = ({ navigation }) => {
         <ScalePressable
           key={t}
           style={[styles.optionBtn, workTime === t && styles.optionBtnSelected]}
-          onPress={() => setWorkTime(t)}
+          onPress={() => { tap(); setWorkTime(t); }}
         >
           <Text style={[styles.optionText, workTime === t && styles.optionTextSelected]}>{t}</Text>
           {workTime === t && <Feather name="check" size={16} color={colors.accent} />}
@@ -1349,9 +1361,7 @@ const OnboardingScreen = ({ navigation }) => {
                     styles.chipSm,
                     hardestClass === cls.id && styles.chipSmSelected,
                   ]}
-                  onPress={() =>
-                    setHardestClass(hardestClass === cls.id ? null : cls.id)
-                  }
+                  onPress={() => { tap(); setHardestClass(hardestClass === cls.id ? null : cls.id); }}
                 >
                   <Text
                     style={[
@@ -1514,7 +1524,7 @@ const OnboardingScreen = ({ navigation }) => {
                 />
                 <TouchableOpacity
                   style={[styles.fetchBtn, (!manualTaskTitle.trim() || addingManualTask) && { opacity: 0.4 }]}
-                  onPress={handleAddManualTask}
+                  onPress={() => { tap(); handleAddManualTask(); }}
                   disabled={!manualTaskTitle.trim() || addingManualTask}
                 >
                   {addingManualTask
@@ -1528,7 +1538,7 @@ const OnboardingScreen = ({ navigation }) => {
             <View style={[styles.parsedPreview, { flexDirection: "row", alignItems: "center", gap: 8 }]}>
               <Feather name="check-circle" size={15} color={colors.low} />
               <Text style={[styles.parsedTitle, { fontSize: 13, flex: 1 }]}>"{manualTaskTitle}" added.</Text>
-              <TouchableOpacity style={styles.undoBtn} onPress={handleUndoManualTask}>
+              <TouchableOpacity style={styles.undoBtn} onPress={() => { tap(); handleUndoManualTask(); }}>
                 <Feather name="x" size={12} color={colors.high} />
                 <Text style={styles.undoBtnText}>Undo</Text>
               </TouchableOpacity>
@@ -1619,7 +1629,7 @@ const OnboardingScreen = ({ navigation }) => {
           <TouchableOpacity
             key={sys}
             style={[styles.systemToggleBtn, schoolSystem === sys && styles.systemToggleBtnActive]}
-            onPress={() => { setSchoolSystem(sys); setSemester(null); }}
+            onPress={() => { tap(); setSchoolSystem(sys); setSemester(null); }}
           >
             <Text style={[styles.systemToggleText, schoolSystem === sys && styles.systemToggleTextActive]}>
               {sys.charAt(0).toUpperCase() + sys.slice(1)}
@@ -1634,7 +1644,7 @@ const OnboardingScreen = ({ navigation }) => {
           <TouchableOpacity
             key={s}
             style={[styles.chipSm, semester === s && styles.chipSmSelected]}
-            onPress={() => setSemester(semester === s ? null : s)}
+            onPress={() => { tap(); setSemester(semester === s ? null : s); }}
           >
             <Text style={[styles.chipSmText, semester === s && styles.chipSmTextSelected]}>{s}</Text>
           </TouchableOpacity>
@@ -1647,7 +1657,7 @@ const OnboardingScreen = ({ navigation }) => {
           <TouchableOpacity
             key={y}
             style={[styles.chipSm, year === y && styles.chipSmSelected]}
-            onPress={() => setYear(year === y ? null : y)}
+            onPress={() => { tap(); setYear(year === y ? null : y); }}
           >
             <Text style={[styles.chipSmText, year === y && styles.chipSmTextSelected]}>{y}</Text>
           </TouchableOpacity>
@@ -1656,7 +1666,7 @@ const OnboardingScreen = ({ navigation }) => {
 
       <Text style={styles.fieldLabel}>WHEN DO YOU WORK BEST?</Text>
       {WORK_TIMES.map((t) => (
-        <ScalePressable key={t} style={[styles.optionBtn, workTime === t && styles.optionBtnSelected]} onPress={() => setWorkTime(workTime === t ? null : t)}>
+        <ScalePressable key={t} style={[styles.optionBtn, workTime === t && styles.optionBtnSelected]} onPress={() => { tap(); setWorkTime(workTime === t ? null : t); }}>
           <Text style={[styles.optionText, workTime === t && styles.optionTextSelected]}>{t}</Text>
           {workTime === t && <Feather name="check" size={16} color={colors.accent} />}
         </ScalePressable>
@@ -1668,7 +1678,7 @@ const OnboardingScreen = ({ navigation }) => {
         { key: "procrastinator", label: "I tend to procrastinate" },
         { key: "structured",     label: "I need structure to stay on track" },
       ].map((s) => (
-        <ScalePressable key={s.key} style={[styles.optionBtn, learningStyle === s.key && styles.optionBtnSelected]} onPress={() => setLearningStyle(s.key)}>
+        <ScalePressable key={s.key} style={[styles.optionBtn, learningStyle === s.key && styles.optionBtnSelected]} onPress={() => { tap(); setLearningStyle(s.key); }}>
           <Text style={[styles.optionText, learningStyle === s.key && styles.optionTextSelected]}>{s.label}</Text>
           {learningStyle === s.key && <Feather name="check" size={16} color={colors.accent} />}
         </ScalePressable>
@@ -1756,6 +1766,7 @@ const OnboardingScreen = ({ navigation }) => {
           {isEditing ? (
             <TouchableOpacity
               onPress={() => {
+                tap();
                 if (navigation.canGoBack()) navigation.goBack();
                 else navigation.navigate("Main");
               }}
@@ -1783,7 +1794,7 @@ const OnboardingScreen = ({ navigation }) => {
           {step_n > 0 && (
             <TouchableOpacity
               style={styles.backBtn}
-              onPress={() => goToStep(step_n - 1)}
+              onPress={() => { tap(); goToStep(step_n - 1); }}
             >
               <Feather
                 name="arrow-left"
@@ -1801,7 +1812,7 @@ const OnboardingScreen = ({ navigation }) => {
               (step_n === 0) && { marginLeft: "auto" },
               (!isEditing && step_n === 0) && { flex: 1, justifyContent: "center" },
             ]}
-            onPress={handleNext}
+            onPress={() => { tap(); handleNext(); }}
             disabled={!canAdvance() || saving}
           >
             <Text style={styles.nextBtnText}>{getNextLabel()}</Text>

@@ -15,6 +15,9 @@ import { resetPassword } from "../services/firebase";
 import { VERCEL_API_URL } from "../config";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
+import * as Haptics from "expo-haptics";
+
+const tap = () => Haptics.selectionAsync().catch(() => {});
 
 const makeStyles = (colors) => StyleSheet.create({
   safe:      { flex: 1, backgroundColor: colors.bg, overflow: "hidden" },
@@ -153,7 +156,7 @@ const ForgotPasswordScreen = ({ onBack, colors, styles, initialEmail }) => {
 
   return (
     <View>
-      <TouchableOpacity onPress={onBack} style={styles.resetBack}>
+      <TouchableOpacity onPress={() => { tap(); onBack(); }} style={styles.resetBack}>
         <Feather name="arrow-left" size={16} color={colors.textSecondary} />
         <Text style={styles.resetBackText}>Back to sign in</Text>
       </TouchableOpacity>
@@ -195,7 +198,7 @@ const ForgotPasswordScreen = ({ onBack, colors, styles, initialEmail }) => {
           ) : null}
           <TouchableOpacity
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
-            onPress={handleReset}
+            onPress={() => { tap(); handleReset(); }}
             disabled={loading}
           >
             {loading
@@ -378,7 +381,7 @@ const AuthScreen = ({ navigation }) => {
                 onBlur={() => setFocusedField(null)}
                 onSubmitEditing={mode === "login" ? handleSubmit : () => confirmRef.current?.focus()}
               />
-              <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.eyeBtn}>
+              <TouchableOpacity onPress={() => { tap(); setShowPassword((v) => !v); }} style={styles.eyeBtn}>
                 <Feather name={showPassword ? "eye-off" : "eye"} size={16} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -425,7 +428,7 @@ const AuthScreen = ({ navigation }) => {
 
           {/* Submit */}
           <TouchableOpacity
-            onPress={handleSubmit}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); handleSubmit(); }}
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
             disabled={loading}
           >
@@ -438,7 +441,7 @@ const AuthScreen = ({ navigation }) => {
           {/* Forgot password */}
           {mode === "login" && (
             <TouchableOpacity
-              onPress={() => { setMode("forgot"); clearErrors(); }}
+              onPress={() => { tap(); setMode("forgot"); clearErrors(); }}
               style={styles.forgotBtn}
             >
               <Text style={styles.forgotText}>Forgot your password?</Text>
@@ -450,7 +453,7 @@ const AuthScreen = ({ navigation }) => {
             <Text style={styles.toggleText}>
               {mode === "login" ? "Don't have an account?  " : "Already have an account?  "}
             </Text>
-            <TouchableOpacity onPress={() => { setMode(mode === "login" ? "register" : "login"); clearErrors(); }}>
+            <TouchableOpacity onPress={() => { tap(); setMode(mode === "login" ? "register" : "login"); clearErrors(); }}>
               <Text style={styles.toggleLink}>{mode === "login" ? "Sign Up" : "Sign In"}</Text>
             </TouchableOpacity>
           </View>
@@ -497,7 +500,7 @@ export const EmailVerificationScreen = ({ navigation, route }) => {
           {"\n\n"}Tap the link in the email to activate your account, then come back and sign in.
         </Text>
         <TouchableOpacity
-          onPress={() => navigation.navigate("Auth")}
+          onPress={() => { tap(); navigation.navigate("Auth"); }}
           style={{
             backgroundColor: colors.accent,
             paddingVertical: 14, paddingHorizontal: 32,
