@@ -4,10 +4,10 @@
 // Saved calendar URL for one-click re-sync.
 // ============================================================
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -356,6 +356,9 @@ const SyllabusParserScreen = ({ navigation }) => {
   const savedUrl = profile?.icsUrl ?? null;
 
   // ── State ─────────────────────────────────────────────────
+  const successRingAnim = useRef(new Animated.Value(0)).current;
+  const successTextAnim = useRef(new Animated.Value(0)).current;
+
   const [importing,      setImporting]      = useState(false);
   const [error,          setError]          = useState(null);
   const [importDone,     setImportDone]     = useState(false);
@@ -371,6 +374,14 @@ const SyllabusParserScreen = ({ navigation }) => {
   const [showChangeUrl,  setShowChangeUrl]  = useState(false);
   const [syncing,        setSyncing]        = useState(false);
   const [selectedLms,    setSelectedLms]    = useState("Canvas");
+
+  useEffect(() => {
+    if (!importDone) return;
+    Animated.stagger(80, [
+      Animated.spring(successRingAnim, { toValue: 1, speed: 9, bounciness: 12, useNativeDriver: true }),
+      Animated.timing(successTextAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
+    ]).start();
+  }, [importDone]);
 
   // ── Parse + auto-import (skip review screen) ─────────────
   const parseAndShow = async (text) => {
@@ -504,9 +515,20 @@ const SyllabusParserScreen = ({ navigation }) => {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.successWrap}>
-          <View style={styles.successRing}>
-            <Feather name="check" size={36} color={colors.low} />
-          </View>
+          <Animated.View style={{
+            transform: [{ scale: successRingAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
+            opacity: successRingAnim,
+            marginBottom: spacing.lg,
+          }}>
+            <View style={[styles.successRing, { marginBottom: 0 }]}>
+              <Feather name="check" size={36} color={colors.low} />
+            </View>
+          </Animated.View>
+          <Animated.View style={{
+            opacity: successTextAnim,
+            transform: [{ translateY: successTextAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+            alignItems: "center", width: "100%",
+          }}>
           <Text style={styles.successTitle}>
             {importCount} task{importCount !== 1 ? "s" : ""} added!
           </Text>
@@ -536,6 +558,7 @@ const SyllabusParserScreen = ({ navigation }) => {
               <Feather name="chevron-right" size={15} color={colors.accent} />
             </TouchableOpacity>
           )}
+          </Animated.View>
         </View>
       </SafeAreaView>
     );

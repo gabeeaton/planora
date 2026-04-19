@@ -12,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { getOfferings, purchasePackage, restorePurchases } from "../services/purchases";
+import { invalidateTodayFocusCache } from "../services/openai";
 
 const FEATURES = [
   { icon: "cpu",            title: "Find My Focus",        desc: "One tap to know exactly what to work on right now, based on your deadlines and patterns." },
@@ -195,6 +196,7 @@ const PaywallScreen = ({ navigation }) => {
     setLoading(true);
     try {
       await purchasePackage(pkg);
+      invalidateTodayFocusCache();
       Alert.alert("Welcome to Scholar!", "All AI features are now unlocked.", [
         { text: "Let's go!", onPress: () => navigation.goBack() },
       ]);

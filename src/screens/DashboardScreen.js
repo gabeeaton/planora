@@ -660,6 +660,7 @@ const DashboardScreen = ({ navigation }) => {
     });
   }, [tasks]);
 
+
   // Show notification permission prompt once, after the user has tasks
   // (asking before they've seen the app's value gets a lower grant rate)
   useEffect(() => {

@@ -4,10 +4,11 @@
 // Falls back to Firestore isPro flag for users who had manual Pro.
 // ============================================================
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "./useAuth";
 import { useUserProfile } from "./useUserProfile";
 import { configurePurchases, getIsSubscribed, ENTITLEMENT_ID } from "../services/purchases";
+import { invalidateTodayFocusCache } from "../services/openai";
 import { FEATURE_FLAGS } from "../config";
 import Purchases from "react-native-purchases";
 
@@ -40,6 +41,14 @@ export const useSubscription = () => {
   const loading = profileLoading || rcLoading;
 
   const hasProAccess = FEATURE_FLAGS.BETA_PRO_UNLOCKED || rcSubscribed || !!profile?.isPro;
+
+  const prevProRef = useRef(hasProAccess);
+  useEffect(() => {
+    if (!prevProRef.current && hasProAccess) {
+      invalidateTodayFocusCache();
+    }
+    prevProRef.current = hasProAccess;
+  }, [hasProAccess]);
 
   return {
     isPro: hasProAccess,

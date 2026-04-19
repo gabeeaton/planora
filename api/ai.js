@@ -32,7 +32,7 @@ function getAdminApp() {
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ── Rate limit config ────────────────────────────────────────
-const FREE_DAILY_LIMIT = 20;
+const FREE_DAILY_LIMIT = 10;
 
 // Returns today's date string in UTC (e.g. "2025-02-24")
 const todayUTC = () => new Date().toISOString().slice(0, 10);

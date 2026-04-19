@@ -23,7 +23,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
-import { sendChatMessage } from "../services/openai";
+import { sendChatMessage, invalidateTodayFocusCache } from "../services/openai";
 import { loadChatHistory, saveChatHistory, clearChatHistory } from "../services/firebase";
 import { spacing, radius, typography } from "../utils/theme";
 
@@ -140,7 +140,7 @@ export default function ChatScreen() {
   const { colors }                   = useTheme();
   const navigation                   = useNavigation();
   const { user }                     = useAuth();
-  const { tasks, patterns, createTask, createManyTasks } = useTasks();
+  const { tasks, patterns, createTask, createManyTasks, editTask, completeTask } = useTasks();
   const { profile }                  = useUserProfile();
   const { isPro: realIsPro }         = useSubscription();
   const styles                       = makeStyles(colors);
@@ -269,6 +269,7 @@ export default function ChatScreen() {
             priority: (action.priority ?? "MEDIUM").toUpperCase(),
             completed: false,
           });
+          invalidateTodayFocusCache();
           setMessages((prev) => [...prev, {
             id: (Date.now() + 2).toString(), role: "assistant",
             text: `Added "${action.title}" to your task list.`,
@@ -288,9 +289,49 @@ export default function ChatScreen() {
             completed: false,
           }));
           await createManyTasks(toCreate);
+          invalidateTodayFocusCache();
           setMessages((prev) => [...prev, {
             id: (Date.now() + 2).toString(), role: "assistant",
             text: `Added ${toCreate.length} tasks to your list.`,
+            ts: Date.now(), isConfirm: true,
+          }]);
+        } catch {
+          // fails silently
+        }
+      } else if (action?.type === "rescheduleTask" && action.taskId && action.newDueDate) {
+        try {
+          const target = tasks.find((t) => t.id === action.taskId);
+          await editTask(action.taskId, { dueDate: new Date(action.newDueDate + "T12:00:00") });
+          invalidateTodayFocusCache();
+          setMessages((prev) => [...prev, {
+            id: (Date.now() + 2).toString(), role: "assistant",
+            text: `Rescheduled "${target?.title ?? "task"}" to ${action.newDueDate}.`,
+            ts: Date.now(), isConfirm: true,
+          }]);
+        } catch {
+          // fails silently
+        }
+      } else if (action?.type === "completeTask" && action.taskId) {
+        try {
+          const target = tasks.find((t) => t.id === action.taskId);
+          await completeTask(action.taskId);
+          invalidateTodayFocusCache();
+          setMessages((prev) => [...prev, {
+            id: (Date.now() + 2).toString(), role: "assistant",
+            text: `Marked "${target?.title ?? "task"}" as complete.`,
+            ts: Date.now(), isConfirm: true,
+          }]);
+        } catch {
+          // fails silently
+        }
+      } else if (action?.type === "logGrade" && action.taskId && action.grade != null) {
+        try {
+          const target = tasks.find((t) => t.id === action.taskId);
+          await editTask(action.taskId, { grade: action.grade });
+          invalidateTodayFocusCache();
+          setMessages((prev) => [...prev, {
+            id: (Date.now() + 2).toString(), role: "assistant",
+            text: `Logged grade "${action.grade}" for "${target?.title ?? "task"}".`,
             ts: Date.now(), isConfirm: true,
           }]);
         } catch {
