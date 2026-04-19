@@ -385,7 +385,7 @@ const WeekCalendar = ({ tasks, onEditTask, weekOffset, onWeekChange, colors }) =
         paddingHorizontal: spacing.lg, paddingVertical: 10,
       }}>
         <TouchableOpacity
-          onPress={() => onWeekChange(weekOffset - 1)}
+          onPress={() => { Haptics.selectionAsync().catch(() => {}); onWeekChange(weekOffset - 1); }}
           style={{
             width: 32, height: 32, borderRadius: 16,
             backgroundColor: colors.accentGlow,
@@ -401,7 +401,7 @@ const WeekCalendar = ({ tasks, onEditTask, weekOffset, onWeekChange, colors }) =
           </Text>
           {weekOffset !== 0 && (
             <TouchableOpacity
-              onPress={() => onWeekChange(0)}
+              onPress={() => { Haptics.selectionAsync().catch(() => {}); onWeekChange(0); }}
               style={{
                 backgroundColor: colors.accent,
                 borderRadius: 999,
@@ -416,7 +416,7 @@ const WeekCalendar = ({ tasks, onEditTask, weekOffset, onWeekChange, colors }) =
         </View>
 
         <TouchableOpacity
-          onPress={() => onWeekChange(weekOffset + 1)}
+          onPress={() => { Haptics.selectionAsync().catch(() => {}); onWeekChange(weekOffset + 1); }}
           style={{
             width: 32, height: 32, borderRadius: 16,
             backgroundColor: colors.accentGlow,
@@ -1037,7 +1037,7 @@ const DashboardScreen = ({ navigation }) => {
             <Text style={[styles.importBtnText, { color: calendarMode ? colors.accent : colors.textSecondary }]}>Week</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => navigation.navigate("SyllabusParser")}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
             style={styles.importBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -1169,13 +1169,13 @@ const DashboardScreen = ({ navigation }) => {
                   Add your first task, or import your entire semester from a Canvas calendar.
                 </Text>
                 <View style={styles.emptyActionsRow}>
-                  <TouchableOpacity style={styles.emptyBtn} onPress={handleAddTask}>
+                  <TouchableOpacity style={styles.emptyBtn} onPress={() => { Haptics.selectionAsync().catch(() => {}); handleAddTask(); }}>
                     <Feather name="plus" size={15} color="#fff" />
                     <Text style={styles.emptyBtnText}>Add Task</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.emptyBtnOutline}
-                    onPress={() => navigation.navigate("SyllabusParser")}
+                    onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
                   >
                     <Feather name="upload" size={15} color={colors.accent} />
                     <Text style={styles.emptyBtnOutlineText}>Import</Text>
@@ -1228,7 +1228,7 @@ const DashboardScreen = ({ navigation }) => {
                         + {buckets.completed.length - 5} more completed
                       </Text>
                     )}
-                    <TouchableOpacity style={styles.clearBtn} onPress={handleClearCompleted}>
+                    <TouchableOpacity style={styles.clearBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); handleClearCompleted(); }}>
                       <Feather name="trash-2" size={13} color={colors.high} />
                       <Text style={styles.clearBtnText}>Clear completed</Text>
                     </TouchableOpacity>
@@ -1292,7 +1292,7 @@ const DashboardScreen = ({ navigation }) => {
       {/* FAB — add task */}
       <Animated.View style={[styles.fab, { bottom: fabBottom, transform: [{ scale: fabScale }] }]}>
         <TouchableOpacity
-          onPress={handleAddTask}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); handleAddTask(); }}
           onPressIn={() => Animated.spring(fabScale, { toValue: 0.84, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
           onPressOut={() => Animated.spring(fabScale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 8 }).start()}
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}

@@ -28,6 +28,9 @@ import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
 import { testAllNotifications, testBatchNotifications } from "../services/notifications";
 import { useTasks } from "../hooks/useTasks";
+import * as Haptics from "expo-haptics";
+
+const tap = () => Haptics.selectionAsync().catch(() => {});
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -399,7 +402,7 @@ const ProfileScreen = ({ navigation }) => {
 
   const Row = ({ icon, label, value, onPress, danger }) => (
     <TouchableOpacity
-      style={styles.row} onPress={onPress}
+      style={styles.row} onPress={onPress ? () => { tap(); onPress(); } : undefined}
       disabled={!onPress} activeOpacity={onPress ? 0.7 : 1}
     >
       <View style={[styles.rowIcon, { backgroundColor: ac.accentGlow }, danger && styles.rowIconDanger]}>
@@ -433,15 +436,15 @@ const ProfileScreen = ({ navigation }) => {
                 placeholderTextColor={colors.textMuted}
                 autoFocus
               />
-              <TouchableOpacity onPress={handleSaveName} style={[styles.nameSaveBtn, { backgroundColor: ac.accent }]}>
+              <TouchableOpacity onPress={() => { tap(); handleSaveName(); }} style={[styles.nameSaveBtn, { backgroundColor: ac.accent }]}>
                 <Feather name="check" size={16} color="#fff" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setEditingName(false)} style={styles.nameCancelBtn}>
+              <TouchableOpacity onPress={() => { tap(); setEditingName(false); }} style={styles.nameCancelBtn}>
                 <Feather name="x" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity style={styles.nameRow} onPress={() => setEditingName(true)}>
+            <TouchableOpacity style={styles.nameRow} onPress={() => { tap(); setEditingName(true); }}>
               <Text style={styles.displayName}>{profile?.name || user?.email}</Text>
               <Feather name="edit-2" size={13} color={colors.textMuted} style={{ marginLeft: 6 }} />
             </TouchableOpacity>
@@ -459,7 +462,7 @@ const ProfileScreen = ({ navigation }) => {
         {!isPro && (
           <TouchableOpacity
             style={[styles.upgradeCard, { borderColor: ac.accent, ...ac.accentShadow }]}
-            onPress={() => navigation.navigate("Paywall")}
+            onPress={() => { tap(); navigation.navigate("Paywall"); }}
             activeOpacity={0.85}
           >
             <View style={styles.upgradeLeft}>
@@ -609,11 +612,11 @@ const ProfileScreen = ({ navigation }) => {
 
       {/* ── Term picker modal ── */}
       <Modal visible={modal === "semester"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModal(null)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { tap(); setModal(null); }}>
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Select Term</Text>
-              <TouchableOpacity onPress={() => setModal(null)}>
+              <TouchableOpacity onPress={() => { tap(); setModal(null); }}>
                 <Feather name="x" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -625,7 +628,7 @@ const ProfileScreen = ({ navigation }) => {
                   <TouchableOpacity
                     key={sys}
                     style={[styles.systemToggleBtn, active && styles.systemToggleBtnActive]}
-                    onPress={() => pickSystem(sys)}
+                    onPress={() => { tap(); pickSystem(sys); }}
                   >
                     <Text style={[styles.systemToggleText, active && styles.systemToggleTextActive]}>
                       {sys.charAt(0).toUpperCase() + sys.slice(1)}
@@ -635,7 +638,7 @@ const ProfileScreen = ({ navigation }) => {
               })}
             </View>
             {generateTerms(profile?.schoolSystem ?? "semester").map((s) => (
-              <TouchableOpacity key={s} style={styles.optionBtn} onPress={() => pickSemester(s)}>
+              <TouchableOpacity key={s} style={styles.optionBtn} onPress={() => { tap(); pickSemester(s); }}>
                 <Text style={[styles.optionText, profile?.semester === s && styles.optionTextSelected]}>{s}</Text>
                 {profile?.semester === s && <Feather name="check" size={16} color={colors.accent} />}
               </TouchableOpacity>
@@ -646,16 +649,16 @@ const ProfileScreen = ({ navigation }) => {
 
       {/* ── Work time picker modal ── */}
       <Modal visible={modal === "worktime"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModal(null)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { tap(); setModal(null); }}>
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Best Work Time</Text>
-              <TouchableOpacity onPress={() => setModal(null)}>
+              <TouchableOpacity onPress={() => { tap(); setModal(null); }}>
                 <Feather name="x" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
             {WORK_TIMES.map((t) => (
-              <TouchableOpacity key={t} style={styles.optionBtn} onPress={() => pickWorkTime(t)}>
+              <TouchableOpacity key={t} style={styles.optionBtn} onPress={() => { tap(); pickWorkTime(t); }}>
                 <Text style={[styles.optionText, profile?.preferredWorkTime === t && styles.optionTextSelected]}>{t}</Text>
                 {profile?.preferredWorkTime === t && <Feather name="check" size={16} color={colors.accent} />}
               </TouchableOpacity>
@@ -671,7 +674,7 @@ const ProfileScreen = ({ navigation }) => {
             <View style={[styles.sheet, { maxHeight: "85%" }]}>
               <View style={styles.sheetHeader}>
                 <Text style={styles.sheetTitle}>Edit Classes</Text>
-                <TouchableOpacity style={styles.sheetDone} onPress={saveClasses}>
+                <TouchableOpacity style={styles.sheetDone} onPress={() => { tap(); saveClasses(); }}>
                   <Text style={styles.sheetDoneText}>Save</Text>
                 </TouchableOpacity>
               </View>
@@ -687,7 +690,7 @@ const ProfileScreen = ({ navigation }) => {
                         value={cls.name}
                         onChangeText={(v) => updateClass(cls.id, "name", v)}
                       />
-                      <TouchableOpacity onPress={() => removeClass(cls.id)} style={styles.removeClassBtn}>
+                      <TouchableOpacity onPress={() => { tap(); removeClass(cls.id); }} style={styles.removeClassBtn}>
                         <Feather name="trash-2" size={16} color={colors.high} />
                       </TouchableOpacity>
                     </View>
@@ -700,7 +703,7 @@ const ProfileScreen = ({ navigation }) => {
                             <TouchableOpacity
                               key={c}
                               style={[styles.classChip, cls.creditHours === c && styles.classChipSelected]}
-                              onPress={() => updateClass(cls.id, "creditHours", c)}
+                              onPress={() => { tap(); updateClass(cls.id, "creditHours", c); }}
                             >
                               <Text style={[styles.classChipText, cls.creditHours === c && styles.classChipTextSelected]}>{c}</Text>
                             </TouchableOpacity>
@@ -714,7 +717,7 @@ const ProfileScreen = ({ navigation }) => {
                             <TouchableOpacity
                               key={g}
                               style={[styles.classChip, cls.grade === g && styles.classChipSelected]}
-                              onPress={() => updateClass(cls.id, "grade", g)}
+                              onPress={() => { tap(); updateClass(cls.id, "grade", g); }}
                             >
                               <Text style={[styles.classChipText, cls.grade === g && styles.classChipTextSelected]}>{g}</Text>
                             </TouchableOpacity>
@@ -725,7 +728,7 @@ const ProfileScreen = ({ navigation }) => {
                   </View>
                 ))}
 
-                <TouchableOpacity style={styles.addClassBtn} onPress={addClassRow}>
+                <TouchableOpacity style={styles.addClassBtn} onPress={() => { tap(); addClassRow(); }}>
                   <Feather name="plus-circle" size={16} color={colors.accent} />
                   <Text style={styles.addClassText}>Add another class</Text>
                 </TouchableOpacity>

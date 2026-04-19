@@ -446,11 +446,11 @@ export default function ChatScreen() {
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           {messages.length > 0 && (
-            <TouchableOpacity onPress={clearChat} style={styles.clearBtn}>
+            <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); clearChat(); }} style={styles.clearBtn}>
               <Feather name="trash-2" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={() => setShowCapabilities(true)} style={styles.clearBtn}>
+          <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowCapabilities(true); }} style={styles.clearBtn}>
             <Feather name="info" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
@@ -480,7 +480,7 @@ export default function ChatScreen() {
               )}
               <View style={{ height: 8 }} />
             </ScrollView>
-            <TouchableOpacity style={styles.capCloseBtn} onPress={() => setShowCapabilities(false)}>
+            <TouchableOpacity style={styles.capCloseBtn} onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowCapabilities(false); }}>
               <Text style={styles.capCloseTxt}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -525,7 +525,7 @@ export default function ChatScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={styles.capLink} onPress={() => setShowCapabilities(true)}>
+            <TouchableOpacity style={styles.capLink} onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowCapabilities(true); }}>
               <Text style={styles.capLinkText}>See everything I can do</Text>
               <Feather name="chevron-right" size={13} color={colors.accent} />
             </TouchableOpacity>
@@ -556,7 +556,7 @@ export default function ChatScreen() {
 
         {/* Free user limit banner */}
         {!isPro && dailyCount >= FREE_DAILY_LIMIT && (
-          <TouchableOpacity style={styles.limitBanner} onPress={() => navigation.navigate("Paywall")} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.limitBanner} onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("Paywall"); }} activeOpacity={0.85}>
             <Feather name="zap" size={13} color={colors.accent} />
             <Text style={styles.limitBannerText}>
               Daily limit reached · <Text style={{ fontFamily: "Outfit-ExtraBold" }}>Upgrade to Scholar</Text> for unlimited

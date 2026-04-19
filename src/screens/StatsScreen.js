@@ -22,6 +22,9 @@ import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../hooks/useAuth";
 import { saveUserProfile } from "../services/firebase";
+import * as Haptics from "expo-haptics";
+
+const tap = () => Haptics.selectionAsync().catch(() => {});
 import { differenceInCalendarDays, subDays, format } from "date-fns";
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -1372,7 +1375,7 @@ const StatsScreen = () => {
                       (!priorGpaInput.trim() || !priorCreditsInput.trim()) &&
                         styles.gpaPriorCalcBtnDisabled,
                     ]}
-                    onPress={savePrior}
+                    onPress={() => { tap(); savePrior(); }}
                     disabled={
                       !priorGpaInput.trim() || !priorCreditsInput.trim()
                     }
