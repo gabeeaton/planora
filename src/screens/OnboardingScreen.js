@@ -22,6 +22,7 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -34,6 +35,7 @@ import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
 import { VERCEL_API_URL } from "../config";
+import { requestNotificationPermissions } from "../services/notifications";
 // syllabusParser removed — ICS-only import
 import {
   parseIcsText,
@@ -189,7 +191,7 @@ const makeStyles = (colors) =>
       borderRadius: radius.full,
       borderWidth: 1,
       borderColor: colors.border,
-      backgroundColor: colors.bgInput,
+      backgroundColor: colors.bgCard,
     },
     chipSmSelected: {
       borderColor: colors.accent,
@@ -274,11 +276,11 @@ const makeStyles = (colors) =>
       flexDirection: "row",
       gap: 10,
       alignItems: "flex-start",
-      backgroundColor: colors.accentGlow,
+      backgroundColor: colors.isDark ? colors.accentGlow : colors.bgCard,
       borderRadius: radius.md,
       padding: spacing.md,
       borderWidth: 1,
-      borderColor: colors.accent,
+      borderColor: colors.isDark ? colors.accent : colors.border,
       marginBottom: spacing.md,
     },
     infoText: {
@@ -366,7 +368,7 @@ const makeStyles = (colors) =>
       borderRadius: radius.full,
       borderWidth: 1,
       borderColor: colors.border,
-      backgroundColor: colors.bgInput,
+      backgroundColor: colors.bgCard,
     },
     lmsTabBtnActive: {
       borderColor: colors.accent,
@@ -404,7 +406,7 @@ const makeStyles = (colors) =>
       borderRadius: radius.md,
       padding: spacing.md,
       borderWidth: 1,
-      borderColor: colors.low,
+      borderColor: colors.isDark ? colors.low : colors.border,
       marginBottom: spacing.sm,
     },
     parsedHeader: {
@@ -454,6 +456,26 @@ const makeStyles = (colors) =>
       paddingVertical: spacing.sm,
     },
     skipBtnText: { color: colors.textMuted, fontSize: 14 },
+    manualTaskHint: {
+      fontSize: 13, color: colors.textSecondary, fontFamily: "Outfit-Medium",
+      marginBottom: spacing.sm,
+    },
+    manualTaskRow: {
+      flexDirection: "row", gap: 8, alignItems: "center", marginBottom: spacing.sm,
+    },
+    notifBenefit: {
+      flexDirection: "row", alignItems: "center", gap: 12,
+      paddingVertical: 13, paddingHorizontal: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.isDark ? colors.border : "#F0F0F5",
+    },
+    notifBenefitLast: { borderBottomWidth: 0 },
+    notifIconWrap: {
+      width: 34, height: 34, borderRadius: 10,
+      backgroundColor: colors.accentGlow,
+      alignItems: "center", justifyContent: "center",
+      flexShrink: 0,
+    },
 
     // ── Success screen ─────────────────────────────────────────
     successIconWrap: {
@@ -513,6 +535,72 @@ const makeStyles = (colors) =>
     },
     successNote: {
       fontSize: 13, color: colors.textMuted, lineHeight: 20, textAlign: "center",
+    },
+
+    // ── Value prop screen ──────────────────────────────────────
+    valuePropLogoWrap: {
+      alignItems: "center",
+      marginBottom: spacing.lg,
+    },
+    valuePropLogo: {
+      width: 78,
+      height: 78,
+      borderRadius: 18,
+    },
+    sampleTaskCard: {
+      flexDirection: "row",
+      backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.isDark ? colors.border : "#EBEBF5",
+      overflow: "hidden",
+      ...(colors.isDark ? {} : {
+        shadowColor: "#6B6B8A",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 2,
+      }),
+    },
+    samplePriorityBar: {
+      width: 4,
+      alignSelf: "stretch",
+      marginRight: 12,
+    },
+    sampleTaskContent: {
+      flex: 1,
+      paddingVertical: 11,
+      justifyContent: "center",
+    },
+    sampleTaskTitle: {
+      fontSize: 13,
+      fontFamily: "Outfit-SemiBold",
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+    sampleTaskClass: {
+      fontSize: 11,
+      fontFamily: "Outfit-Medium",
+      color: colors.textMuted,
+    },
+    sampleTaskDate: {
+      fontSize: 11,
+      fontFamily: "Outfit-SemiBold",
+      color: colors.textMuted,
+      paddingRight: 14,
+      alignSelf: "center",
+    },
+    undoBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    undoBtnText: {
+      fontSize: 12,
+      fontFamily: "Outfit-SemiBold",
+      color: colors.high,
     },
   });
 
@@ -862,14 +950,46 @@ const OnboardingScreen = ({ navigation }) => {
   const { profile } = useUserProfile();
 
   const isEditing = !!profile?.onboardingComplete;
+  const { createTask, removeTask } = useTasks();
 
   const [step, setStepp] = useState(0);
   const [saving, setSaving] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
   const [importedTasks, setImportedTasks] = useState([]);
 
+  // New personalization state
+  const [year, setYear] = useState(null);
+  const [classCount, setClassCount] = useState(null);
+  const [learningStyle, setLearningStyle] = useState(null);
+
+  // Manual task fallback
+  const [manualTaskTitle, setManualTaskTitle] = useState("");
+  const [manualTaskCreated, setManualTaskCreated] = useState(false);
+  const [manualTaskId, setManualTaskId] = useState(null);
+  const [addingManualTask, setAddingManualTask] = useState(false);
+
+  // Value prop entrance animations
+  const vpLogoAnim  = useRef(new Animated.Value(0)).current;
+  const vpTextAnim  = useRef(new Animated.Value(0)).current;
+  const vpTask1Anim = useRef(new Animated.Value(0)).current;
+  const vpTask2Anim = useRef(new Animated.Value(0)).current;
+  const vpTask3Anim = useRef(new Animated.Value(0)).current;
+
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim  = useRef(new Animated.Value(1)).current;
+
+  // Trigger value prop entrance animations on mount (only for new user flow)
+  useEffect(() => {
+    if (isEditing || step !== 0) return;
+    [vpLogoAnim, vpTextAnim, vpTask1Anim, vpTask2Anim, vpTask3Anim].forEach((a) => a.setValue(0));
+    Animated.stagger(70, [
+      Animated.spring(vpLogoAnim,  { toValue: 1, speed: 9, bounciness: 10, useNativeDriver: true }),
+      Animated.timing(vpTextAnim,  { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.spring(vpTask1Anim, { toValue: 1, speed: 14, bounciness: 3, useNativeDriver: true }),
+      Animated.spring(vpTask2Anim, { toValue: 1, speed: 14, bounciness: 3, useNativeDriver: true }),
+      Animated.spring(vpTask3Anim, { toValue: 1, speed: 14, bounciness: 3, useNativeDriver: true }),
+    ]).start();
+  }, [step, isEditing]);
 
   const goToStep = (newStep) => {
     const dir = newStep > step_n ? 1 : -1;
@@ -952,15 +1072,49 @@ const OnboardingScreen = ({ navigation }) => {
       p.map((c) => (c.id === id ? { ...c, [field]: value } : c))
     );
 
+  const handleAddManualTask = async () => {
+    if (!manualTaskTitle.trim() || !user) return;
+    setAddingManualTask(true);
+    try {
+      const docRef = await createTask({ title: manualTaskTitle.trim(), priority: "MEDIUM" });
+      setManualTaskId(docRef?.id ?? null);
+      setManualTaskCreated(true);
+    } catch {}
+    finally { setAddingManualTask(false); }
+  };
+
+  const handleUndoManualTask = async () => {
+    try {
+      if (manualTaskId) await removeTask(manualTaskId, null);
+    } catch {}
+    setManualTaskCreated(false);
+    setManualTaskId(null);
+    setManualTaskTitle("");
+  };
+
   const canAdvance = () => {
-    if (step_n === 0) return !!semester || isEditing; // editing: allow even if semester was cleared
-    if (step_n === 1) return true; // import optional
-    if (step_n === 2) return true; // classes optional
-    if (step_n === 3) return !!workTime || isEditing; // editing: work time already set previously
+    if (isEditing) {
+      if (step_n === 0) return !!semester || isEditing;
+      if (step_n === 1) return true;
+      if (step_n === 2) return true;
+      if (step_n === 3) return !!workTime || isEditing;
+      return false;
+    }
+    // New onboarding flow
+    if (step_n === 0) return true; // value prop — always
+    if (step_n === 1) return importedCount > 0 || manualTaskCreated; // must have ≥1 task
+    if (step_n === 2) return true; // personalization — all optional
+    if (step_n === 3) return true; // notifications — always
     return false;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // On notification step (last step of new flow), request permission first
+    if (!isEditing && step_n === STEP_COUNT - 1) {
+      await requestNotificationPermissions().catch(() => {});
+      handleFinish();
+      return;
+    }
     if (step_n < STEP_COUNT - 1) goToStep(step_n + 1);
     else handleFinish();
   };
@@ -968,29 +1122,43 @@ const OnboardingScreen = ({ navigation }) => {
   const handleFinish = async () => {
     setSaving(true);
     try {
-      const data = {
-        name: name.trim() || null,
-        schoolSystem,
-        semester,
-        classes: classes.filter((c) => c.name.trim()).map((c) => ({
-          id: c.id,
-          name: c.name.trim(),
-          creditHours: parseInt(c.creditHours) || 3,
-          grade: c.grade,
-        })),
-        preferredWorkTime: workTime,
-        hardestClass: hardestClass ?? null,
-        onboardingComplete: true,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      };
-      if (!isEditing) {
-        data.isPro = false;
-        data.createdAt = new Date().toISOString();
-        data.welcomeEmailSent = true;
+      let data;
+      if (isEditing) {
+        data = {
+          name: name.trim() || null,
+          schoolSystem,
+          semester,
+          classes: classes.filter((c) => c.name.trim()).map((c) => ({
+            id: c.id,
+            name: c.name.trim(),
+            creditHours: parseInt(c.creditHours) || 3,
+            grade: c.grade,
+          })),
+          preferredWorkTime: workTime,
+          hardestClass: hardestClass ?? null,
+          onboardingComplete: true,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+      } else {
+        const workTimeFromStyle = { "on-top": "morning", "procrastinator": "evening", "structured": "morning" };
+        data = {
+          name: name.trim() || null,
+          schoolSystem,
+          semester,
+          studentYear: year,
+          classCount,
+          learningStyle,
+          preferredWorkTime: workTime ?? (workTimeFromStyle[learningStyle] ?? null),
+          onboardingComplete: true,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          isPro: false,
+          createdAt: new Date().toISOString(),
+          welcomeEmailSent: true,
+        };
       }
+
       await saveUserProfile(user.uid, data);
 
-      // Send welcome email on first-time onboarding — non-blocking
       if (!isEditing && user?.email) {
         fetch(`${VERCEL_API_URL}/api/email`, {
           method: "POST",
@@ -998,7 +1166,7 @@ const OnboardingScreen = ({ navigation }) => {
             "Content-Type": "application/json",
             "x-api-secret": process.env.EXPO_PUBLIC_EMAIL_API_SECRET ?? "",
           },
-          body: JSON.stringify({ type: "welcome", email: user.email, name: name.trim() || null }),
+          body: JSON.stringify({ type: "welcome", email: user.email, name: null }),
         }).catch(() => {});
       }
 
@@ -1318,36 +1486,243 @@ const OnboardingScreen = ({ navigation }) => {
       )}
 
       {importedCount === 0 && (
-        <ImportStep
-          onImported={(count, tasks) => { setImportedCount(count); setImportedTasks(tasks ?? []); }}
-          onClassDetected={handleClassDetected}
-          onUrlSaved={handleUrlSaved}
-          styles={styles}
-          colors={colors}
-        />
+        <>
+          <ImportStep
+            onImported={(count, tasks) => { setImportedCount(count); setImportedTasks(tasks ?? []); }}
+            onClassDetected={handleClassDetected}
+            onUrlSaved={handleUrlSaved}
+            styles={styles}
+            colors={colors}
+          />
+          {!isEditing && !manualTaskCreated && (
+            <>
+              <View style={styles.orRow}>
+                <View style={styles.orLine} />
+                <Text style={styles.orText}>OR START WITH ONE TASK</Text>
+                <View style={styles.orLine} />
+              </View>
+              <Text style={styles.manualTaskHint}>What's your most important assignment right now?</Text>
+              <View style={styles.manualTaskRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                  placeholder="e.g. Study for midterm..."
+                  placeholderTextColor={colors.textMuted}
+                  value={manualTaskTitle}
+                  onChangeText={setManualTaskTitle}
+                />
+                <TouchableOpacity
+                  style={[styles.fetchBtn, (!manualTaskTitle.trim() || addingManualTask) && { opacity: 0.4 }]}
+                  onPress={handleAddManualTask}
+                  disabled={!manualTaskTitle.trim() || addingManualTask}
+                >
+                  {addingManualTask
+                    ? <ActivityIndicator size={13} color="#fff" />
+                    : <Text style={styles.fetchBtnText}>Add</Text>}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+          {!isEditing && manualTaskCreated && (
+            <View style={[styles.parsedPreview, { flexDirection: "row", alignItems: "center", gap: 8 }]}>
+              <Feather name="check-circle" size={15} color={colors.low} />
+              <Text style={[styles.parsedTitle, { fontSize: 13, flex: 1 }]}>"{manualTaskTitle}" added.</Text>
+              <TouchableOpacity style={styles.undoBtn} onPress={handleUndoManualTask}>
+                <Feather name="x" size={12} color={colors.high} />
+                <Text style={styles.undoBtnText}>Undo</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
       )}
     </View>
     );
   };
 
-  const steps = [
-    renderStep0, // identity
-    renderStep4, // import
-    renderStep1, // classes (optional)
-    renderStep2, // work time
-  ];
+  // ── New onboarding screens ────────────────────────────────────
+
+  const renderValueProp = () => {
+    const taskAnims = [vpTask1Anim, vpTask2Anim, vpTask3Anim];
+    const sampleTasks = [
+      { title: "Research Paper Draft", class: "ENGL 301", date: "Apr 22", dotColor: colors.high },
+      { title: "Problem Set 7", class: "MATH 240", date: "Apr 25", dotColor: colors.medium },
+      { title: "Lab Report", class: "BIO 210", date: "Apr 28", dotColor: colors.accent },
+    ];
+    return (
+      <View style={[styles.stepContainer, { paddingTop: spacing.xl }]}>
+        {/* Logo */}
+        <Animated.View style={[styles.valuePropLogoWrap, {
+          opacity: vpLogoAnim,
+          transform: [{ scale: vpLogoAnim.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) }],
+        }]}>
+          <Image source={require("../assets/logo.png")} style={styles.valuePropLogo} resizeMode="contain" />
+        </Animated.View>
+
+        {/* Headline + subtitle */}
+        <Animated.View style={{
+          opacity: vpTextAnim,
+          transform: [{ translateY: vpTextAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+          marginBottom: spacing.lg,
+        }}>
+          <Text style={[styles.stepTitle, { textAlign: "center", fontSize: 30 }]}>
+            Your whole semester,{"\n"}organized.
+          </Text>
+          <Text style={[styles.stepSubtitle, { textAlign: "center", marginBottom: 0 }]}>
+            Import your classes once — Planora tracks every deadline, coaches you with AI, and keeps your streak alive.
+          </Text>
+        </Animated.View>
+
+        {/* Animated sample task cards */}
+        <View style={{ gap: 8 }}>
+          {sampleTasks.map((task, i) => (
+            <Animated.View key={i} style={[styles.sampleTaskCard, {
+              opacity: taskAnims[i],
+              transform: [{ translateX: taskAnims[i].interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+            }]}>
+              <View style={[styles.samplePriorityBar, { backgroundColor: task.dotColor }]} />
+              <View style={styles.sampleTaskContent}>
+                <Text style={styles.sampleTaskTitle} numberOfLines={1}>{task.title}</Text>
+                <Text style={styles.sampleTaskClass}>{task.class}</Text>
+              </View>
+              <Text style={styles.sampleTaskDate}>{task.date}</Text>
+            </Animated.View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  const renderPersonalization = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Tell us about you</Text>
+      <Text style={styles.stepSubtitle}>
+        Helps the AI personalize your plan. All optional.
+      </Text>
+
+      <Text style={styles.fieldLabel}>YOUR NAME (optional)</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="e.g. Alex"
+        placeholderTextColor={colors.textMuted}
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
+        autoComplete="name"
+        textContentType="name"
+        selectionColor={colors.accent}
+      />
+
+      <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>SCHOOL SYSTEM</Text>
+      <View style={[styles.systemToggleRow, { marginBottom: spacing.sm }]}>
+        {["semester", "quarter"].map((sys) => (
+          <TouchableOpacity
+            key={sys}
+            style={[styles.systemToggleBtn, schoolSystem === sys && styles.systemToggleBtnActive]}
+            onPress={() => { setSchoolSystem(sys); setSemester(null); }}
+          >
+            <Text style={[styles.systemToggleText, schoolSystem === sys && styles.systemToggleTextActive]}>
+              {sys.charAt(0).toUpperCase() + sys.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.fieldLabel}>CURRENT TERM</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: spacing.md }}>
+        {generateTerms(schoolSystem).slice(0, 4).map((s) => (
+          <TouchableOpacity
+            key={s}
+            style={[styles.chipSm, semester === s && styles.chipSmSelected]}
+            onPress={() => setSemester(semester === s ? null : s)}
+          >
+            <Text style={[styles.chipSmText, semester === s && styles.chipSmTextSelected]}>{s}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.fieldLabel}>WHAT YEAR ARE YOU?</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: spacing.md }}>
+        {["Freshman", "Sophomore", "Junior", "Senior", "Grad"].map((y) => (
+          <TouchableOpacity
+            key={y}
+            style={[styles.chipSm, year === y && styles.chipSmSelected]}
+            onPress={() => setYear(year === y ? null : y)}
+          >
+            <Text style={[styles.chipSmText, year === y && styles.chipSmTextSelected]}>{y}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.fieldLabel}>WHEN DO YOU WORK BEST?</Text>
+      {WORK_TIMES.map((t) => (
+        <ScalePressable key={t} style={[styles.optionBtn, workTime === t && styles.optionBtnSelected]} onPress={() => setWorkTime(workTime === t ? null : t)}>
+          <Text style={[styles.optionText, workTime === t && styles.optionTextSelected]}>{t}</Text>
+          {workTime === t && <Feather name="check" size={16} color={colors.accent} />}
+        </ScalePressable>
+      ))}
+
+      <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>HOW WOULD YOU DESCRIBE YOURSELF?</Text>
+      {[
+        { key: "on-top",         label: "I stay on top of things" },
+        { key: "procrastinator", label: "I tend to procrastinate" },
+        { key: "structured",     label: "I need structure to stay on track" },
+      ].map((s) => (
+        <ScalePressable key={s.key} style={[styles.optionBtn, learningStyle === s.key && styles.optionBtnSelected]} onPress={() => setLearningStyle(s.key)}>
+          <Text style={[styles.optionText, learningStyle === s.key && styles.optionTextSelected]}>{s.label}</Text>
+          {learningStyle === s.key && <Feather name="check" size={16} color={colors.accent} />}
+        </ScalePressable>
+      ))}
+    </View>
+  );
+
+  const renderNotifications = () => (
+    <View style={styles.stepContainer}>
+      <View style={[styles.importHeroIcon, { alignSelf: "center", width: 80, height: 80, borderRadius: 40, marginBottom: spacing.lg }]}>
+        <Feather name="bell" size={32} color={colors.accent} />
+      </View>
+      <Text style={[styles.stepTitle, { textAlign: "center" }]}>Stay ahead of every deadline</Text>
+      <Text style={[styles.stepSubtitle, { textAlign: "center" }]}>
+        Planora works best when it can remind you before things are due.
+      </Text>
+
+      <View style={styles.successCard}>
+        {[
+          { icon: "clock", label: "24 hours before every deadline" },
+          { icon: "sun", label: "Morning digest of today's tasks" },
+          { icon: "zap", label: "Streak reminder to keep your momentum" },
+        ].map((item, i) => (
+          <View key={i} style={[styles.notifBenefit, i === 2 && styles.notifBenefitLast]}>
+            <View style={styles.notifIconWrap}>
+              <Feather name={item.icon} size={16} color={colors.accent} />
+            </View>
+            <Text style={[styles.successRowTitle, { fontSize: 14 }]}>{item.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text style={[styles.successNote, { marginTop: spacing.sm }]}>
+        You can adjust notification preferences anytime in settings.
+      </Text>
+    </View>
+  );
+
+  const steps = isEditing
+    ? [renderStep0, renderStep4, renderStep1, renderStep2]
+    : [renderValueProp, renderStep4, renderPersonalization, renderNotifications];
 
   const getNextLabel = () => {
     if (saving) return "Saving...";
     if (isEditing && step_n === STEP_COUNT - 1) return "Save Changes";
-    if (step_n === STEP_COUNT - 1)
-      return importedCount > 0 ? "Get Started →" : "Get Started";
+    if (!isEditing && step_n === 0) return "Get started";
+    if (!isEditing && step_n === 1) return importedCount > 0 || manualTaskCreated ? "Next" : "Add a task to continue";
+    if (!isEditing && step_n === STEP_COUNT - 1) return "Enable & Get Started";
     return "Next";
   };
 
   const getNextIcon = () => {
     if (saving) return null;
-    if (step_n === STEP_COUNT - 1) return "check";
+    if (isEditing && step_n === STEP_COUNT - 1) return "check";
+    if (!isEditing && step_n === STEP_COUNT - 1) return "bell";
+    if (!isEditing && step_n === 0) return "arrow-right";
     return "arrow-right";
   };
 
@@ -1357,22 +1732,24 @@ const OnboardingScreen = ({ navigation }) => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        {/* Progress bar */}
-        <View style={styles.progressBar}>
-          {Array.from({ length: STEP_COUNT }).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.progressSegment,
-                i <= step_n && styles.progressSegmentActive,
-              ]}
-            />
-          ))}
-        </View>
+        {/* Progress bar — hidden on value prop screen */}
+        {(isEditing || step_n > 0) && (
+          <View style={styles.progressBar}>
+            {Array.from({ length: STEP_COUNT }).map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.progressSegment,
+                  i <= step_n && styles.progressSegmentActive,
+                ]}
+              />
+            ))}
+          </View>
+        )}
 
         {/* Brand row */}
         <View style={styles.brandRow}>
-          <Feather name="check-square" size={20} color={colors.accent} />
+          <Image source={require("../assets/logo.png")} style={{ width: 24, height: 24, borderRadius: 6 }} resizeMode="contain" />
           <Text style={styles.brandName}>Planora</Text>
           {isEditing ? (
             <TouchableOpacity
@@ -1419,7 +1796,8 @@ const OnboardingScreen = ({ navigation }) => {
             style={[
               styles.nextBtn,
               !canAdvance() && styles.nextBtnDisabled,
-              step_n === 0 && { marginLeft: "auto" },
+              (step_n === 0) && { marginLeft: "auto" },
+              (!isEditing && step_n === 0) && { flex: 1, justifyContent: "center" },
             ]}
             onPress={handleNext}
             disabled={!canAdvance() || saving}

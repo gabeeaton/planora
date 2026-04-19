@@ -26,6 +26,8 @@ import { typography, spacing, radius, shadows, COLOR_THEMES } from "../utils/the
 import { generateTerms, WORK_TIMES, GRADES, CREDIT_OPTS } from "../utils/termHelpers";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
+import { testAllNotifications } from "../services/notifications";
+import { useTasks } from "../hooks/useTasks";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -258,6 +260,7 @@ const ProfileScreen = ({ navigation }) => {
   const styles = makeStyles(colors);
   const { profile }                               = useUserProfile();
   const { isPro, hasProAccess }                   = useSubscription();
+  const { tasks, streak }                         = useTasks();
 
   const [activeThemeKey, setActiveThemeKeyState] = useState(profile?.colorTheme ?? accentKey);
   const [editingName, setEditingName]             = useState(false);
@@ -579,19 +582,18 @@ const ProfileScreen = ({ navigation }) => {
           <Row icon="log-out" label="Sign Out" onPress={handleLogout} danger />
         </View>
 
-        {/* <SectionHeader title="Developer Tools" /> */}
-{/* <View style={styles.card}>
-  <TouchableOpacity 
-    style={styles.classRow} 
-    onPress={triggerLocalTest}
-  >
-    <View style={styles.classRowInfo}>
-      <Text style={styles.className}>Test Notification</Text>
-      <Text style={styles.classMeta}>Triggers a local alert in 2s</Text>
-    </View>
-    <Feather name="bell" size={18} color={colors.accent} />
-  </TouchableOpacity>
-</View> */}
+        {/* <SectionHeader title="Developer" />
+        <View style={styles.card}>
+          <Row
+            icon="bell"
+            label="Test All Notifications"
+            value="Fires 6 types over 45s"
+            onPress={() => {
+              testAllNotifications(tasks, streak);
+              Alert.alert("Notifications scheduled", "Lock your phone — 6 notifications will arrive over the next 45 seconds.");
+            }}
+          />
+        </View> */}
 {/* <TouchableOpacity 
   title="Check Pending Notifs" 
   onPress={async () => {

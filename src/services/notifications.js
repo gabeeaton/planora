@@ -88,8 +88,62 @@ export const testImmediateNotification = async () => {
       body: "If you see this, push system works",
       sound: true,
     },
-    trigger: null, // 👈 fires immediately
+    trigger: null,
   });
+};
+
+/**
+ * Fire every notification type in sequence with 8s gaps.
+ * Pass real tasks + streak so the content looks authentic.
+ *
+ * @param {Array}  tasks   All tasks (picks first pending one for task reminders)
+ * @param {number} streak  Current streak count
+ */
+export const testAllNotifications = async (tasks = [], streak = 3) => {
+  const granted = await checkNotificationPermissions();
+  if (!granted) return;
+
+  const pending = tasks.filter((t) => !t.completed);
+  const sampleTitle = pending[0]?.title ?? "Research Paper Draft";
+  const sampleClass = pending[0]?.className ?? "ENGL 301";
+
+  const schedule = (delaySecs, title, body, data = {}) => {
+    const fire = new Date(Date.now() + delaySecs * 1000);
+    return Notifications.scheduleNotificationAsync({
+      content: { title, body, data, sound: true },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fire },
+    }).catch(() => {});
+  };
+
+  // 1 — immediate test
+  await schedule(3,  "✅ Notifications working", "You'll receive 5 more over the next 40 seconds.");
+
+  // 2 — 24h task reminder
+  await schedule(11, `📚 Due tomorrow: ${sampleTitle}`,
+    sampleClass ? `${sampleClass} — due tomorrow at 11:59 PM` : "Due tomorrow at 11:59 PM",
+    { type: "test-24h" });
+
+  // 3 — 2h task reminder
+  await schedule(19, `⚠️ Due in 2 hours: ${sampleTitle}`,
+    sampleClass ? `${sampleClass} assignment due very soon!` : "This task is due very soon!",
+    { type: "test-2h" });
+
+  // 4 — daily digest
+  await schedule(27, "Good morning — check today's tasks",
+    pending.length > 0
+      ? `${Math.min(pending.length, 3)} tasks due today — don't let them sneak up on you.`
+      : "No tasks due today. Enjoy the day!",
+    { type: "test-digest" });
+
+  // 5 — streak reminder
+  await schedule(35, `🔥 ${streak} day streak — keep it going!`,
+    "Complete a task today so you don't lose your streak.",
+    { type: "test-streak" });
+
+  // 6 — weekly summary
+  await schedule(43, "📊 Weekly check-in",
+    `You knocked out ${Math.max(1, pending.length)} tasks this week. Finish strong before Monday.`,
+    { type: "test-weekly" });
 };
 
 export const requestNotificationPermissions = async () => {

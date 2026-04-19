@@ -99,10 +99,10 @@ const makeStyles = (colors, insets) =>
     },
     importBtn: {
       flexDirection: "row", alignItems: "center", gap: 5,
-      backgroundColor: colors.isDark ? colors.accentGlow : "#FFFFFF",
+      backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
       borderRadius: radius.full,
       borderWidth: 1,
-      borderColor: colors.isDark ? colors.accent : "#D8D8E0",
+      borderColor: colors.border,
       paddingHorizontal: 10, paddingVertical: 6,
       shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
       shadowOpacity: colors.isDark ? 0 : 0.06, shadowRadius: 4, elevation: 2,
@@ -1022,7 +1022,8 @@ const DashboardScreen = ({ navigation }) => {
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Feather name="calendar" size={14} color={colors.accent} />
+            <Feather name="calendar" size={14} color={calendarMode ? colors.accent : colors.textSecondary} />
+            <Text style={[styles.importBtnText, { color: calendarMode ? colors.accent : colors.textSecondary }]}>Week</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate("SyllabusParser")}

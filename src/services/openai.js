@@ -372,12 +372,23 @@ const buildChatContext = (tasks, userProfile, patterns) => {
   const classes = userProfile?.classes
     ?.map((c) => `${c.name} (${c.creditHours}cr, grade:${c.grade && c.grade !== "No grade yet" ? c.grade : "none yet"})`)
     .join(", ");
+  if (userProfile?.name) lines.push(`Student name: ${userProfile.name}`);
+  if (userProfile?.studentYear) lines.push(`Year: ${userProfile.studentYear}`);
   if (classes) lines.push(`Classes: ${classes}`);
   if (userProfile?.semester) {
     const sys = userProfile?.schoolSystem === "quarter" ? "quarter system" : "semester system";
     lines.push(`Current term: ${userProfile.semester} (${sys})`);
   }
   if (userProfile?.preferredWorkTime) lines.push(`Best work time: ${userProfile.preferredWorkTime}`);
+  if (userProfile?.learningStyle) {
+    const styleMap = {
+      "on-top":        "stays on top of things",
+      "procrastinator":"tends to procrastinate",
+      "structured":    "needs structure and reminders to stay on track",
+    };
+    const desc = styleMap[userProfile.learningStyle] ?? userProfile.learningStyle;
+    lines.push(`Work style: ${desc}`);
+  }
 
   const taskLabel = (t) => {
     const cls = t.className ? `[${t.className}] ` : "";
