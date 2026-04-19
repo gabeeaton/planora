@@ -486,12 +486,7 @@ export default function ChatScreen() {
       >
         {/* Empty state with starters */}
         {isEmpty ? (
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={styles.emptyWrap}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+          <View style={styles.emptyWrap}>
             <View style={styles.emptyIcon}>
               <Feather name="zap" size={28} color={colors.accent} />
             </View>
@@ -501,36 +496,19 @@ export default function ChatScreen() {
             <Text style={styles.emptySub}>
               Ask about your workload or let me take action on your tasks.
             </Text>
-
-            <Text style={styles.starterLabel}>ASK</Text>
             <View style={styles.startersCard}>
-              {ASK_STARTERS.map((s, i) => (
+              {[ASK_STARTERS[0], ASK_STARTERS[1], ACTION_STARTERS[0], ACTION_STARTERS[2]].map((s, i, arr) => (
                 <TouchableOpacity
                   key={s.text}
-                  style={[styles.starterBtn, i === ASK_STARTERS.length - 1 && { borderBottomWidth: 0 }]}
+                  style={[styles.starterBtn, i === arr.length - 1 && { borderBottomWidth: 0 }]}
                   onPress={() => send(s.text)}
                   activeOpacity={0.6}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.starterText}>{s.text}</Text>
-                  </View>
-                  <Feather name="chevron-right" size={14} color={colors.textMuted} />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={[styles.starterLabel, { marginTop: spacing.md }]}>ACTIONS</Text>
-            <View style={styles.startersCard}>
-              {ACTION_STARTERS.map((s, i) => (
-                <TouchableOpacity
-                  key={s.text}
-                  style={[styles.starterBtn, i === ACTION_STARTERS.length - 1 && { borderBottomWidth: 0 }]}
-                  onPress={() => send(s.text)}
-                  activeOpacity={0.6}
-                >
-                  <View style={styles.starterIconWrap}>
-                    <Feather name={s.icon} size={13} color={colors.accent} />
-                  </View>
+                  {s.icon && (
+                    <View style={styles.starterIconWrap}>
+                      <Feather name={s.icon} size={13} color={colors.accent} />
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.starterText}>{s.text}</Text>
                     {s.sub && <Text style={styles.starterSub}>{s.sub}</Text>}
@@ -539,7 +517,11 @@ export default function ChatScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-          </ScrollView>
+            <TouchableOpacity style={styles.capLink} onPress={() => setShowCapabilities(true)}>
+              <Text style={styles.capLinkText}>See everything I can do</Text>
+              <Feather name="chevron-right" size={13} color={colors.accent} />
+            </TouchableOpacity>
+          </View>
         ) : (
           <FlatList
             ref={listRef}
@@ -656,6 +638,11 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   starterText: { fontSize: 14, color: colors.textSecondary, fontFamily: "Outfit-Medium" },
   starterSub:  { fontSize: 11, color: colors.accent, fontFamily: "Outfit-SemiBold", marginTop: 2 },
+  capLink: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    marginTop: spacing.sm, alignSelf: "center", padding: 4,
+  },
+  capLinkText: { fontSize: 13, color: colors.accent, fontFamily: "Outfit-SemiBold" },
   starterLabel: {
     fontSize: 11, fontFamily: "Outfit-ExtraBold", color: colors.textMuted,
     letterSpacing: 1, marginBottom: 6, paddingLeft: 2, alignSelf: "flex-start",
