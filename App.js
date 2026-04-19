@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { Text, TextInput } from "react-native";
 import { StatusBar } from "expo-status-bar";
+
+Text.defaultProps = Text.defaultProps || {};
+Text.defaultProps.style = { fontFamily: "Outfit-Regular" };
+
+TextInput.defaultProps = TextInput.defaultProps || {};
+TextInput.defaultProps.style = { fontFamily: "Outfit-Regular" };
 import * as Sentry from "@sentry/react-native";
 import { AuthProvider } from "./src/hooks/useAuth";
 import { ThemeProvider } from "./src/utils/ThemeContext";
