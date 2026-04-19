@@ -298,6 +298,7 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleThemeChange = async (key) => {
+    tap();
     setTheme(key);
     setActiveThemeKeyState(key);
     await saveUserProfile(user.uid, { colorTheme: key });
@@ -500,7 +501,7 @@ const ProfileScreen = ({ navigation }) => {
                 <TouchableOpacity
                   key={mode}
                   style={[styles.modeBtn, colorMode === mode && styles.modeBtnActive]}
-                  onPress={() => setColorMode(mode)}
+                  onPress={() => { tap(); setColorMode(mode); }}
                 >
                   <Feather name={icon} size={14} color={colorMode === mode ? colors.accent : (colors.isDark ? colors.textMuted : "#6B6B80")} />
                   <Text style={[styles.modeBtnText, colorMode === mode && styles.modeBtnTextActive]}>{label}</Text>

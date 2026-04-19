@@ -485,7 +485,7 @@ const WeekCalendar = ({ tasks, onEditTask, weekOffset, onWeekChange, colors }) =
                   return (
                     <TouchableOpacity
                       key={task.id}
-                      onPress={() => onEditTask(task)}
+                      onPress={() => { Haptics.selectionAsync().catch(() => {}); onEditTask(task); }}
                       activeOpacity={0.75}
                       style={{
                         borderRadius:4,
@@ -1143,7 +1143,7 @@ const DashboardScreen = ({ navigation }) => {
                 return (
                   <TouchableOpacity
                     key={tab}
-                    onPress={() => handleTabChange(tab)}
+                    onPress={() => { Haptics.selectionAsync().catch(() => {}); handleTabChange(tab); }}
                     style={styles.segment}
                   >
                     <Text style={[styles.segmentText, activeTab === tab && styles.segmentTextActive]}>

@@ -14,6 +14,7 @@ import { spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useSubscription } from "../hooks/useSubscription";
 import { getWhatDoIDo, suggestPriorities } from "../services/openai";
+import * as Haptics from "expo-haptics";
 
 const makeStyles = (colors) => StyleSheet.create({
   wrapper: { marginBottom: spacing.md },
@@ -106,6 +107,7 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
   const handlePressOut = () => Animated.spring(buttonScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start();
 
   const handlePress = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     if (!hasProAccess) { onUpgrade?.(); return; }
     setLoading(true); setError(null); setResult(null); setPriorityDone(false);
     resultAnim.setValue(0);
@@ -130,6 +132,7 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
   };
 
   const handleSuggestPriority = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (!hasProAccess) { onUpgrade?.(); return; }
     setPriorityLoading(true);
     try {
@@ -145,6 +148,7 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
   };
 
   const handleDismiss = () => {
+    Haptics.selectionAsync().catch(() => {});
     Animated.timing(resultAnim, {
       toValue: 0,
       duration: 180,
@@ -164,7 +168,7 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
         <View style={styles.errorCard}>
           <Feather name="alert-triangle" size={14} color="#FF5C5C" />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => setError(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); setError(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Feather name="x" size={16} color={colors.textMuted} />
           </TouchableOpacity>
         </View>

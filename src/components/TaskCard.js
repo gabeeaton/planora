@@ -492,7 +492,7 @@ const TaskCard = ({
               <View style={styles.actions}>
                 {onFocus && !task.completed && (
                   <TouchableOpacity
-                    onPress={() => onFocus(task)}
+                    onPress={() => { Haptics.selectionAsync().catch(() => {}); onFocus(task); }}
                     style={styles.focusBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
@@ -500,14 +500,14 @@ const TaskCard = ({
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
-                  onPress={() => onEdit(task)}
+                  onPress={() => { Haptics.selectionAsync().catch(() => {}); onEdit(task); }}
                   style={styles.actionBtn}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Feather name="edit-2" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => onDelete(task)}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); onDelete(task); }}
                   style={styles.actionBtn}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
