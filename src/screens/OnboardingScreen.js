@@ -34,6 +34,7 @@ import { useTasks } from "../hooks/useTasks";
 import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
+import * as Haptics from "expo-haptics";
 import { VERCEL_API_URL } from "../config";
 import { requestNotificationPermissions } from "../services/notifications";
 // syllabusParser removed — ICS-only import
@@ -1120,6 +1121,7 @@ const OnboardingScreen = ({ navigation }) => {
   };
 
   const handleFinish = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     setSaving(true);
     try {
       let data;

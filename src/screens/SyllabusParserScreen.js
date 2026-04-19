@@ -16,6 +16,7 @@ import * as FileSystem from "expo-file-system";
 import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { parseIcsText, isValidIcs } from "../services/icsImport";
+import * as Haptics from "expo-haptics";
 import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../hooks/useAuth";
@@ -426,6 +427,7 @@ const SyllabusParserScreen = ({ navigation }) => {
         setNewClassNames(newNames);
       }
 
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setImportDone(true);
     } catch {
       setError("Import failed. Please try again.");

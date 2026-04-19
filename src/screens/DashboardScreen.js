@@ -56,6 +56,7 @@ import {
 } from "date-fns";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 const safeDate = (val) => {
   if (!val) return null;
   if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
@@ -849,6 +850,7 @@ const DashboardScreen = ({ navigation }) => {
   }, [patterns, enrichedTasks, tasks]);
 
   const handleTabChange = useCallback((tab) => {
+    Haptics.selectionAsync().catch(() => {});
     setActiveTab(tab);
     if (tabContainerWidth > 0) {
       const segW = (tabContainerWidth - 6) / TABS.length;
@@ -1010,6 +1012,7 @@ const DashboardScreen = ({ navigation }) => {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <TouchableOpacity
             onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
               setCalendarMode((m) => !m);
               if (!calendarMode) setCalWeekOffset(0);
             }}

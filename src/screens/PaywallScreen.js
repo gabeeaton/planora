@@ -13,6 +13,7 @@ import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { getOfferings, purchasePackage, restorePurchases } from "../services/purchases";
 import { invalidateTodayFocusCache } from "../services/openai";
+import * as Haptics from "expo-haptics";
 
 const FEATURES = [
   { icon: "cpu",            title: "Find My Focus",        desc: "One tap to know exactly what to work on right now, based on your deadlines and patterns." },
@@ -33,7 +34,7 @@ const PlanCard = ({ plan, active, onPress, styles, colors }) => {
   const scale = useRef(new Animated.Value(1)).current;
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }}
       onPressIn={() => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
       onPressOut={() => Animated.spring(scale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start()}
       activeOpacity={1}
@@ -197,6 +198,7 @@ const PaywallScreen = ({ navigation }) => {
     try {
       await purchasePackage(pkg);
       invalidateTodayFocusCache();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       Alert.alert("Welcome to Scholar!", "All AI features are now unlocked.", [
         { text: "Let's go!", onPress: () => navigation.goBack() },
       ]);

@@ -26,6 +26,7 @@ import { useSubscription } from "../hooks/useSubscription";
 import { sendChatMessage, invalidateTodayFocusCache } from "../services/openai";
 import { loadChatHistory, saveChatHistory, clearChatHistory } from "../services/firebase";
 import { spacing, radius, typography } from "../utils/theme";
+import * as Haptics from "expo-haptics";
 
 const HISTORY_KEY     = (uid) => `@planora_chat_${uid}`;
 const MAX_STORED      = 60; // messages kept in AsyncStorage
@@ -244,6 +245,7 @@ export default function ChatScreen() {
   const send = useCallback(async (text) => {
     const trimmed = text.trim();
     if (!trimmed || typing) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
     // Free user daily limit
     if (!isPro) {
@@ -292,6 +294,7 @@ export default function ChatScreen() {
             completed: false,
           });
           invalidateTodayFocusCache();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           setMessages((prev) => [...prev, {
             id: (Date.now() + 2).toString(), role: "assistant",
             text: `Added "${action.title}" to your task list.`,
@@ -312,6 +315,7 @@ export default function ChatScreen() {
           }));
           await createManyTasks(toCreate);
           invalidateTodayFocusCache();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           setMessages((prev) => [...prev, {
             id: (Date.now() + 2).toString(), role: "assistant",
             text: `Added ${toCreate.length} tasks to your list.`,
@@ -325,6 +329,7 @@ export default function ChatScreen() {
           const target = tasks.find((t) => t.id === action.taskId);
           await editTask(action.taskId, { dueDate: new Date(action.newDueDate + "T12:00:00") });
           invalidateTodayFocusCache();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           setMessages((prev) => [...prev, {
             id: (Date.now() + 2).toString(), role: "assistant",
             text: `Rescheduled "${target?.title ?? "task"}" to ${action.newDueDate}.`,
@@ -338,6 +343,7 @@ export default function ChatScreen() {
           const target = tasks.find((t) => t.id === action.taskId);
           await completeTask(action.taskId);
           invalidateTodayFocusCache();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           setMessages((prev) => [...prev, {
             id: (Date.now() + 2).toString(), role: "assistant",
             text: `Marked "${target?.title ?? "task"}" as complete.`,
@@ -351,6 +357,7 @@ export default function ChatScreen() {
           const target = tasks.find((t) => t.id === action.taskId);
           await editTask(action.taskId, { grade: action.grade });
           invalidateTodayFocusCache();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           setMessages((prev) => [...prev, {
             id: (Date.now() + 2).toString(), role: "assistant",
             text: `Logged grade "${action.grade}" for "${target?.title ?? "task"}".`,
