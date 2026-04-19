@@ -3,6 +3,9 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { spacing, radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+
+const tap = () => Haptics.selectionAsync().catch(() => {});
 
 
 const makeStyles = (colors) => StyleSheet.create({
@@ -188,7 +191,7 @@ const DatePicker = ({ value, onChange, onClear }) => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={prevMonth}
+          onPress={() => { tap(); prevMonth(); }}
           disabled={!canGoPrev}
           style={[styles.navBtn, !canGoPrev && styles.navDisabled]}
         >
@@ -198,7 +201,7 @@ const DatePicker = ({ value, onChange, onClear }) => {
         <Text style={styles.monthTitle}>{MONTHS[viewMonth]} {viewYear}</Text>
 
         <TouchableOpacity
-          onPress={nextMonth}
+          onPress={() => { tap(); nextMonth(); }}
           disabled={!canGoNext}
           style={[styles.navBtn, !canGoNext && styles.navDisabled]}
         >
@@ -232,7 +235,7 @@ const DatePicker = ({ value, onChange, onClear }) => {
                   tod && !sel && styles.cellToday,
                   past && styles.cellPast,
                 ]}
-                onPress={() => selectDay(day)}
+                onPress={() => { tap(); selectDay(day); }}
                 disabled={past}
                 activeOpacity={0.7}
               >
@@ -251,7 +254,7 @@ const DatePicker = ({ value, onChange, onClear }) => {
       ))}
 
       {/* Clear button */}
-      <TouchableOpacity onPress={onClear} style={styles.clearBtn}>
+      <TouchableOpacity onPress={() => { tap(); onClear(); }} style={styles.clearBtn}>
         <Feather name="x-circle" size={15} color="#FF6B6B" />
         <Text style={styles.clearText}>No due date</Text>
       </TouchableOpacity>

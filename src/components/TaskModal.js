@@ -13,6 +13,9 @@ import { Feather } from "@expo/vector-icons";
 import { typography, spacing, radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { format } from "date-fns";
+import * as Haptics from "expo-haptics";
+
+const tap = () => Haptics.selectionAsync().catch(() => {});
 import DatePicker from "./DatePicker";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useTasks } from "../hooks/useTasks";
@@ -402,14 +405,14 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
             <View style={styles.headerRight}>
               {task && task.dueDate && (
                 <TouchableOpacity
-                  onPress={() => openInGoogleCalendar({ ...task, dueTime })}
+                  onPress={() => { tap(); openInGoogleCalendar({ ...task, dueTime }); }}
                   style={[styles.calBtn, { backgroundColor: colors.accentGlow, borderColor: colors.accent }]}
                 >
                   <Feather name="calendar" size={14} color={colors.accent} />
                   <Text style={[styles.calBtnText, { color: colors.accent }]}>Add to Calendar</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <TouchableOpacity onPress={() => { tap(); onClose(); }} style={styles.closeBtn}>
                 <Feather name="x" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -431,7 +434,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                       {GRADES.map((g) => (
                         <TouchableOpacity
                           key={g}
-                          onPress={() => setNewClassGrade(g)}
+                          onPress={() => { tap(); setNewClassGrade(g); }}
                           style={[styles.classChip, newClassGrade === g && { backgroundColor: colors.accentGlow, borderColor: colors.accent }]}
                         >
                           <Text style={[styles.classChipText, newClassGrade === g && { color: colors.accent }]}>{g}</Text>
@@ -447,7 +450,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                     {CREDIT_OPTS.map((c) => (
                       <TouchableOpacity
                         key={c}
-                        onPress={() => setNewClassCredits(c)}
+                        onPress={() => { tap(); setNewClassCredits(c); }}
                         style={[styles.classChip, newClassCredits === c && { backgroundColor: colors.accentGlow, borderColor: colors.accent }]}
                       >
                         <Text style={[styles.classChipText, newClassCredits === c && { color: colors.accent }]}>{c}</Text>
@@ -457,7 +460,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                 </View>
 
                 <TouchableOpacity
-                  onPress={handleSaveClass}
+                  onPress={() => { tap(); handleSaveClass(); }}
                   style={[styles.saveBtn, { backgroundColor: colors.accent, marginTop: 8 }, saving && { opacity: 0.6 }]}
                   disabled={saving}
                 >
@@ -512,7 +515,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                     return (
                       <TouchableOpacity
                         key={cls.id}
-                        onPress={() => selectClass(cls)}
+                        onPress={() => { tap(); selectClass(cls); }}
                         style={[
                           styles.classChip,
                           selected && { backgroundColor: colors.accentGlow, borderColor: colors.accent },
@@ -526,7 +529,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                   })}
                   {/* "Other..." chip — always shown so user can type a class */}
                   <TouchableOpacity
-                    onPress={handleOtherChip}
+                    onPress={() => { tap(); handleOtherChip(); }}
                     style={[
                       styles.classChip,
                       showCustomInput && { backgroundColor: colors.accentGlow, borderColor: colors.accent },
@@ -560,7 +563,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                   return (
                     <TouchableOpacity
                       key={p}
-                      onPress={() => setPriority(p)}
+                      onPress={() => { tap(); setPriority(p); }}
                       style={[
                         styles.priorityBtn,
                         selected && { backgroundColor: meta.color + "22", borderColor: meta.color },
@@ -584,7 +587,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                   return (
                     <TouchableOpacity
                       key={opt.label}
-                      onPress={() => selectRecurrence(opt)}
+                      onPress={() => { tap(); selectRecurrence(opt); }}
                       style={[styles.recurrenceChip, isActive && styles.recurrenceChipActive]}
                     >
                       <Text style={[styles.recurrenceChipText, isActive && styles.recurrenceChipTextActive]}>
@@ -601,7 +604,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                   {DAY_LABELS.map((d, i) => (
                     <TouchableOpacity
                       key={d}
-                      onPress={() => setWeeklyDay(i)}
+                      onPress={() => { tap(); setWeeklyDay(i); }}
                       style={[styles.dayChip, weeklyDay === i && styles.dayChipActive]}
                     >
                       <Text style={[styles.dayChipText, weeklyDay === i && styles.dayChipTextActive]}>
@@ -618,7 +621,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                   {DAY_LABELS.map((d, i) => (
                     <TouchableOpacity
                       key={d}
-                      onPress={() => toggleCustomDay(i)}
+                      onPress={() => { tap(); toggleCustomDay(i); }}
                       style={[styles.dayChip, customDays.includes(i) && styles.dayChipActive]}
                     >
                       <Text style={[styles.dayChipText, customDays.includes(i) && styles.dayChipTextActive]}>
@@ -659,7 +662,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                 <View style={styles.dateHeaderRow}>
                   <Text style={styles.label}>TIME (optional)</Text>
                   {dueTime && (
-                    <TouchableOpacity onPress={() => setDueTime(null)}>
+                    <TouchableOpacity onPress={() => { tap(); setDueTime(null); }}>
                       <Text style={styles.clearTimeText}>Clear</Text>
                     </TouchableOpacity>
                   )}
@@ -667,7 +670,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
 
                 <TouchableOpacity
                   style={[styles.timeToggleBtn, showTimePicker && { borderColor: colors.accent }]}
-                  onPress={() => setShowTimePicker((v) => !v)}
+                  onPress={() => { tap(); setShowTimePicker((v) => !v); }}
                 >
                   <Feather name="clock" size={15} color={dueTime ? colors.accent : colors.textMuted} />
                   <Text style={[styles.timeToggleText, dueTime && { color: colors.accent }]}>{timeLabel}</Text>
@@ -713,7 +716,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
             {dueDate && (
               <TouchableOpacity
                 style={[styles.calExportRow, { borderColor: colors.accentGlow }]}
-                onPress={() => openInGoogleCalendar({ title, description, dueDate, dueTime })}
+                onPress={() => { tap(); openInGoogleCalendar({ title, description, dueDate, dueTime }); }}
               >
                 <Feather name="calendar" size={14} color={colors.accent} />
                 <Text style={[styles.calExportText, { color: colors.accent }]}>
@@ -731,7 +734,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
             ) : null}
 
             <TouchableOpacity
-              onPress={handleSave}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); handleSave(); }}
               style={[styles.saveBtn, { backgroundColor: colors.accent }, saving && { opacity: 0.6 }]}
               disabled={saving}
             >

@@ -215,6 +215,7 @@ const TaskCard = ({
 
   // Height collapse — runs on JS thread simultaneously with the native fade
   const [measuredHeight, setMeasuredHeight] = useState(null);
+  const [isCollapsing, setIsCollapsing] = useState(false);
   const heightAnim = useRef(new Animated.Value(0)).current;
   const marginAnim = useRef(new Animated.Value(spacing.sm)).current;
 
@@ -251,6 +252,7 @@ const TaskCard = ({
         Animated.timing(exitTranslY, { toValue: 10, duration: 220, useNativeDriver: true }),
       ]).start(() => onToggle(task));
       // JS thread: collapse height + margin at the same time so the gap closes with the card
+      setIsCollapsing(true);
       Animated.parallel([
         Animated.timing(heightAnim, { toValue: 0, duration: 240, useNativeDriver: false }),
         Animated.timing(marginAnim, { toValue: 0, duration: 240, useNativeDriver: false }),
@@ -316,7 +318,7 @@ const TaskCard = ({
       }}
       style={[
         { marginBottom: marginAnim },
-        measuredHeight !== null && { height: heightAnim, overflow: 'hidden' },
+        isCollapsing && measuredHeight !== null && { height: heightAnim, overflow: 'hidden' },
       ]}
     >
     {/* Inner: native-thread only (opacity + transform). No layout props here. */}
