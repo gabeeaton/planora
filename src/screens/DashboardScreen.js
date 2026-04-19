@@ -22,6 +22,7 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  InteractionManager,
 } from "react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -38,7 +39,7 @@ import TaskModal from "../components/TaskModal";
 import StatsBar from "../components/StatsBar";
 import WhatDoIDoButton from "../components/WhatDoIDoButton";
 import TodayFocusCard from "../components/TodayFocusCard";
-import { DashboardSkeleton } from "../components/SkeletonLoader";
+import { DashboardSkeleton, TaskListSkeleton, CalendarSkeleton } from "../components/SkeletonLoader";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../services/notifications";
 import NotificationPermissionPrompt, {
@@ -617,6 +618,8 @@ const DashboardScreen = ({ navigation }) => {
 
   const [calendarMode, setCalendarMode] = useState(false);
   const [calWeekOffset, setCalWeekOffset] = useState(0);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [tabLoading, setTabLoading] = useState(false);
 
   const scrollRef      = useRef(null);
   const scrollOffsetY  = useRef(0);
@@ -851,6 +854,7 @@ const DashboardScreen = ({ navigation }) => {
 
   const handleTabChange = useCallback((tab) => {
     Haptics.selectionAsync().catch(() => {});
+    setTabLoading(true);
     setActiveTab(tab);
     if (tabContainerWidth > 0) {
       const segW = (tabContainerWidth - 6) / TABS.length;
@@ -861,6 +865,7 @@ const DashboardScreen = ({ navigation }) => {
         bounciness: 0,
       }).start();
     }
+    InteractionManager.runAfterInteractions(() => setTabLoading(false));
   }, [tabContainerWidth, tabIndicatorX]);
 
   const handleAddTask = () => {
@@ -1013,8 +1018,10 @@ const DashboardScreen = ({ navigation }) => {
           <TouchableOpacity
             onPress={() => {
               Haptics.selectionAsync().catch(() => {});
+              setCalendarLoading(true);
               setCalendarMode((m) => !m);
               if (!calendarMode) setCalWeekOffset(0);
+              InteractionManager.runAfterInteractions(() => setCalendarLoading(false));
             }}
             style={[
               styles.importBtn,
@@ -1095,7 +1102,9 @@ const DashboardScreen = ({ navigation }) => {
           />
         )}
 
-        {calendarMode ? (
+        {calendarLoading ? (
+          calendarMode ? <CalendarSkeleton /> : <TaskListSkeleton />
+        ) : calendarMode ? (
           /* ── Calendar view ──────────────────────────────────── */
           <WeekCalendar
             tasks={enrichedTasks}
@@ -1146,7 +1155,9 @@ const DashboardScreen = ({ navigation }) => {
             </View>
 
             {/* Task list */}
-            {loading && tasks.length === 0 ? (
+            {tabLoading ? (
+              <TaskListSkeleton />
+            ) : loading && tasks.length === 0 ? (
               <DashboardSkeleton />
             ) : isFirstTime ? (
               <View style={styles.emptyContainer}>

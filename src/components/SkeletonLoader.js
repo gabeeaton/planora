@@ -112,6 +112,57 @@ export const DashboardSkeleton = () => (
   </View>
 );
 
+// ── Task list skeleton (tab switch) ───────────────────────────
+export const TaskListSkeleton = () => (
+  <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
+    {[0, 1, 2, 3].map((i) => <TaskCardSkeleton key={i} />)}
+  </View>
+);
+
+// ── Calendar skeleton (week view) ─────────────────────────────
+export const CalendarSkeleton = () => {
+  const { colors } = useTheme();
+  const base = colors.isDark ? colors.bgElevated : "#E8E8EE";
+  return (
+    <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
+      {/* Nav row */}
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <SkeletonBlock width={28} height={28} style={{ borderRadius: 8 }} />
+        <SkeletonBlock width={100} height={14} />
+        <SkeletonBlock width={28} height={28} style={{ borderRadius: 8 }} />
+      </View>
+      {/* Grid */}
+      <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
+        {/* Day name row */}
+        <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          {[0,1,2,3,4,5,6].map((i) => (
+            <View key={i} style={{ flex: 1, alignItems: "center", paddingVertical: 8 }}>
+              <SkeletonBlock width={16} height={10} />
+            </View>
+          ))}
+        </View>
+        {/* Date row */}
+        <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          {[0,1,2,3,4,5,6].map((i) => (
+            <View key={i} style={{ flex: 1, alignItems: "center", paddingVertical: 8 }}>
+              <SkeletonBlock width={28} height={28} style={{ borderRadius: 14 }} />
+            </View>
+          ))}
+        </View>
+        {/* Pill rows */}
+        <View style={{ flexDirection: "row", minHeight: 80, paddingVertical: 6 }}>
+          {[0,1,2,3,4,5,6].map((i) => (
+            <View key={i} style={{ flex: 1, paddingHorizontal: 3, gap: 3 }}>
+              {i % 3 !== 2 && <SkeletonBlock width="100%" height={18} style={{ borderRadius: 4 }} />}
+              {i % 2 === 0 && <SkeletonBlock width="100%" height={18} style={{ borderRadius: 4 }} />}
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   card: {
     borderRadius: 14,
