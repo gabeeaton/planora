@@ -339,7 +339,6 @@ const CAL_DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const CAL_PRIO_ORDER = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
 const calPillColor = (task, colors) => {
-  if (task.completed) return colors.textMuted;
   switch (task.priority) {
     case "HIGH":   return colors.high;
     case "MEDIUM": return colors.medium;
@@ -493,11 +492,12 @@ const WeekCalendar = ({ tasks, onEditTask, weekOffset, onWeekChange, colors }) =
                         borderLeftColor: pillColor,
                         paddingHorizontal:4,
                         paddingVertical:4,
+                        opacity: task.completed ? 0.5 : 1,
                       }}
                     >
                       <Text numberOfLines={1} style={{
                         fontSize:10, fontFamily:"Outfit-SemiBold",
-                        color: task.completed ? colors.textMuted : pillColor,
+                        color: pillColor,
                         textDecorationLine: task.completed ? "line-through" : "none",
                       }}>
                         {label}
