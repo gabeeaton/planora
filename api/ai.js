@@ -33,6 +33,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ── Rate limit config ────────────────────────────────────────
 const FREE_DAILY_LIMIT = 10;
+const BETA_PRO_UNLOCKED = true; // flip to false when subscriptions go live
 
 // Returns today's date string in UTC (e.g. "2025-02-24")
 const todayUTC = () => new Date().toISOString().slice(0, 10);
@@ -69,7 +70,7 @@ export default async function handler(req, res) {
   try {
     const snap = await profileRef.get();
     const data = snap.data() ?? {};
-    isPro = data.isPro === true;
+    isPro = BETA_PRO_UNLOCKED || data.isPro === true;
 
     if (!isPro) {
       const today = todayUTC();

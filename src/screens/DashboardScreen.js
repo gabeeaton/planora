@@ -493,12 +493,12 @@ const WeekCalendar = ({ tasks, onEditTask, weekOffset, onWeekChange, colors }) =
                         borderLeftColor: pillColor,
                         paddingHorizontal:4,
                         paddingVertical:4,
-                        opacity: task.completed ? 0.45 : 1,
                       }}
                     >
                       <Text numberOfLines={1} style={{
                         fontSize:10, fontFamily:"Outfit-SemiBold",
                         color: task.completed ? colors.textMuted : pillColor,
+                        textDecorationLine: task.completed ? "line-through" : "none",
                       }}>
                         {label}
                       </Text>
