@@ -31,6 +31,7 @@ import {
   scheduleDailyDigest,
   scheduleWeeklySummary,
   scheduleBatchReminders,
+  scheduleOverdueNudges,
   syncNotificationWindow,
 } from "../services/notifications";
 import { spawnNextRecurringTask } from "../services/recurringTasks";
@@ -100,6 +101,15 @@ export const useTasks = () => {
 
     return () => clearTimeout(timer);
   }, [tasks, user?.uid, patterns?.productiveTimeOfDay?.bestTime]);
+
+  // Schedule overdue nudges whenever tasks change
+  useEffect(() => {
+    if (!user?.uid) return;
+    const timer = setTimeout(() => {
+      scheduleOverdueNudges(tasks, bestTimeRef.current, user.uid);
+    }, 12000);
+    return () => clearTimeout(timer);
+  }, [tasks, user?.uid]);
 
   // Reschedule weekly summary whenever tasks, history, or productive time changes
   useEffect(() => {

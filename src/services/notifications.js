@@ -140,6 +140,11 @@ export const testBatchNotifications = async () => {
     "⚠️ 4 assignments due in ~2 hours",
     "CHEM 201 Lab Report, MATH 240 Problem Set, HIST 110 Essay +1 more"
   );
+  // 6 — overdue nudge
+  await schedule(44,
+    "⚠️ Overdue: Research Paper Draft",
+    "ENGL 301 — was due yesterday. Don't let it slip further."
+  );
 };
 
 export const testAllNotifications = async (tasks = [], streak = 3) => {
@@ -491,6 +496,7 @@ export const cancelAllNotifications = async (uid) => {
       `@planora_digest_notif_id_${uid}`,
       `@planora_avoidance_alerted_${uid}`,
       `@planora_batch_manifest_${uid}`,
+      `@planora_overdue_manifest_${uid}`,
     ]).catch(() => {});
   }
 };
@@ -768,6 +774,71 @@ export const updateOverdueBadge = async (tasks) => {
   } catch {
     // Fail silently — badge is a nice-to-have
   }
+};
+
+// ── Overdue nudge (fires morning after deadline missed) ───────
+
+const overdueManifestKey = (uid) => `@planora_overdue_manifest_${uid}`;
+
+/**
+ * For each task that became overdue since the last check, schedule a one-time
+ * nudge at the user's productive hour tomorrow morning (or later today if
+ * the productive hour hasn't passed yet).
+ * Deduplicates — each task fires at most once per overdue event.
+ */
+export const scheduleOverdueNudges = async (tasks, bestTime, uid) => {
+  if (!uid) return;
+  await _withLock(`overdue-${uid}`, async () => {
+    const granted = await checkNotificationPermissions();
+    if (!granted) return;
+
+    const now = new Date();
+    const hour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 9;
+
+    // Load already-alerted task IDs so we don't double-fire
+    let alerted = {};
+    try {
+      const raw = await AsyncStorage.getItem(overdueManifestKey(uid));
+      if (raw) alerted = JSON.parse(raw);
+    } catch {}
+
+    for (const task of tasks) {
+      if (task.completed || !task.dueDate) continue;
+      if (alerted[task.id]) continue;
+
+      const due = task.dueDate?.toDate?.() ?? new Date(task.dueDate);
+      if (due >= now) continue;
+
+      const fire = new Date();
+      fire.setHours(hour, 0, 0, 0);
+      if (fire <= now) fire.setDate(fire.getDate() + 1);
+
+      const className = task.className ? `${task.className} — ` : "";
+      try {
+        const id = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `⚠️ Overdue: ${task.title}`,
+            body: `${className}was due ${_formatDue(due)}. Don't let it slip further.`,
+            data: { type: "overdue-nudge", taskId: task.id },
+            sound: true,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: fire,
+          },
+        });
+        alerted[task.id] = id;
+      } catch (err) {
+        console.warn("Failed to schedule overdue nudge:", err);
+      }
+    }
+
+    // Prune entries for tasks that are now completed or deleted
+    const activeIds = new Set(tasks.filter((t) => !t.completed).map((t) => t.id));
+    Object.keys(alerted).forEach((id) => { if (!activeIds.has(id)) delete alerted[id]; });
+
+    await AsyncStorage.setItem(overdueManifestKey(uid), JSON.stringify(alerted)).catch(() => {});
+  });
 };
 
 // ── Internal helpers ──────────────────────────────────────────
