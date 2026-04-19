@@ -5,6 +5,10 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+const streakKey     = (uid) => uid ? `@planora_streak_${uid}`      : "@planora_streak";
+const streakDateKey = (uid) => uid ? `@planora_streak_date_${uid}` : "@planora_streak_date";
+
+// Keep bare exports for legacy callers / tests
 export const STREAK_KEY      = "@planora_streak";
 export const STREAK_DATE_KEY = "@planora_streak_date";
 
@@ -25,9 +29,9 @@ export const getYesterdayString = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-export const loadStreak = async () => {
+export const loadStreak = async (uid) => {
   try {
-    const results  = await AsyncStorage.multiGet([STREAK_KEY, STREAK_DATE_KEY]);
+    const results  = await AsyncStorage.multiGet([streakKey(uid), streakDateKey(uid)]);
     const countVal = results[0][1];
     const dateVal  = results[1][1];
     const count    = countVal ? parseInt(countVal, 10) : 0;
@@ -37,10 +41,10 @@ export const loadStreak = async () => {
   }
 };
 
-export const incrementStreak = async () => {
+export const incrementStreak = async (uid) => {
   const today     = getTodayString();
   const yesterday = getYesterdayString();
-  const { count, lastDate } = await loadStreak();
+  const { count, lastDate } = await loadStreak(uid);
 
   // Already counted today — idempotent, safe to call multiple times
   if (lastDate === today) return count;
@@ -48,8 +52,8 @@ export const incrementStreak = async () => {
   // Continuing streak from yesterday, or starting fresh
   const newCount = lastDate === yesterday ? count + 1 : 1;
   await AsyncStorage.multiSet([
-    [STREAK_KEY,      String(newCount)],
-    [STREAK_DATE_KEY, today],
+    [streakKey(uid),     String(newCount)],
+    [streakDateKey(uid), today],
   ]);
   return newCount;
 };
@@ -58,18 +62,24 @@ export const incrementStreak = async () => {
  * Called on app mount. Resets streak if the user missed a day.
  * Returns the current valid streak count.
  */
-export const checkAndResetStreak = async () => {
-  const { count, lastDate } = await loadStreak();
+export const checkAndResetStreak = async (uid) => {
+  const { count, lastDate } = await loadStreak(uid);
   const today     = getTodayString();
   const yesterday = getYesterdayString();
   const isActive  = lastDate === today || lastDate === yesterday;
 
   if (!isActive && count > 0) {
     await AsyncStorage.multiSet([
-      [STREAK_KEY,      "0"],
-      [STREAK_DATE_KEY, ""],
+      [streakKey(uid),     "0"],
+      [streakDateKey(uid), ""],
     ]);
     return 0;
   }
   return count;
+};
+
+export const clearStreak = async (uid) => {
+  try {
+    await AsyncStorage.multiRemove([streakKey(uid), streakDateKey(uid)]);
+  } catch {}
 };

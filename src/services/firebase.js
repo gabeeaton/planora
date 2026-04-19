@@ -67,8 +67,13 @@ export const registerUser = async (email, password) => {
 };
 
 export const logoutUser = async () => {
+  const uid = auth.currentUser?.uid ?? null;
   const { cancelAllNotifications } = await import("./notifications");
-  await cancelAllNotifications().catch(() => {});
+  const { clearStreak } = await import("../utils/streakHelpers");
+  await Promise.all([
+    cancelAllNotifications(uid).catch(() => {}),
+    clearStreak(uid).catch(() => {}),
+  ]);
   return signOut(auth);
 };
 

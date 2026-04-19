@@ -35,10 +35,10 @@ const COUNT_KEY       = (uid) => `@planora_chat_count_${uid}_${todayKey()}`;
 
 // ── Suggested starter prompts ─────────────────────────────────
 const STARTERS = [
-  "What should I focus on this week?",
-  "I'm feeling overwhelmed — help me prioritize.",
-  "Add a task for me",
-  "Which class should I be most worried about?",
+  { text: "Am I going to be okay this week?" },
+  { text: "I'm overwhelmed — help me prioritize." },
+  { text: "Break down a task into subtasks", sub: "Adds them to your task list", icon: "git-branch" },
+  { text: "Which class needs the most attention?" },
 ];
 
 // ── Date separator label ──────────────────────────────────────
@@ -96,11 +96,51 @@ const TypingDots = ({ color }) => {
   );
 };
 
+const MessageBubble = React.memo(({ item, styles, colors }) => {
+  const isNew      = Date.now() - (item.ts ?? 0) < 2000;
+  const opacity    = useRef(new Animated.Value(isNew ? 0 : 1)).current;
+  const translateY = useRef(new Animated.Value(isNew ? 10 : 0)).current;
+
+  useEffect(() => {
+    if (!isNew) return;
+    Animated.parallel([
+      Animated.timing(opacity,    { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, speed: 22, bounciness: 3, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const isUser = item.role === "user";
+  return (
+    <Animated.View style={[styles.bubbleRow, isUser && styles.bubbleRowUser, { opacity, transform: [{ translateY }] }]}>
+      {!isUser && (
+        <View style={styles.avatar}>
+          <Feather name="zap" size={14} color={colors.accent} />
+        </View>
+      )}
+      <View style={[
+        styles.bubble,
+        isUser ? styles.bubbleUser : styles.bubbleAI,
+        item.isError && styles.bubbleError,
+        item.isConfirm && styles.bubbleConfirm,
+      ]}>
+        <Text style={[
+          styles.bubbleText,
+          isUser ? styles.bubbleTextUser : styles.bubbleTextAI,
+          item.isError && styles.bubbleTextError,
+          item.isConfirm && styles.bubbleTextConfirm,
+        ]}>
+          {item.isConfirm ? "✓ " : ""}{item.text}
+        </Text>
+      </View>
+    </Animated.View>
+  );
+});
+
 export default function ChatScreen() {
   const { colors }                   = useTheme();
   const navigation                   = useNavigation();
   const { user }                     = useAuth();
-  const { tasks, patterns, createTask } = useTasks();
+  const { tasks, patterns, createTask, createManyTasks } = useTasks();
   const { profile }                  = useUserProfile();
   const { isPro: realIsPro }         = useSubscription();
   const styles                       = makeStyles(colors);
@@ -229,16 +269,31 @@ export default function ChatScreen() {
             priority: (action.priority ?? "MEDIUM").toUpperCase(),
             completed: false,
           });
-          const confirmMsg = {
-            id: (Date.now() + 2).toString(),
-            role: "assistant",
+          setMessages((prev) => [...prev, {
+            id: (Date.now() + 2).toString(), role: "assistant",
             text: `Added "${action.title}" to your task list.`,
-            ts: Date.now(),
-            isConfirm: true,
-          };
-          setMessages((prev) => [...prev, confirmMsg]);
+            ts: Date.now(), isConfirm: true,
+          }]);
         } catch {
-          // Task creation failed silently — the text reply is still shown
+          // fails silently — text reply is still shown
+        }
+      } else if (action?.type === "createTasks" && Array.isArray(action.tasks) && action.tasks.length > 0) {
+        try {
+          const toCreate = action.tasks.map((t) => ({
+            title: t.title,
+            dueDate: t.dueDate ? new Date(t.dueDate + "T12:00:00") : null,
+            className: t.className ?? null,
+            priority: (t.priority ?? "MEDIUM").toUpperCase(),
+            completed: false,
+          }));
+          await createManyTasks(toCreate);
+          setMessages((prev) => [...prev, {
+            id: (Date.now() + 2).toString(), role: "assistant",
+            text: `Added ${toCreate.length} tasks to your list.`,
+            ts: Date.now(), isConfirm: true,
+          }]);
+        } catch {
+          // fails silently
         }
       }
     } catch (err) {
@@ -290,7 +345,7 @@ export default function ChatScreen() {
   }, [messages]);
 
   // ── Render message bubble or date separator ────────────────
-  const renderMessage = ({ item }) => {
+  const renderMessage = useCallback(({ item }) => {
     if (item.type === "separator") {
       return (
         <View style={styles.dateSepRow}>
@@ -300,32 +355,8 @@ export default function ChatScreen() {
         </View>
       );
     }
-    const isUser = item.role === "user";
-    return (
-      <View style={[styles.bubbleRow, isUser && styles.bubbleRowUser]}>
-        {!isUser && (
-          <View style={styles.avatar}>
-            <Feather name="book-open" size={14} color={colors.accent} />
-          </View>
-        )}
-        <View style={[
-          styles.bubble,
-          isUser ? styles.bubbleUser : styles.bubbleAI,
-          item.isError && styles.bubbleError,
-          item.isConfirm && styles.bubbleConfirm,
-        ]}>
-          <Text style={[
-            styles.bubbleText,
-            isUser ? styles.bubbleTextUser : styles.bubbleTextAI,
-            item.isError && styles.bubbleTextError,
-            item.isConfirm && styles.bubbleTextConfirm,
-          ]}>
-            {item.isConfirm ? "✓ " : ""}{item.text}
-          </Text>
-        </View>
-      </View>
-    );
-  };
+    return <MessageBubble item={item} styles={styles} colors={colors} />;
+  }, [styles, colors]);
 
   const isEmpty = messages.length === 0 && !typing;
   const firstName = profile?.name?.split(" ")[0] ?? null;
@@ -335,11 +366,11 @@ export default function ChatScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerAvatar}>
-          <Feather name="book-open" size={18} color={colors.accent} />
+          <Feather name="zap" size={18} color={colors.accent} />
         </View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Academic Coach</Text>
-          <Text style={styles.headerSub}>Knows your tasks, classes & deadlines</Text>
+          <Text style={styles.headerSub}>Powered by your real schedule</Text>
         </View>
         {messages.length > 0 && (
           <TouchableOpacity onPress={clearChat} style={styles.clearBtn}>
@@ -357,20 +388,32 @@ export default function ChatScreen() {
         {isEmpty ? (
           <View style={styles.emptyWrap}>
             <View style={styles.emptyIcon}>
-              <Feather name="book-open" size={32} color={colors.accent} />
+              <Feather name="zap" size={28} color={colors.accent} />
             </View>
             <Text style={styles.emptyTitle}>
-              {firstName ? `Hi ${firstName}! 👋` : "Your Academic Coach"}
+              {firstName ? `Hi ${firstName}.` : "What's on your mind?"}
             </Text>
             <Text style={styles.emptySub}>
-              {firstName
-                ? "Ask me anything about your workload, upcoming deadlines, or which class needs attention right now."
-                : "Ask me anything about your workload, study strategy, or which class needs attention."}
+              Ask about your workload, upcoming deadlines, or what to tackle next.
             </Text>
-            <View style={styles.starters}>
-              {STARTERS.map((s) => (
-                <TouchableOpacity key={s} style={styles.starterBtn} onPress={() => send(s)}>
-                  <Text style={styles.starterText}>{s}</Text>
+            <View style={styles.startersCard}>
+              {STARTERS.map((s, i) => (
+                <TouchableOpacity
+                  key={s.text}
+                  style={[styles.starterBtn, i === STARTERS.length - 1 && { borderBottomWidth: 0 }]}
+                  onPress={() => send(s.text)}
+                  activeOpacity={0.6}
+                >
+                  {s.icon && (
+                    <View style={styles.starterIconWrap}>
+                      <Feather name={s.icon} size={13} color={colors.accent} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.starterText}>{s.text}</Text>
+                    {s.sub && <Text style={styles.starterSub}>{s.sub}</Text>}
+                  </View>
+                  <Feather name="chevron-right" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -389,7 +432,7 @@ export default function ChatScreen() {
             ListFooterComponent={typing ? (
               <View style={styles.bubbleRow}>
                 <View style={styles.avatar}>
-                  <Feather name="book-open" size={14} color={colors.accent} />
+                  <Feather name="zap" size={14} color={colors.accent} />
                 </View>
                 <View style={[styles.bubble, styles.bubbleAI, styles.typingBubble]}>
                   <TypingDots color={colors.accent} />
@@ -472,17 +515,30 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
     alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
   },
-  emptyTitle: { fontSize: 18, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, marginBottom: spacing.xs, textAlign: "center" },
-  emptySub:   { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.md },
-  starters:   { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
-  starterBtn: {
-    borderRadius: radius.full,
-    paddingHorizontal: 14, paddingVertical: 9,
-    borderWidth: 1, borderColor: colors.border,
+  emptyTitle: { fontSize: 22, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, marginBottom: 6, textAlign: "center" },
+  emptySub:   { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.lg },
+  startersCard: {
+    width: "100%", borderRadius: radius.md, overflow: "hidden",
+    borderWidth: 1, borderColor: colors.isDark ? colors.border : "#EBEBF5",
     backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
-    borderColor: colors.isDark ? colors.border : "#E5E5EA",
+    ...(colors.isDark ? {} : {
+      shadowColor: "#6B6B8A", shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
+    }),
   },
-  starterText: { fontSize: 13, color: colors.textSecondary, fontFamily: "Outfit-Medium" },
+  starterBtn: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: 14, paddingHorizontal: spacing.md,
+    borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "#F0F0F5",
+    gap: 10,
+  },
+  starterText: { fontSize: 14, color: colors.textSecondary, fontFamily: "Outfit-Medium" },
+  starterSub:  { fontSize: 11, color: colors.accent, fontFamily: "Outfit-SemiBold", marginTop: 2 },
+  starterIconWrap: {
+    width: 26, height: 26, borderRadius: 8,
+    backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent,
+    alignItems: "center", justifyContent: "center", marginRight: 2,
+  },
 
   // Date separators
   dateSepRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 12 },

@@ -4,8 +4,9 @@
 //          safe-area bottom inset fix for black bar
 // ============================================================
 
-import React, { useEffect } from "react";
-import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text, Animated } from "react-native";
+import * as Haptics from "expo-haptics";
 import { NavigationContainer } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -46,6 +47,62 @@ const Tab   = createBottomTabNavigator();
 const TAB_ICONS  = { Dashboard: "home", Stats: "bar-chart-2", Chat: "message-circle", Profile: "user" };
 const TAB_LABELS = { Dashboard: "Home", Stats: "Progress",    Chat: "Coach",          Profile: "Profile" };
 
+const TabItem = ({ route, isFocused, onPress, colors }) => {
+  const scaleAnim  = useRef(new Animated.Value(1)).current;
+  // Native-driver anim: drives background pill + dual icon crossfade (opacity/transform only)
+  const nativeAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+  // JS-driver anim: drives label color interpolation only
+  const colorAnim  = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(nativeAnim, { toValue: isFocused ? 1 : 0, duration: 220, useNativeDriver: true }).start();
+    Animated.timing(colorAnim,  { toValue: isFocused ? 1 : 0, duration: 220, useNativeDriver: false }).start();
+  }, [isFocused]);
+
+  const iconName   = TAB_ICONS[route.name]  ?? "circle";
+  const label      = TAB_LABELS[route.name] ?? route.name;
+  const labelColor = colorAnim.interpolate({ inputRange: [0, 1], outputRange: [colors.textMuted, colors.accent] });
+  const unfocusedOpacity = nativeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+
+  const handlePressIn  = () => Animated.spring(scaleAnim, { toValue: 0.90, useNativeDriver: true, speed: 60, bounciness: 0 }).start();
+  const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true, speed: 20, bounciness: 8 }).start();
+  const handlePress    = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={tabStyles.tab}
+      activeOpacity={1}
+    >
+      <View style={tabStyles.iconWrap}>
+        {/* Background pill — native driver opacity */}
+        <Animated.View style={[StyleSheet.absoluteFill, {
+          borderRadius: 12,
+          backgroundColor: colors.isDark ? colors.accentGlow : colors.accent + "22",
+          opacity: nativeAnim,
+        }]} />
+        {/* Dual icons crossfade + scale — all native driver */}
+        <Animated.View style={{ transform: [{ scale: scaleAnim }], width: 20, height: 20 }}>
+          <Animated.View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", opacity: unfocusedOpacity }]}>
+            <Feather name={iconName} size={20} color={colors.textMuted} />
+          </Animated.View>
+          <Animated.View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", opacity: nativeAnim }]}>
+            <Feather name={iconName} size={20} color={colors.accent} />
+          </Animated.View>
+        </Animated.View>
+      </View>
+      <Animated.Text style={[tabStyles.label, { color: labelColor }]}>
+        {label}
+      </Animated.Text>
+    </TouchableOpacity>
+  );
+};
+
 const CustomTabBar = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -61,21 +118,12 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
     ]}>
       {state.routes.map((route, index) => {
         const isFocused = state.index === index;
-        const iconName  = TAB_ICONS[route.name]  ?? "circle";
-        const label     = TAB_LABELS[route.name] ?? route.name;
-
         const onPress = () => {
           const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
           if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
         };
-
         return (
-          <TouchableOpacity key={route.key} onPress={onPress} style={tabStyles.tab} activeOpacity={0.7}>
-            <View style={[tabStyles.iconWrap, isFocused && { backgroundColor: colors.isDark ? colors.accentGlow : colors.accent + "22" }]}>
-              <Feather name={iconName} size={20} color={isFocused ? colors.accent : colors.textMuted} />
-            </View>
-            <Text style={[tabStyles.label, { color: colors.textMuted }, isFocused && { color: colors.accent }]}>{label}</Text>
-          </TouchableOpacity>
+          <TabItem key={route.key} route={route} isFocused={isFocused} onPress={onPress} colors={colors} />
         );
       })}
     </View>
@@ -89,13 +137,11 @@ const tabStyles = StyleSheet.create({
     paddingTop: 10,
     paddingHorizontal: 16,
     shadowColor: "#000", shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.12, shadowRadius: 4, elevation: 8,
-    // Prevent dark strip: ensure bg covers all the way to screen bottom
-    marginBottom: 0,
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 8,
   },
   tab:      { flex: 1, alignItems: "center", gap: 4 },
   iconWrap: { width: 40, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 12 },
-  label:    { fontSize: 10, fontFamily: "Outfit-SemiBold", color: "#44445A", textTransform: "uppercase", letterSpacing: 0.3 },
+  label:    { fontSize: 10, fontFamily: "Outfit-SemiBold", letterSpacing: 0.3 },
 });
 
 // ── Main tab navigator ────────────────────────────────────────

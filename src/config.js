@@ -29,6 +29,13 @@ export const APP_CONFIG = {
   offlineEnabled: true,
 };
 
+// ── Feature flags ─────────────────────────────────────────────
+// Set BETA_PRO_UNLOCKED = true  → everyone gets Scholar (TestFlight / soft launch)
+// Set BETA_PRO_UNLOCKED = false → only real RevenueCat subscribers get Scholar
+export const FEATURE_FLAGS = {
+  BETA_PRO_UNLOCKED: false,
+};
+
 // ── Dev safety check ─────────────────────────────────────────
 if (__DEV__) {
   const missing = [];

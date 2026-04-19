@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "./useAuth";
 import { useUserProfile } from "./useUserProfile";
 import { configurePurchases, getIsSubscribed, ENTITLEMENT_ID } from "../services/purchases";
+import { FEATURE_FLAGS } from "../config";
 import Purchases from "react-native-purchases";
 
 export const useSubscription = () => {
@@ -38,10 +39,7 @@ export const useSubscription = () => {
 
   const loading = profileLoading || rcLoading;
 
-  // Active if RevenueCat says so OR Firestore isPro flag is set (legacy)
-  // Beta: grant Pro to all users during TestFlight testing
-  const BETA_PRO_UNLOCKED = true;
-  const hasProAccess = BETA_PRO_UNLOCKED || rcSubscribed || !!profile?.isPro;
+  const hasProAccess = FEATURE_FLAGS.BETA_PRO_UNLOCKED || rcSubscribed || !!profile?.isPro;
 
   return {
     isPro: hasProAccess,

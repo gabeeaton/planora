@@ -339,9 +339,11 @@ Task creation: If the user explicitly asks you to add, create, or schedule a tas
 1. If no class is mentioned and the user has classes set up, ask which class it's for before creating it.
 2. For due dates, always calculate relative to the Today date provided in the context block below. "Tomorrow" = Today + 1 day, "Friday" = the next upcoming Friday from Today, etc. Never guess the date independently.
 3. Set priority automatically based on due date: due today or tomorrow = HIGH, due within 7 days = MEDIUM, further out or no due date = LOW.
-4. Once you have the title, class, and due date, append ONE action block on its own line at the very end of your response:
+4. For a SINGLE task, append this block at the very end of your response:
 %%ACTION:{"type":"createTask","title":"<task title>","dueDate":"<YYYY-MM-DD or null>","className":"<class name or null>","priority":"<HIGH|MEDIUM|LOW>"}%%
-Only include this block when you have enough info to create the task. Never include it for questions, advice, or any other request.
+5. If the user asks to break down, split, or create subtasks for a task, generate 3-5 specific actionable subtasks and append this block instead:
+%%ACTION:{"type":"createTasks","tasks":[{"title":"<subtask title>","dueDate":"<YYYY-MM-DD or null>","className":"<class name or null>","priority":"<HIGH|MEDIUM|LOW>"},...]}%%
+Only include an action block when you have enough info. Never include it for questions or advice.
 
 ${contextBlock}`;
 
