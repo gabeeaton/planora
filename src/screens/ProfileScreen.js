@@ -109,7 +109,7 @@ const makeStyles = (colors) => StyleSheet.create({
 
   sectionHeader: {
     ...typography.label,
-    color: colors.isDark ? colors.textMuted : colors.textMuted,
+    color: colors.isDark ? colors.textMuted : colors.textPrimary,
     marginBottom: 6,
     marginTop: spacing.sm,
     paddingLeft: 4,
@@ -135,24 +135,20 @@ const makeStyles = (colors) => StyleSheet.create({
   themeLabel:    { fontSize: 10, color: colors.textMuted, fontFamily: "Outfit-Medium" },
 
   modeToggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "column",
     paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
+    paddingVertical: 14,
   },
   modeToggleLabel: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
-  modeToggleSub:   { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   modeToggleBtns:  { flexDirection: "row", gap: 8 },
   modeBtn: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border,
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    paddingVertical: 9,
+    borderRadius: radius.md, borderWidth: 1.5,
+    borderColor: colors.isDark ? colors.border : "#C0C0CC",
   },
   modeBtnActive:  { borderColor: colors.accent, backgroundColor: colors.accentGlow },
-  modeBtnText:    { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
+  modeBtnText:    { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.isDark ? colors.textMuted : "#6B6B80" },
   modeBtnTextActive: { color: colors.accent },
 
   row: {
@@ -256,7 +252,7 @@ const makeStyles = (colors) => StyleSheet.create({
 // ── ProfileScreen ─────────────────────────────────────────────
 const ProfileScreen = ({ navigation }) => {
   const { user, logout }                          = useAuth();
-  const { colors, accentKey, isDark, setTheme, setDarkMode } = useTheme();
+  const { colors, accentKey, isDark, colorMode, setTheme, setColorMode } = useTheme();
   const styles = makeStyles(colors);
   const { profile }                               = useUserProfile();
   const { isPro, hasProAccess }                   = useSubscription();
@@ -480,30 +476,33 @@ const ProfileScreen = ({ navigation }) => {
         {/* Appearance */}
         <SectionHeader title="Appearance" />
         <View style={styles.card}>
-          {/* Dark / Light mode */}
+          {/* Dark / System / Light mode */}
           <View style={styles.modeToggleRow}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Feather name={isDark ? "moon" : "sun"} size={16} color={colors.accent} />
-              <View>
-                <Text style={styles.modeToggleLabel}>{isDark ? "Dark Mode" : "Light Mode"}</Text>
-                <Text style={styles.modeToggleSub}>Tap to switch</Text>
-              </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <Feather
+                name={colorMode === "system" ? "monitor" : isDark ? "moon" : "sun"}
+                size={16}
+                color={colors.accent}
+              />
+              <Text style={styles.modeToggleLabel}>
+                {colorMode === "system" ? "System" : isDark ? "Dark Mode" : "Light Mode"}
+              </Text>
             </View>
             <View style={styles.modeToggleBtns}>
-              <TouchableOpacity
-                style={[styles.modeBtn, isDark && styles.modeBtnActive]}
-                onPress={() => setDarkMode(true)}
-              >
-                <Feather name="moon" size={13} color={isDark ? colors.accent : colors.textMuted} />
-                <Text style={[styles.modeBtnText, isDark && styles.modeBtnTextActive]}>Dark</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modeBtn, !isDark && styles.modeBtnActive]}
-                onPress={() => setDarkMode(false)}
-              >
-                <Feather name="sun" size={13} color={!isDark ? colors.accent : colors.textMuted} />
-                <Text style={[styles.modeBtnText, !isDark && styles.modeBtnTextActive]}>Light</Text>
-              </TouchableOpacity>
+              {[
+                { mode: "light",  icon: "sun",     label: "Light"  },
+                { mode: "dark",   icon: "moon",    label: "Dark"   },
+                { mode: "system", icon: "monitor", label: "Auto"   },
+              ].map(({ mode, icon, label }) => (
+                <TouchableOpacity
+                  key={mode}
+                  style={[styles.modeBtn, colorMode === mode && styles.modeBtnActive]}
+                  onPress={() => setColorMode(mode)}
+                >
+                  <Feather name={icon} size={14} color={colorMode === mode ? colors.accent : (colors.isDark ? colors.textMuted : "#6B6B80")} />
+                  <Text style={[styles.modeBtnText, colorMode === mode && styles.modeBtnTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
@@ -582,7 +581,7 @@ const ProfileScreen = ({ navigation }) => {
           <Row icon="log-out" label="Sign Out" onPress={handleLogout} danger />
         </View>
 
-        <SectionHeader title="Developer" />
+        {/* <SectionHeader title="Developer" />
         <View style={styles.card}>
           <Row
             icon="layers"
@@ -602,7 +601,7 @@ const ProfileScreen = ({ navigation }) => {
               Alert.alert("Notifications scheduled", "Lock your phone — 6 notifications will arrive over the next 45 seconds.");
             }}
           />
-        </View>
+        </View> */}
 
         <Text style={styles.version}>Planora v1.0.0</Text>
         <View style={{ height: 40 }} />

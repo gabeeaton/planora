@@ -55,7 +55,6 @@ export const useTasks = () => {
 
   // Keep a ref so createManyTasks can read current tasks without stale closure
   const tasksRef = useRef([]);
-  const pendingTaskIdsRef = useRef(new Set());
   const lastEditTimeRef = useRef(0);
   useEffect(() => {
     tasksRef.current = tasks;
@@ -182,12 +181,9 @@ export const useTasks = () => {
       if (!user) throw new Error("Not logged in.");
       try {
         const docRef = await addTask(user.uid, taskData);
-        // Mark as pending so syncNotificationWindow skips it until
-        // Firestore propagates the doc back through the snapshot listener.
-        // syncNotificationWindow will schedule the reminder on the next
-        // tasks-state update once the task has an ID in the snapshot.
-        pendingTaskIdsRef.current.add(docRef.id);
-        setTimeout(() => pendingTaskIdsRef.current.delete(docRef.id), 10_000);
+        // Schedule immediately — don't wait for the 12s debounce
+        const optimistic = [...tasksRef.current, { ...taskData, id: docRef.id, completed: false }];
+        scheduleBatchReminders(optimistic, bestTimeRef.current, user.uid).catch(() => {});
         return docRef;
       } catch (err) {
         const msg = err.message?.includes("permission")
@@ -228,11 +224,10 @@ export const useTasks = () => {
           toCreate.map((t) => addTask(user.uid, t))
         );
 
-        // once Firestore propagates the docs back through the snapshot listener
-        docRefs.forEach((docRef) => {
-          pendingTaskIdsRef.current.add(docRef.id);
-          setTimeout(() => pendingTaskIdsRef.current.delete(docRef.id), 10_000);
-        });
+        // Schedule immediately with optimistic task list
+        const newTasks = toCreate.map((t, i) => ({ ...t, id: docRefs[i].id, completed: false }));
+        const optimistic = [...tasksRef.current, ...newTasks];
+        scheduleBatchReminders(optimistic, bestTimeRef.current, user.uid).catch(() => {});
 
         return { created: toCreate.length, skipped };
       } catch (err) {

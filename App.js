@@ -29,24 +29,31 @@ Sentry.init({
 const useInitialTheme = () => {
   const [ready,      setReady]      = useState(false);
   const [savedTheme, setSavedTheme] = useState("purple");
-  const [savedDark,  setSavedDark]  = useState(true);
+  const [savedMode,  setSavedMode]  = useState("system");
 
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem("@tf_accent"),
-      AsyncStorage.getItem("@tf_dark"),
-    ]).then(([accent, dark]) => {
+      AsyncStorage.getItem("@tf_color_mode"),
+      AsyncStorage.getItem("@tf_dark"), // legacy key for migration
+    ]).then(([accent, colorMode, legacyDark]) => {
       if (accent) setSavedTheme(accent);
-      if (dark !== null) setSavedDark(dark !== "0");
+      if (colorMode) {
+        setSavedMode(colorMode);
+      } else if (legacyDark !== null) {
+        // Migrate old boolean key → explicit mode (never "system" — they opted in)
+        setSavedMode(legacyDark !== "0" ? "dark" : "light");
+      }
+      // else: no saved pref → default "system" stays
       setReady(true);
     }).catch(() => setReady(true));
   }, []);
 
-  return { ready, savedTheme, savedDark };
+  return { ready, savedTheme, savedMode };
 };
 
 function App() {
-  const { ready, savedTheme, savedDark } = useInitialTheme();
+  const { ready, savedTheme, savedMode } = useInitialTheme();
   const [fontsLoaded] = useFonts({
     "Outfit-Regular":   Outfit_400Regular,
     "Outfit-Medium":    Outfit_500Medium,
@@ -57,7 +64,7 @@ function App() {
   if (!ready || !fontsLoaded) return null;
 
   return (
-    <ThemeProvider initialTheme={savedTheme} initialDark={savedDark}>
+    <ThemeProvider initialTheme={savedTheme} initialMode={savedMode}>
       <AuthProvider>
         <StatusBar style="auto" />
         <AppNavigator />

@@ -5,14 +5,20 @@
 // ============================================================
 
 import React, { createContext, useContext, useState } from "react";
+import { useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { buildColors, COLOR_THEMES } from "./theme";
 
 const ThemeContext = createContext(null);
 
-export const ThemeProvider = ({ children, initialTheme = "purple", initialDark = true }) => {
-  const [accentKey, setAccentKey] = useState(initialTheme);
-  const [isDark,    setIsDark]    = useState(initialDark);
+export const ThemeProvider = ({ children, initialTheme = "purple", initialMode = "system" }) => {
+  const [accentKey,  setAccentKey]  = useState(initialTheme);
+  const [colorMode,  setColorModeState] = useState(initialMode); // "dark" | "light" | "system"
+  const systemScheme = useColorScheme(); // "dark" | "light" | null
+
+  const isDark = colorMode === "system"
+    ? (systemScheme ?? "dark") === "dark"
+    : colorMode === "dark";
 
   const colors = buildColors(isDark, accentKey);
 
@@ -21,13 +27,16 @@ export const ThemeProvider = ({ children, initialTheme = "purple", initialDark =
     await AsyncStorage.setItem("@tf_accent", key).catch(() => {});
   };
 
-  const setDarkMode = async (dark) => {
-    setIsDark(dark);
-    await AsyncStorage.setItem("@tf_dark", dark ? "1" : "0").catch(() => {});
+  const setColorMode = async (mode) => {
+    setColorModeState(mode);
+    await AsyncStorage.setItem("@tf_color_mode", mode).catch(() => {});
   };
 
+  // Backward-compat shim for any code still calling setDarkMode(bool)
+  const setDarkMode = async (dark) => setColorMode(dark ? "dark" : "light");
+
   return (
-    <ThemeContext.Provider value={{ colors, accentKey, isDark, setTheme, setDarkMode }}>
+    <ThemeContext.Provider value={{ colors, accentKey, isDark, colorMode, setTheme, setColorMode, setDarkMode }}>
       {children}
     </ThemeContext.Provider>
   );
