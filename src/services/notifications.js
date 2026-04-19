@@ -254,6 +254,14 @@ const _taskDueDate = (task) => {
   return due;
 };
 
+// Local YYYY-MM-DD — avoids UTC shift converting a late-evening local date to next day in UTC
+const _localDateStr = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
 const _build24hContent = (tasks, dueDateObj) => {
   const count = tasks.length;
   if (count === 1) {
@@ -313,7 +321,7 @@ export const scheduleBatchReminders = async (tasks, bestTime, uid) => {
       if (task.completed || !task.dueDate) continue;
       const due = _taskDueDate(task);
       if (due <= now || due > windowEnd) continue;
-      const dateStr = due.toISOString().slice(0, 10);
+      const dateStr = _localDateStr(due);
       if (!byDate.has(dateStr)) byDate.set(dateStr, []);
       byDate.get(dateStr).push({ task, due });
     }

@@ -1,10 +1,8 @@
 // ============================================================
 // src/hooks/useTasks.js
-// Updated: real notification scheduling wired in.
-//   - createTask: schedules 24h + 2h reminders, stores notificationIds
-//   - editTask: cancels old reminders, schedules new ones if date changed
-//   - completeTask: cancels reminders on completion, increments streak
-//   - removeTask: cancels reminders on delete
+// Notification strategy: batch-based (scheduleBatchReminders).
+//   - All mutations call scheduleBatchReminders with updated task list.
+//   - syncNotificationWindow (12s debounce) handles quiet background sync.
 // ============================================================
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -26,7 +24,6 @@ import {
   loadCachedHistory,
 } from "../services/offlineStorage";
 import {
-  cancelTaskReminder,
   updateOverdueBadge,
   scheduleDailyDigest,
   scheduleWeeklySummary,
@@ -345,19 +342,15 @@ export const useTasks = () => {
   const clearCompleted = useCallback(async () => {
     if (!user) return 0;
     try {
-      // Cancel any lingering reminders on completed tasks
-      const completed = tasks.filter((t) => t.completed);
-      await Promise.all(
-        completed
-          .filter((t) => t.notificationIds)
-          .map((t) => cancelTaskReminder(t.notificationIds).catch(() => {}))
-      );
-      return await clearCompletedTasks(user.uid);
+      const result = await clearCompletedTasks(user.uid);
+      const remaining = tasksRef.current.filter((t) => !t.completed);
+      scheduleBatchReminders(remaining, bestTimeRef.current, user.uid).catch(() => {});
+      return result;
     } catch (err) {
       setError(err.message || "Failed to clear completed tasks.");
       throw err;
     }
-  }, [user, tasks]);
+  }, [user]);
 
   // ── Derived lists ───────────────────────────────────────────
 
