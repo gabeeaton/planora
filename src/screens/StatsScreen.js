@@ -5,7 +5,8 @@
 // ── Demo mode (set true for screenshots/TikTok, false for production) ──
 const DEMO_MODE = false;
 
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -13,6 +14,7 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -28,6 +30,20 @@ const tap = () => Haptics.selectionAsync().catch(() => {});
 import { differenceInCalendarDays, subDays, format } from "date-fns";
 
 // ── Helpers ───────────────────────────────────────────────────
+
+const useCountUp = (target, resetKey = 0, duration = 700) => {
+  const [display, setDisplay] = useState(0);
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    anim.stopAnimation();
+    anim.setValue(0);
+    setDisplay(0);
+    const id = anim.addListener(({ value }) => setDisplay(Math.round(value)));
+    Animated.timing(anim, { toValue: target, duration, useNativeDriver: false }).start();
+    return () => { anim.stopAnimation(); anim.removeListener(id); };
+  }, [target, resetKey]);
+  return display;
+};
 
 const toDate = (val) => {
   if (!val) return null;
@@ -902,6 +918,7 @@ const StatsScreen = () => {
 
   const totalCompleted = completedTasks.length;
   const totalPending = tasks.filter((t) => !t.completed).length;
+
   const totalOverdue = tasks.filter(t => {
     if (t.completed || !t.dueDate) return false;
     const due = toDate(t.dueDate);
@@ -941,6 +958,20 @@ const StatsScreen = () => {
   );
   const activityMax = Math.max(...activityDays.map((d) => d.count), 1);
   const weekTotal = activityDays.reduce((s, d) => s + d.count, 0);
+
+  const [focusTick, setFocusTick] = useState(0);
+  const barProgress = useRef(new Animated.Value(0)).current;
+  useFocusEffect(useCallback(() => {
+    setFocusTick(t => t + 1);
+    barProgress.setValue(0);
+    Animated.timing(barProgress, { toValue: 1, duration: 600, delay: 200, useNativeDriver: false }).start();
+  }, []));
+
+  const displayCompleted = useCountUp(totalCompleted, focusTick);
+  const displayOverdue = useCountUp(totalOverdue, focusTick);
+  const displayRate = useCountUp(completionRate, focusTick);
+  const displayStreak = useCountUp(streak, focusTick);
+  const displayWeekTotal = useCountUp(weekTotal, focusTick);
 
   // Semester
   const semBounds = getSemesterBounds(profile?.semester);
@@ -1079,7 +1110,7 @@ const StatsScreen = () => {
             <Text>🔥</Text>
             <View>
               <Text style={styles.streakText}>
-                {streak} day{streak !== 1 ? "s" : ""}
+                {displayStreak} day{displayStreak !== 1 ? "s" : ""}
               </Text>
             </View>
           </View>
@@ -1110,7 +1141,7 @@ const StatsScreen = () => {
               <Feather name="check-circle" size={16} color={colors.low} />
             </View>
             <Text style={[styles.statValue, { color: colors.low }]}>
-              {totalCompleted}
+              {displayCompleted}
             </Text>
             <Text style={styles.statLabel}>Completed</Text>
           </View>
@@ -1146,7 +1177,7 @@ const StatsScreen = () => {
                 { color: totalOverdue > 0 ? colors.high : colors.low },
               ]}
             >
-              {totalOverdue}
+              {displayOverdue}
             </Text>
             <Text style={styles.statLabel}>Overdue</Text>
           </View>
@@ -1164,7 +1195,7 @@ const StatsScreen = () => {
               <Feather name="trending-up" size={16} color={colors.accent} />
             </View>
             <Text style={[styles.statValue, { color: colors.accent }]}>
-              {completionRate}%
+              {displayRate}%
             </Text>
             <Text style={styles.statLabel}>Complete</Text>
           </View>
@@ -1180,7 +1211,7 @@ const StatsScreen = () => {
         <View style={styles.activityCard}>
           <View style={styles.activityCardTop}>
             <Text style={styles.activityCardTitle}>Daily completions</Text>
-            <Text style={styles.activityCardCount}>{weekTotal} this week</Text>
+            <Text style={styles.activityCardCount}>{displayWeekTotal} this week</Text>
           </View>
           <View style={styles.activityBars}>
             {activityDays.map((d, i) => (
@@ -1195,14 +1226,14 @@ const StatsScreen = () => {
                     {d.count}
                   </Text>
                 )}
-                <View
+                <Animated.View
                   style={[
                     styles.activityBar,
                     {
-                      height: Math.max(
-                        4,
-                        Math.round((d.count / activityMax) * 48)
-                      ),
+                      height: barProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, Math.max(4, Math.round((d.count / activityMax) * 48))],
+                      }),
                       backgroundColor: d.isToday
                         ? colors.accent
                         : d.count > 0
@@ -1561,10 +1592,13 @@ const StatsScreen = () => {
                       <Text style={styles.priorityLabel}>{label}</Text>
                     </View>
                     <View style={styles.priorityBarTrack}>
-                      <View
+                      <Animated.View
                         style={[
                           styles.priorityBarFill,
-                          { width: `${pct}%`, backgroundColor: color },
+                          {
+                            width: barProgress.interpolate({ inputRange: [0, 1], outputRange: ["0%", `${pct}%`] }),
+                            backgroundColor: color,
+                          },
                         ]}
                       />
                     </View>

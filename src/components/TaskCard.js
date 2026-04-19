@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
+  PanResponder,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
@@ -192,7 +193,33 @@ const makeStyles = (colors) =>
       alignItems: "center",
       justifyContent: "center",
     },
+    swipeReveal: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.low,
+      borderRadius: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingLeft: 20,
+      gap: 8,
+    },
+    swipeRevealText: {
+      color: "#fff",
+      fontFamily: "Outfit-Bold",
+      fontSize: 14,
+    },
+    deleteReveal: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "#EF4444",
+      borderRadius: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      paddingRight: 20,
+      gap: 8,
+    },
   });
+
+const SWIPE_THRESHOLD = 65;
 
 const TaskCard = ({
   task,
@@ -215,9 +242,66 @@ const TaskCard = ({
 
   // Height collapse — runs on JS thread simultaneously with the native fade
   const [measuredHeight, setMeasuredHeight] = useState(null);
-  const [isCollapsing, setIsCollapsing] = useState(false);
   const heightAnim = useRef(new Animated.Value(0)).current;
   const marginAnim = useRef(new Animated.Value(spacing.sm)).current;
+
+  // Swipe-to-complete
+  const swipeX = useRef(new Animated.Value(0)).current;
+  const taskRef = useRef(task);
+  taskRef.current = task;
+  const onToggleRef = useRef(onToggle);
+  onToggleRef.current = onToggle;
+  const thresholdHapticFired = useRef(false);
+  const onDeleteRef = useRef(onDelete);
+  onDeleteRef.current = onDelete;
+
+  const collapseAndCall = (callback) => {
+    Animated.parallel([
+      Animated.timing(heightAnim, { toValue: 0, duration: 220, useNativeDriver: false }),
+      Animated.timing(marginAnim, { toValue: 0, duration: 220, useNativeDriver: false }),
+    ]).start(callback);
+  };
+
+  const swipePan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) =>
+        !taskRef.current.completed &&
+        Math.abs(g.dx) > 5 &&
+        Math.abs(g.dx) > Math.abs(g.dy) * 1.2,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: (_, g) => {
+        swipeX.setValue(g.dx);
+        if (Math.abs(g.dx) >= SWIPE_THRESHOLD && !thresholdHapticFired.current) {
+          thresholdHapticFired.current = true;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        thresholdHapticFired.current = false;
+        if (g.dx >= SWIPE_THRESHOLD) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          Animated.timing(swipeX, { toValue: 500, duration: 180, useNativeDriver: true }).start(() =>
+            collapseAndCall(() => onToggleRef.current(taskRef.current))
+          );
+        } else if (g.dx <= -SWIPE_THRESHOLD && onDeleteRef.current) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+          Animated.timing(swipeX, { toValue: -500, duration: 180, useNativeDriver: true }).start(() =>
+            collapseAndCall(() => onDeleteRef.current(taskRef.current))
+          );
+        } else {
+          Animated.spring(swipeX, { toValue: 0, useNativeDriver: true, speed: 40, bounciness: 8 }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        thresholdHapticFired.current = false;
+        Animated.spring(swipeX, { toValue: 0, useNativeDriver: true }).start();
+      },
+    })
+  ).current;
+
+  const completeRevealOpacity = swipeX.interpolate({ inputRange: [0, SWIPE_THRESHOLD], outputRange: [0, 1], extrapolate: "clamp" });
+  const deleteRevealOpacity = swipeX.interpolate({ inputRange: [-SWIPE_THRESHOLD, 0], outputRange: [1, 0], extrapolate: "clamp" });
 
   // Enter animation — staggered fade + slide up on mount
   useEffect(() => {
@@ -251,12 +335,8 @@ const TaskCard = ({
         Animated.timing(exitOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
         Animated.timing(exitTranslY, { toValue: 10, duration: 220, useNativeDriver: true }),
       ]).start(() => onToggle(task));
-      // JS thread: collapse height + margin at the same time so the gap closes with the card
-      setIsCollapsing(true);
-      Animated.parallel([
-        Animated.timing(heightAnim, { toValue: 0, duration: 240, useNativeDriver: false }),
-        Animated.timing(marginAnim, { toValue: 0, duration: 240, useNativeDriver: false }),
-      ]).start();
+      // JS thread: collapse height + margin simultaneously with the native fade
+      collapseAndCall(null);
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       onToggle(task);
@@ -309,6 +389,7 @@ const TaskCard = ({
   return (
     // Outer: JS-thread only (height + margin collapse). Native module never sees these.
     <Animated.View
+      {...(!task.completed ? swipePan.panHandlers : {})}
       onLayout={(e) => {
         if (measuredHeight === null) {
           const h = e.nativeEvent.layout.height;
@@ -318,13 +399,29 @@ const TaskCard = ({
       }}
       style={[
         { marginBottom: marginAnim },
-        isCollapsing && measuredHeight !== null && { height: heightAnim, overflow: 'hidden' },
+        measuredHeight !== null && { height: heightAnim },
       ]}
     >
+    {!task.completed && (
+      <>
+        <Animated.View style={[styles.swipeReveal, { opacity: completeRevealOpacity }]}>
+          <Feather name="check-circle" size={20} color="#fff" />
+          <Text style={styles.swipeRevealText}>Complete</Text>
+        </Animated.View>
+        <Animated.View style={[styles.deleteReveal, { opacity: deleteRevealOpacity }]}>
+          <Text style={styles.swipeRevealText}>Delete</Text>
+          <Feather name="trash-2" size={20} color="#fff" />
+        </Animated.View>
+      </>
+    )}
     {/* Inner: native-thread only (opacity + transform). No layout props here. */}
     <Animated.View style={{
       opacity: Animated.multiply(mountOpacity, exitOpacity),
-      transform: [{ scale: scaleAnim }, { translateY: Animated.add(mountTranslY, exitTranslY) }],
+      transform: [
+        { scale: scaleAnim },
+        { translateY: Animated.add(mountTranslY, exitTranslY) },
+        { translateX: swipeX },
+      ],
     }}>
       <TouchableOpacity
         onPressIn={handlePressIn}
