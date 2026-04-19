@@ -193,8 +193,6 @@ export const scheduleTaskReminder = async (task, bestTime = null) => {
   }
 
   if (remind2h > now) {
-    console.log("REMIND2H fire date:", remind2h.toString());
-      console.log("REMIND2H seconds from now:", (remind2h - new Date()) / 1000);
     try {
       result.id2h = await Notifications.scheduleNotificationAsync({
         content: {
@@ -334,39 +332,54 @@ export const cancelStreakReminder = async (uid) => {
 };
 
 /**
- * Cancel ALL scheduled local notifications — call on sign-out to prevent
- * stale notifications from a previous account firing on the next user.
+ * Cancel ALL scheduled local notifications and wipe per-user AsyncStorage keys.
+ * Call on sign-out to prevent stale notifications from firing for the next user.
+ *
+ * @param {string} uid  Firebase user ID — used to clean up user-scoped keys
  */
-export const cancelAllNotifications = async () => {
+export const cancelAllNotifications = async (uid) => {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
   } catch {}
+  if (uid) {
+    await AsyncStorage.multiRemove([
+      `@planora_streak_notif_id_${uid}`,
+      `@planora_weekly_summary_id_${uid}`,
+      `@planora_digest_notif_id_${uid}`,
+      `@planora_avoidance_alerted_${uid}`,
+    ]).catch(() => {});
+  }
 };
 
 // ── Avoidance alerts (Scholar only) ──────────────────────────
 
-const AVOIDANCE_MAP_KEY = "@planora_avoidance_alerted";
+const avoidanceMapKey = (uid) => `@planora_avoidance_alerted_${uid}`;
 const todayDateStr = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
 /**
  * For each avoided task that qualifies, fire a local notification once per day.
  * Caller is responsible for the Scholar gate — this function has no Pro check.
  *
- * @param {Array} avoidanceScores  Output of getAvoidanceScores()
+ * @param {Array}  avoidanceScores  Output of getAvoidanceScores()
+ * @param {string} bestTime         "morning"|"afternoon"|"evening"|"night"
+ * @param {string} uid              Firebase user ID (keeps dedup map user-scoped)
  */
 export const checkAndScheduleAvoidanceAlerts = async (
   avoidanceScores,
-  bestTime = null
+  bestTime = null,
+  uid = null
 ) => {
   if (!avoidanceScores?.length) return;
 
   const granted = await checkNotificationPermissions();
   if (!granted) return;
 
+  const mapKey = uid ? avoidanceMapKey(uid) : "@planora_avoidance_alerted_anon";
+
   // Load dedup map { taskId: "YYYY-MM-DD" }
   let alerted = {};
   try {
-    const raw = await AsyncStorage.getItem(AVOIDANCE_MAP_KEY);
+    const raw = await AsyncStorage.getItem(mapKey);
     if (raw) alerted = JSON.parse(raw);
   } catch {}
 
@@ -434,9 +447,7 @@ export const checkAndScheduleAvoidanceAlerts = async (
     Object.keys(alerted).forEach((k) => {
       if (alerted[k] < cutoff) delete alerted[k];
     });
-    AsyncStorage.setItem(AVOIDANCE_MAP_KEY, JSON.stringify(alerted)).catch(
-      () => {}
-    );
+    AsyncStorage.setItem(mapKey, JSON.stringify(alerted)).catch(() => {});
   }
 };
 

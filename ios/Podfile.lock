@@ -212,6 +212,8 @@ PODS:
     - ExpoModulesCore
   - ExpoFont (14.0.11):
     - ExpoModulesCore
+  - ExpoHaptics (15.0.8):
+    - ExpoModulesCore
   - ExpoKeepAwake (15.0.8):
     - ExpoModulesCore
   - ExpoModulesCore (3.0.29):
@@ -2080,6 +2082,7 @@ DEPENDENCIES:
   - ExpoDocumentPicker (from `../node_modules/expo-document-picker/ios`)
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
+  - ExpoHaptics (from `../node_modules/expo-haptics/ios`)
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - EXUpdatesInterface (from `../node_modules/expo-updates-interface/ios`)
@@ -2193,6 +2196,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-file-system/ios"
   ExpoFont:
     :path: "../node_modules/expo-font/ios"
+  ExpoHaptics:
+    :path: "../node_modules/expo-haptics/ios"
   ExpoKeepAwake:
     :path: "../node_modules/expo-keep-awake/ios"
   ExpoModulesCore:
@@ -2362,6 +2367,7 @@ SPEC CHECKSUMS:
   ExpoDocumentPicker: 7cd9e71a0f66fb19eb0a586d6f26eee1284692e0
   ExpoFileSystem: 858a44267a3e6e9057e0888ad7c7cfbf55d52063
   ExpoFont: f543ce20a228dd702813668b1a07b46f51878d47
+  ExpoHaptics: d3a6375d8dcc3a1083d003bc2298ff654fafb536
   ExpoKeepAwake: 55f75eca6499bb9e4231ebad6f3e9cb8f99c0296
   ExpoModulesCore: f3da4f1ab5a8375d0beafab763739dbee8446583
   EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734

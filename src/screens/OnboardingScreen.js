@@ -42,6 +42,22 @@ import {
 } from "../services/icsImport";
 import { generateTerms, WORK_TIMES, GRADES, CREDIT_OPTS } from "../utils/termHelpers";
 
+const ScalePressable = ({ onPress, style, children }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={() => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start()}
+      activeOpacity={1}
+    >
+      <Animated.View style={[style, { transform: [{ scale }] }]}>
+        {children}
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
 const makeStyles = (colors) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bg },
@@ -338,6 +354,26 @@ const makeStyles = (colors) =>
       color: colors.textPrimary,
       marginBottom: 8,
     },
+    lmsTabRow: {
+      flexDirection: "row",
+      gap: 6,
+      marginBottom: spacing.sm,
+      flexWrap: "wrap",
+    },
+    lmsTabBtn: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.bgInput,
+    },
+    lmsTabBtnActive: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentGlow,
+    },
+    lmsTabText: { fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
+    lmsTabTextActive: { color: colors.accent },
     stepRow: {
       flexDirection: "row",
       gap: 8,
@@ -418,6 +454,66 @@ const makeStyles = (colors) =>
       paddingVertical: spacing.sm,
     },
     skipBtnText: { color: colors.textMuted, fontSize: 14 },
+
+    // ── Success screen ─────────────────────────────────────────
+    successIconWrap: {
+      alignItems: "center",
+      marginBottom: spacing.lg,
+      marginTop: spacing.sm,
+    },
+    successIconLg: {
+      width: 88, height: 88, borderRadius: 44,
+      backgroundColor: colors.isDark ? "rgba(52,199,89,0.15)" : "rgba(52,199,89,0.10)",
+      borderWidth: 2, borderColor: colors.low,
+      alignItems: "center", justifyContent: "center",
+    },
+    successTitle: {
+      fontSize: 30, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary,
+      marginBottom: 6, letterSpacing: -0.5, textAlign: "center",
+    },
+    successSubtitle: {
+      fontSize: 15, color: colors.textSecondary, fontFamily: "Outfit-Medium",
+      marginBottom: spacing.md, lineHeight: 22, textAlign: "center",
+    },
+    successBadgeRow: {
+      flexDirection: "row", flexWrap: "wrap", gap: 6,
+      justifyContent: "center", marginBottom: spacing.lg,
+    },
+    successBadge: {
+      flexDirection: "row", alignItems: "center", gap: 5,
+      paddingHorizontal: 10, paddingVertical: 5,
+      borderRadius: radius.full, borderWidth: 1,
+      borderColor: colors.accent + "50", backgroundColor: colors.accentGlow,
+    },
+    successBadgeText: {
+      fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.accent,
+    },
+    successCard: {
+      borderRadius: radius.md, borderWidth: 1,
+      borderColor: colors.isDark ? colors.border : "#EBEBF5",
+      marginBottom: spacing.md, overflow: "hidden",
+      backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
+      ...(colors.isDark ? {} : {
+        shadowColor: "#6B6B8A", shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.10, shadowRadius: 8, elevation: 3,
+      }),
+    },
+    successRow: {
+      flexDirection: "row", alignItems: "center", gap: 10,
+      paddingHorizontal: spacing.md, paddingVertical: 12,
+      borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "#F0F0F5",
+    },
+    successRowLast: { borderBottomWidth: 0 },
+    successRowDot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
+    successRowTitle: { flex: 1, fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
+    successRowDate: { fontSize: 11, color: colors.textMuted, fontFamily: "Outfit-Medium" },
+    successMore: {
+      paddingHorizontal: spacing.md, paddingVertical: 10,
+      fontSize: 12, color: colors.textMuted, fontFamily: "Outfit-SemiBold",
+    },
+    successNote: {
+      fontSize: 13, color: colors.textMuted, lineHeight: 20, textAlign: "center",
+    },
   });
 
 const STEP_COUNT = 4;
@@ -436,6 +532,8 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
   const [loadedFromUrl, setLoadedFromUrl] = useState(null);
   const [importDone, setImportDone] = useState(false);
   const [importCount, setImportCount] = useState(0);
+  const [selectedLms, setSelectedLms] = useState("Canvas");
+  const [selectedMethod, setSelectedMethod] = useState("Mobile App");
 
   const parseAndSet = (text) => {
     try {
@@ -512,7 +610,7 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
         dueDate: t.dueDate instanceof Date ? t.dueDate : (t.dueDate ? new Date(t.dueDate) : null),
       }));
       await createManyTasks(toImport);
-      onImported(toImport.length);
+      onImported(toImport.length, toImport);
       if (loadedFromUrl && onUrlSaved) onUrlSaved(loadedFromUrl);
       // Notify parent of every unique class name found in imported tasks
       if (onClassDetected) {
@@ -560,14 +658,16 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
               {parsedTasks.length} assignments found
             </Text>
           </View>
-          {parsedTasks.slice(0, 5).map((t, i) => (
-            <View key={i} style={styles.parsedItem}>
-              <View style={styles.parsedDot} />
-              <Text style={styles.parsedText} numberOfLines={1}>
-                {t.title}
-              </Text>
-            </View>
-          ))}
+          {parsedTasks.slice(0, 5).map((t, i) => {
+            const dotColor = t.priority === "HIGH" ? colors.high : t.priority === "MEDIUM" ? colors.medium : colors.accent;
+            return (
+              <View key={i} style={styles.parsedItem}>
+                <View style={[styles.parsedDot, { backgroundColor: dotColor }]} />
+                <Text style={styles.parsedText} numberOfLines={1}>{t.title}</Text>
+                {t.className ? <Text style={{ fontSize: 10, color: colors.textMuted, fontFamily: "Outfit-SemiBold" }}>{t.className}</Text> : null}
+              </View>
+            );
+          })}
           {parsedTasks.length > 5 && (
             <Text
               style={[
@@ -651,17 +751,77 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
           </View>
 
           <View style={styles.stepsCard}>
-            <Text style={styles.stepsTitle}>How to get your Canvas URL</Text>
-            {[
-              "Open the Canvas Student app on your phone",
-              "Tap ☰ menu → Settings",
-              'Tap "Subscribe to Calendar Feed" — copy that URL',
-              "Paste it in the box above",
-            ].map((text, i) => (
-              <View key={i} style={styles.stepRow}>
-                <View style={styles.stepNum}>
-                  <Text style={styles.stepNumText}>{i + 1}</Text>
-                </View>
+            <Text style={styles.stepsTitle}>How to get your calendar URL</Text>
+
+            {/* Platform row */}
+            <View style={[styles.systemToggleRow, { marginBottom: 0, borderBottomLeftRadius: (selectedLms === "Canvas" || selectedLms === "Blackboard") ? 0 : radius.md, borderBottomRightRadius: (selectedLms === "Canvas" || selectedLms === "Blackboard") ? 0 : radius.md }]}>
+              {["Canvas", "Brightspace", "Blackboard", "Moodle"].map((lms) => (
+                <TouchableOpacity
+                  key={lms}
+                  style={[styles.systemToggleBtn, selectedLms === lms && styles.systemToggleBtnActive]}
+                  onPress={() => { setSelectedLms(lms); setSelectedMethod("Web"); }}
+                >
+                  <Text style={[styles.systemToggleText, selectedLms === lms && styles.systemToggleTextActive, { fontSize: 12 }]}>{lms}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Method row — only for Canvas and Blackboard */}
+            {(selectedLms === "Canvas" || selectedLms === "Blackboard") && (
+              <View style={[styles.systemToggleRow, { marginBottom: spacing.sm, borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 }]}>
+                {["Mobile App","Web"].map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.systemToggleBtn, selectedMethod === m && styles.systemToggleBtnActive]}
+                    onPress={() => setSelectedMethod(m)}
+                  >
+                    <Text style={[styles.systemToggleText, selectedMethod === m && styles.systemToggleTextActive, { fontSize: 12 }]}>{m}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Steps */}
+            {({
+              "Canvas|Web": [
+                "Open Canvas in your mobile browser",
+                "Tap the Calendar icon in the sidebar",
+                'Scroll to the very bottom and tap "Calendar Feed" — a popup with the URL appears',
+                "Copy that URL and paste it above",
+              ],
+              "Canvas|Mobile App": [
+                "Open the Canvas Student app → tap ☰ Menu → Settings",
+                'Tap "Subscribe to Calendar Feed"',
+                'Long-press "Subscribe" or tap Share to copy the raw URL',
+                "If it only opens your calendar app, use the Web method instead",
+              ],
+              "Brightspace|Web": [
+                "Open Brightspace in your mobile browser → go to Calendar",
+                "Tap Settings (top right) → enable Calendar Feeds → Save",
+                'Tap "Subscribe" (top left), set dropdown to "All Calendars and Tasks"',
+                "Copy the URL from the text box and paste it above",
+              ],
+              "Blackboard|Web": [
+                "Open Blackboard in your mobile browser → go to Calendar",
+                "Tap the Gear icon (top right) → three dots (...) → Share Calendar",
+                'Copy the URL from the "Calendar Link" field',
+                "Paste it above",
+              ],
+              "Blackboard|Mobile App": [
+                "Open the Blackboard app → tap Calendar",
+                "Tap the Gear icon → three dots (...) → Share Calendar",
+                'Tap the Copy icon next to the "Calendar Link" URL',
+                "Paste it above",
+              ],
+              "Moodle|Web": [
+                "Open Moodle in your mobile browser → go to Calendar",
+                'Scroll to the bottom → tap "Export calendar"',
+                'Choose "All events" and your time range → tap "Get calendar URL" (not Export)',
+                "Copy the URL from the Calendar URL box and paste it above",
+              ],
+            }[`${selectedLms}|${selectedMethod}`] ?? []).map((text, i) => (
+              <View key={i} style={[styles.stepRow, { marginTop: i === 0 ? 4 : 0 }]}>
+                <View style={styles.stepNum}><Text style={styles.stepNumText}>{i + 1}</Text></View>
                 <Text style={styles.stepText}>{text}</Text>
               </View>
             ))}
@@ -706,6 +866,25 @@ const OnboardingScreen = ({ navigation }) => {
   const [step, setStepp] = useState(0);
   const [saving, setSaving] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
+  const [importedTasks, setImportedTasks] = useState([]);
+
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim  = useRef(new Animated.Value(1)).current;
+
+  const goToStep = (newStep) => {
+    const dir = newStep > step_n ? 1 : -1;
+    Animated.parallel([
+      Animated.timing(fadeAnim,  { toValue: 0, duration: 100, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: -dir * 22, duration: 100, useNativeDriver: true }),
+    ]).start(() => {
+      setStepp(newStep);
+      slideAnim.setValue(dir * 22);
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, speed: 24, bounciness: 3, useNativeDriver: true }),
+      ]).start();
+    });
+  };
 
   // Alias to avoid conflict with imported step in stepsCard
   const step_n = step;
@@ -782,7 +961,7 @@ const OnboardingScreen = ({ navigation }) => {
   };
 
   const handleNext = () => {
-    if (step_n < STEP_COUNT - 1) setStep(step_n + 1);
+    if (step_n < STEP_COUNT - 1) goToStep(step_n + 1);
     else handleFinish();
   };
 
@@ -840,7 +1019,7 @@ const OnboardingScreen = ({ navigation }) => {
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Let's get you set up</Text>
       <Text style={styles.stepSubtitle}>
-        This helps the AI personalize your schedule.
+        A few quick details so the AI can plan your semester around you.
       </Text>
 
       <Text style={styles.fieldLabel}>YOUR NAME (optional)</Text>
@@ -877,18 +1056,14 @@ const OnboardingScreen = ({ navigation }) => {
         CURRENT TERM
       </Text>
       {generateTerms(schoolSystem).map((s) => (
-        <TouchableOpacity
+        <ScalePressable
           key={s}
           style={[styles.optionBtn, semester === s && styles.optionBtnSelected]}
           onPress={() => setSemester(s)}
         >
-          <Text style={[styles.optionText, semester === s && styles.optionTextSelected]}>
-            {s}
-          </Text>
-          {semester === s && (
-            <Feather name="check" size={16} color={colors.accent} />
-          )}
-        </TouchableOpacity>
+          <Text style={[styles.optionText, semester === s && styles.optionTextSelected]}>{s}</Text>
+          {semester === s && <Feather name="check" size={16} color={colors.accent} />}
+        </ScalePressable>
       ))}
     </View>
   );
@@ -979,23 +1154,14 @@ const OnboardingScreen = ({ navigation }) => {
       </Text>
 
       {WORK_TIMES.map((t) => (
-        <TouchableOpacity
+        <ScalePressable
           key={t}
           style={[styles.optionBtn, workTime === t && styles.optionBtnSelected]}
           onPress={() => setWorkTime(t)}
         >
-          <Text
-            style={[
-              styles.optionText,
-              workTime === t && styles.optionTextSelected,
-            ]}
-          >
-            {t}
-          </Text>
-          {workTime === t && (
-            <Feather name="check" size={16} color={colors.accent} />
-          )}
-        </TouchableOpacity>
+          <Text style={[styles.optionText, workTime === t && styles.optionTextSelected]}>{t}</Text>
+          {workTime === t && <Feather name="check" size={16} color={colors.accent} />}
+        </ScalePressable>
       ))}
 
       {classes.filter((c) => c.name.trim()).length > 0 && (
@@ -1035,102 +1201,125 @@ const OnboardingScreen = ({ navigation }) => {
 
 
   const importSuccessAnim = useRef(new Animated.Value(0)).current;
+  const successIconAnim  = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (importedCount > 0) {
-      Animated.spring(importSuccessAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 60,
-        friction: 7,
-      }).start();
+      Animated.parallel([
+        Animated.timing(importSuccessAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
+        Animated.spring(successIconAnim, { toValue: 1, speed: 10, bounciness: 12, useNativeDriver: true }),
+      ]).start();
     }
   }, [importedCount]);
 
   const detectedClasses = classes.filter((c) => c.name.trim());
 
-  const renderStep4 = () => (
+  const renderStep4 = () => {
+    const detectedClassNames = [...new Set(importedTasks.map((t) => t.className).filter(Boolean))];
+    const highCount = importedTasks.filter((t) => t.priority === "HIGH").length;
+    const now = new Date();
+    const weekOut = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const dueSoonCount = importedTasks.filter((t) => {
+      if (!t.dueDate) return false;
+      const d = t.dueDate instanceof Date ? t.dueDate : new Date(t.dueDate);
+      return d >= now && d <= weekOut;
+    }).length;
+
+    return (
     <View style={styles.stepContainer}>
       {importedCount > 0 ? (
         <Animated.View style={[
-          styles.importHero,
-          { opacity: importSuccessAnim, transform: [{ scale: importSuccessAnim }] }
+          styles.stepContainer,
+          {
+            opacity: importSuccessAnim,
+            transform: [{ translateY: importSuccessAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+          }
         ]}>
-          {/* Success icon */}
-          <View style={{
-            width: 88, height: 88, borderRadius: 44,
-            backgroundColor: "rgba(34,197,94,0.12)",
-            borderWidth: 2.5, borderColor: "#22C55E",
-            alignItems: "center", justifyContent: "center",
-            marginBottom: spacing.lg,
-            shadowColor: "#22C55E", shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
-          }}>
-            <Feather name="check" size={38} color="#22C55E" />
+          {/* Animated checkmark icon */}
+          <View style={styles.successIconWrap}>
+            <Animated.View style={{ transform: [{ scale: successIconAnim }] }}>
+              <View style={styles.successIconLg}>
+                <Feather name="check" size={40} color={colors.low} />
+              </View>
+            </Animated.View>
           </View>
 
-          <Text style={[styles.stepTitle, { textAlign: "center", fontSize: 26 }]}>
-            You're all set up
+          <Text style={styles.successTitle}>
+            {importedCount} task{importedCount !== 1 ? "s" : ""} loaded
           </Text>
-          <Text style={[styles.stepSubtitle, { textAlign: "center", marginBottom: spacing.lg }]}>
-            Planora has everything it needs to coach you through this semester.
+          <Text style={styles.successSubtitle}>
+            Your semester is ready to plan around.
           </Text>
 
-          {/* Stats row */}
-          <View style={{
-            flexDirection: "row", gap: spacing.md,
-            marginBottom: spacing.lg, width: "100%",
-          }}>
-            <View style={[styles.infoCard, {
-              flex: 1, flexDirection: "column", alignItems: "center",
-              gap: 4, paddingVertical: spacing.md,
-            }]}>
-              <Text style={{ fontSize: 28, fontFamily: "Outfit-ExtraBold", color: "#22C55E" }}>
-                {importedCount}
-              </Text>
-              <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: "Outfit-SemiBold" }}>
-                tasks imported
-              </Text>
-            </View>
-            {detectedClasses.length > 0 && (
-              <View style={[styles.infoCard, {
-                flex: 1, flexDirection: "column", alignItems: "center",
-                gap: 4, paddingVertical: spacing.md,
-              }]}>
-                <Text style={{ fontSize: 28, fontFamily: "Outfit-ExtraBold", color: colors.accent }}>
-                  {detectedClasses.length}
+          {/* Stats badges */}
+          <View style={styles.successBadgeRow}>
+            {detectedClassNames.length > 0 && (
+              <View style={styles.successBadge}>
+                <Feather name="book-open" size={11} color={colors.accent} />
+                <Text style={styles.successBadgeText}>
+                  {detectedClassNames.length} {detectedClassNames.length === 1 ? "class" : "classes"}
                 </Text>
-                <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: "Outfit-SemiBold" }}>
-                  classes found
+              </View>
+            )}
+            {highCount > 0 && (
+              <View style={[styles.successBadge, { borderColor: colors.high + "50", backgroundColor: colors.high + "12" }]}>
+                <Feather name="alert-circle" size={11} color={colors.high} />
+                <Text style={[styles.successBadgeText, { color: colors.high }]}>
+                  {highCount} urgent
+                </Text>
+              </View>
+            )}
+            {dueSoonCount > 0 && (
+              <View style={[styles.successBadge, { borderColor: colors.medium + "50", backgroundColor: colors.medium + "12" }]}>
+                <Feather name="clock" size={11} color={colors.medium} />
+                <Text style={[styles.successBadgeText, { color: colors.medium }]}>
+                  {dueSoonCount} due this week
                 </Text>
               </View>
             )}
           </View>
 
-          {/* What's next */}
-          <View style={[styles.infoCard, { width: "100%" }]}>
-            <Feather name="zap" size={16} color={colors.accent} style={{ marginTop: 2 }} />
-            <Text style={styles.infoText}>
-              The AI will use your deadlines and patterns to tell you exactly what to work on each day.
-            </Text>
-          </View>
+          {importedTasks.length > 0 && (
+            <View style={styles.successCard}>
+              {importedTasks.slice(0, 4).map((t, i) => {
+                const isLast = i === Math.min(3, importedTasks.length - 1) && importedCount <= 4;
+                const d = t.dueDate ? (t.dueDate instanceof Date ? t.dueDate : new Date(t.dueDate)) : null;
+                const dateLabel = d && !isNaN(d) ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+                const dotColor = t.priority === "HIGH" ? colors.high : t.priority === "MEDIUM" ? colors.medium : colors.accent;
+                return (
+                  <View key={i} style={[styles.successRow, isLast && styles.successRowLast]}>
+                    <View style={[styles.successRowDot, { backgroundColor: dotColor }]} />
+                    <Text style={styles.successRowTitle} numberOfLines={1}>{t.title}</Text>
+                    {dateLabel ? <Text style={styles.successRowDate}>{dateLabel}</Text> : null}
+                  </View>
+                );
+              })}
+              {importedCount > 4 && (
+                <Text style={styles.successMore}>+{importedCount - 4} more tasks</Text>
+              )}
+            </View>
+          )}
+
+          <Text style={styles.successNote}>
+            Tap Get Started — the AI will coach you around every deadline.
+          </Text>
         </Animated.View>
       ) : (
         <View style={styles.importHero}>
           <View style={styles.importHeroIcon}>
-            <Feather name="zap" size={30} color={colors.accent} />
+            <Feather name="calendar" size={30} color={colors.accent} />
           </View>
           <Text style={[styles.stepTitle, { textAlign: "center" }]}>
-            Load your term
+            Your whole semester,{"\n"}in seconds
           </Text>
           <Text style={[styles.stepSubtitle, { textAlign: "center" }]}>
-            Import from Canvas, Brightspace, Blackboard, or Moodle. You can skip this and add tasks manually.
+            Connect Canvas, Brightspace, or Blackboard and every deadline lands in your planner automatically.
           </Text>
         </View>
       )}
 
       {importedCount === 0 && (
         <ImportStep
-          onImported={(count) => setImportedCount(count)}
+          onImported={(count, tasks) => { setImportedCount(count); setImportedTasks(tasks ?? []); }}
           onClassDetected={handleClassDetected}
           onUrlSaved={handleUrlSaved}
           styles={styles}
@@ -1138,7 +1327,8 @@ const OnboardingScreen = ({ navigation }) => {
         />
       )}
     </View>
-  );
+    );
+  };
 
   const steps = [
     renderStep0, // identity
@@ -1204,7 +1394,9 @@ const OnboardingScreen = ({ navigation }) => {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          {steps[step_n]?.()}
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
+            {steps[step_n]?.()}
+          </Animated.View>
         </ScrollView>
 
         {/* Bottom nav */}
@@ -1212,7 +1404,7 @@ const OnboardingScreen = ({ navigation }) => {
           {step_n > 0 && (
             <TouchableOpacity
               style={styles.backBtn}
-              onPress={() => setStep(step_n - 1)}
+              onPress={() => goToStep(step_n - 1)}
             >
               <Feather
                 name="arrow-left"

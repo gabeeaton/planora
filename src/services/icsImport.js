@@ -60,8 +60,8 @@ const extractKey = (line) => {
 
 const cleanTitle = (raw) => {
   let title = raw.trim();
-  title = title.replace(/\s*\[[A-Z]{2,6}\d{3}[^\]]*\]\s*$/i, "").trim();
-  title = title.replace(/^\s*\[[A-Z]{2,6}\d{3}[^\]]*\]\s*/i, "").trim();
+  title = title.replace(/\s*\[[A-Z]{2,6}\s*\d{3}[^\]]*\]\s*$/i, "").trim();
+  title = title.replace(/^\s*\[[A-Z]{2,6}\s*\d{3}[^\]]*\]\s*/i, "").trim();
   return title || raw.trim();
 };
 

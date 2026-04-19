@@ -1273,7 +1273,7 @@ const StatsScreen = () => {
           </>
         )}
 
-        {/* ── GPA ── */}
+        {/* ── GPA ── (commented out)
         {gpaClasses.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
@@ -1284,7 +1284,6 @@ const StatsScreen = () => {
             </View>
             <View style={styles.gpaCardShadow}>
             <View style={styles.gpaCard}>
-              {/* Term vs Cumulative */}
               <View style={styles.gpaTopRow}>
                 <View style={styles.gpaBlock}>
                   <Text style={styles.gpaValue}>{termGpa ?? "—"}</Text>
@@ -1299,8 +1298,6 @@ const StatsScreen = () => {
                 </View>
               </View>
               </View>
-
-              {/* Per-class breakdown */}
               <View style={styles.gpaDividerH} />
               {gpaClasses.map((cls, i) => (
                 <View
@@ -1337,8 +1334,6 @@ const StatsScreen = () => {
                   </Text>
                 </View>
               ))}
-
-              {/* Prior record inputs */}
               <View style={styles.gpaDividerH} />
               <View style={styles.gpaPriorSection}>
                 <Text style={styles.gpaPriorTitle}>Prior record</Text>
@@ -1389,6 +1384,7 @@ const StatsScreen = () => {
             </View>
           </>
         )}
+        */}
 
         {/* ── Due soon ── */}
         {upcoming.length > 0 && (

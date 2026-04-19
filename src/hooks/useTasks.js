@@ -28,7 +28,6 @@ import {
 import {
   scheduleTaskReminder,
   cancelTaskReminder,
-  cancelAllReminders,
   updateOverdueBadge,
   scheduleDailyDigest,
   scheduleWeeklySummary,
@@ -73,10 +72,11 @@ export const useTasks = () => {
 
   // Load persisted streak on mount — resets if user missed a day
   useEffect(() => {
-    checkAndResetStreak()
+    if (!user?.uid) return;
+    checkAndResetStreak(user.uid)
       .then(setStreak)
       .catch(() => {});
-  }, []);
+  }, [user?.uid]);
 
   // Recompute patterns whenever tasks or history change
   useEffect(() => {
@@ -90,7 +90,7 @@ export const useTasks = () => {
     updateOverdueBadge(tasks);
   }, [tasks]);
 
-  // Reschedule morning digest whenever tasks change
+  // Reschedule morning digest whenever tasks or productive time changes
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -99,18 +99,18 @@ export const useTasks = () => {
     }, 12000);
 
     return () => clearTimeout(timer);
-  }, [tasks, user?.uid]);
+  }, [tasks, user?.uid, patterns?.productiveTimeOfDay?.bestTime]);
 
-  // Reschedule weekly summary whenever tasks or history change
+  // Reschedule weekly summary whenever tasks, history, or productive time changes
   useEffect(() => {
     if (!user?.uid) return;
 
     const timer = setTimeout(() => {
       scheduleWeeklySummary(tasks, history, user.uid);
-    }, 12000); // wait 2s for state to settle before rescheduling
+    }, 12000);
 
     return () => clearTimeout(timer);
-  }, [tasks, history, user?.uid]);
+  }, [tasks, history, user?.uid, patterns?.productiveTimeOfDay?.bestTime]);
 
   useEffect(() => {
     if (!user) {
@@ -263,10 +263,7 @@ export const useTasks = () => {
           const newTime = JSON.stringify(updates.dueTime ?? null);
         
           if (oldDue !== newDue || oldTime !== newTime) {
-            // Block sync immediately before doing anything else
             lastEditTimeRef.current = Date.now();
-            pendingTaskIdsRef.current.add(taskId);
-            setTimeout(() => pendingTaskIdsRef.current.delete(taskId), 15_000);
             pendingTaskIdsRef.current.add(taskId);
             setTimeout(() => pendingTaskIdsRef.current.delete(taskId), 15_000);
 
@@ -277,13 +274,10 @@ export const useTasks = () => {
             }
 
             const updatedTask = { ...currentTask, ...updates, id: taskId };
-            console.log("EDIT - updatedTask.dueDate:", updatedTask.dueDate);
-            console.log("EDIT - updatedTask.dueTime:", updatedTask.dueTime);
             const notificationIds = await scheduleTaskReminder(
               updatedTask,
               bestTimeRef.current
             );
-            console.log("EDIT - notificationIds:", notificationIds);
 
             updates.notificationIds =
               notificationIds.id24h || notificationIds.id2h
@@ -316,7 +310,7 @@ export const useTasks = () => {
 
           // Increment streak — guarded inside incrementStreak so re-completing
           // the same task today won't double-count
-          incrementStreak()
+          incrementStreak(user?.uid)
             .then((newCount) => {
               setStreak(newCount);
             })

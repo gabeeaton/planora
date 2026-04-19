@@ -27,10 +27,10 @@ const formatDueDate = (dueDate, dueTime) => {
 
   const daysOut = differenceInCalendarDays(d, new Date());
   let datePart;
-  if (isToday(d))       datePart = "Today";
+  if (isToday(d))         datePart = "Today";
   else if (isTomorrow(d)) datePart = "Tomorrow";
-  else if (daysOut < 0) return `${Math.abs(daysOut)}d overdue`;
-  else                  datePart = `${d.getMonth() + 1}/${d.getDate()}`;
+  else if (daysOut < 0)   return `${Math.abs(daysOut)}d overdue`;
+  else                    datePart = `${d.getMonth() + 1}/${d.getDate()}`;
 
   if (Array.isArray(dueTime) && dueTime.length === 2) {
     const [h, m] = dueTime;
@@ -42,14 +42,64 @@ const formatDueDate = (dueDate, dueTime) => {
   return datePart;
 };
 
-// Strip any [ID:xxxx] or [id:xxxx] tokens the model echoed back
 const cleanText = (str) => {
   if (!str) return str;
   return str
-    .replace(/\[ID:[^\]]*\]/gi, "")  // [ID:abc123]
-    .replace(/\[id:[^\]]*\]/gi, "")  // [id:abc123]
-    .replace(/\s{2,}/g, " ")         // collapse double spaces left behind
+    .replace(/\[ID:[^\]]*\]/gi, "")
+    .replace(/\[id:[^\]]*\]/gi, "")
+    .replace(/\s{2,}/g, " ")
     .trim();
+};
+
+// Individual task row — animates in with stagger
+const FocusTaskRow = ({ task, idx, isLast, onPress, styles, colors, PRIORITY_COLORS }) => {
+  const opacity    = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(6)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.delay(180 + idx * 70),
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(translateY, { toValue: 0, speed: 28, bounciness: 0, useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, []);
+
+  const priority  = task.aiPriority ?? task.priority;
+  const chipColor = PRIORITY_COLORS[priority];
+  const title     = cleanText(task.title) || task.title;
+
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      <TouchableOpacity
+        style={[styles.taskRow, isLast && styles.taskRowLast]}
+        onPress={() => onPress?.(task.id)}
+        activeOpacity={onPress ? 0.6 : 1}
+      >
+        <View style={[styles.taskDot, chipColor && { backgroundColor: chipColor }]} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.taskTitle} numberOfLines={2}>{title}</Text>
+          {(task.className || task.dueDate) ? (
+            <View style={styles.taskMeta}>
+              {task.className ? <Text style={styles.taskClass}>{task.className}</Text> : null}
+              {task.className && task.dueDate ? <Text style={styles.taskDot2}>·</Text> : null}
+              {task.dueDate ? (() => {
+                const label    = formatDueDate(task.dueDate, task.dueTime);
+                const isOverdue = label?.includes("overdue");
+                return <Text style={isOverdue ? styles.taskDueOverdue : styles.taskDue}>{label}</Text>;
+              })() : null}
+            </View>
+          ) : null}
+        </View>
+        {chipColor ? (
+          <View style={[styles.taskChip, { borderColor: chipColor + "66", backgroundColor: chipColor + "18" }]}>
+            <Text style={[styles.taskChipText, { color: chipColor }]}>{priority}</Text>
+          </View>
+        ) : null}
+      </TouchableOpacity>
+    </Animated.View>
+  );
 };
 
 const makeStyles = (colors) => StyleSheet.create({
@@ -111,13 +161,15 @@ const makeStyles = (colors) => StyleSheet.create({
 const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
   const { colors } = useTheme();
   const PRIORITY_COLORS = priorityColors(colors.isDark);
-  const styles     = makeStyles(colors);
+  const styles = makeStyles(colors);
 
-  const [focus, setFocus]         = useState(null);
-  const [loading, setLoading]     = useState(false);
-  const [failed, setFailed]       = useState(false);
-  const [limitReached, setLimit]  = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [focus, setFocus]        = useState(null);
+  const [loading, setLoading]    = useState(false);
+  const [failed, setFailed]      = useState(false);
+  const [limitReached, setLimit] = useState(false);
+
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(10)).current;
 
   const load = () => {
     const pending = tasks.filter((t) => !t.completed);
@@ -130,7 +182,10 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
           setLimit(true);
         } else if (data) {
           setFocus(data);
-          Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+          Animated.parallel([
+            Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
+            Animated.spring(slideAnim, { toValue: 0, speed: 20, bounciness: 4, useNativeDriver: true }),
+          ]).start();
         } else {
           setFailed(true);
         }
@@ -138,18 +193,17 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []); // Only on mount — cache handles repeat renders
+  useEffect(() => { load(); }, []);
 
   const retry = () => {
     invalidateTodayFocusCache();
     fadeAnim.setValue(0);
+    slideAnim.setValue(10);
     setFocus(null);
     setLimit(false);
     load();
   };
 
-  // Resolve task IDs → actual task objects (skip completed)
-  // If IDs don't resolve, fall back to top pending tasks by urgency
   const PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 };
   const pending = tasks.filter((t) => !t.completed);
   let focusTasks = focus?.taskIds
@@ -208,7 +262,7 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
   if (!focus || focusTasks.length === 0) return null;
 
   return (
-    <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
+    <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.header}>
         <Feather name="zap" size={13} color={colors.accent} />
         <Text style={styles.headerLabel}>Focus today</Text>
@@ -217,42 +271,18 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
         </TouchableOpacity>
       </View>
 
-      {focusTasks.map((task, idx) => {
-        const isLast    = idx === focusTasks.length - 1;
-        const priority  = task.aiPriority ?? task.priority;
-        const chipColor = PRIORITY_COLORS[priority];
-        // Clean the task title too — model occasionally echoes [ID:x] in it
-        const title = cleanText(task.title) || task.title;
-        return (
-          <TouchableOpacity
-            key={task.id}
-            style={[styles.taskRow, isLast && styles.taskRowLast]}
-            onPress={() => onTaskHighlight?.(task.id)}
-            activeOpacity={onTaskHighlight ? 0.6 : 1}
-          >
-            <View style={[styles.taskDot, chipColor && { backgroundColor: chipColor }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.taskTitle} numberOfLines={2}>{title}</Text>
-              {(task.className || task.dueDate) ? (
-                <View style={styles.taskMeta}>
-                  {task.className ? <Text style={styles.taskClass}>{task.className}</Text> : null}
-                  {task.className && task.dueDate ? <Text style={styles.taskDot2}>·</Text> : null}
-                  {task.dueDate ? (() => {
-                    const label = formatDueDate(task.dueDate, task.dueTime);
-                    const isOverdue = label?.includes("overdue");
-                    return <Text style={isOverdue ? styles.taskDueOverdue : styles.taskDue}>{label}</Text>;
-                  })() : null}
-                </View>
-              ) : null}
-            </View>
-            {chipColor ? (
-              <View style={[styles.taskChip, { borderColor: chipColor + "66", backgroundColor: chipColor + "18" }]}>
-                <Text style={[styles.taskChipText, { color: chipColor }]}>{priority}</Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
-        );
-      })}
+      {focusTasks.map((task, idx) => (
+        <FocusTaskRow
+          key={task.id}
+          task={task}
+          idx={idx}
+          isLast={idx === focusTasks.length - 1}
+          onPress={onTaskHighlight}
+          styles={styles}
+          colors={colors}
+          PRIORITY_COLORS={PRIORITY_COLORS}
+        />
+      ))}
     </Animated.View>
   );
 };

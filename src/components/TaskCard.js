@@ -3,7 +3,7 @@
 // Updated with recurring task badge
 // ============================================================
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Animated,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import {
   typography,
@@ -30,7 +31,6 @@ const makeStyles = (colors) =>
       backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
       borderRadius: 14,
       padding: spacing.md,
-      marginBottom: spacing.sm,
       borderLeftWidth: 3,
       borderLeftColor: colors.border,
       borderWidth: colors.cardBorderW,
@@ -201,51 +201,70 @@ const TaskCard = ({
   onDelete,
   onFocus,
   highlighted = false,
+  index = 0,
 }) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const checkScale = useRef(new Animated.Value(1)).current;
+  const scaleAnim    = useRef(new Animated.Value(1)).current;
+  const checkScale   = useRef(new Animated.Value(1)).current;
   const flashOpacity = useRef(new Animated.Value(0)).current;
-  const prevDone = useRef(task.completed);
+  const mountOpacity = useRef(new Animated.Value(0)).current;
+  const mountTranslY = useRef(new Animated.Value(12)).current;
+  const exitOpacity  = useRef(new Animated.Value(1)).current;
+  const exitTranslY  = useRef(new Animated.Value(0)).current;
 
+  // Height collapse — runs on JS thread simultaneously with the native fade
+  const [measuredHeight, setMeasuredHeight] = useState(null);
+  const heightAnim = useRef(new Animated.Value(0)).current;
+  const marginAnim = useRef(new Animated.Value(spacing.sm)).current;
+
+  // Enter animation — staggered fade + slide up on mount
   useEffect(() => {
-    if (!prevDone.current && task.completed) {
-      Animated.sequence([
-        Animated.spring(checkScale, {
-          toValue: 1.5,
-          useNativeDriver: true,
-          speed: 50,
-        }),
-        Animated.spring(checkScale, {
-          toValue: 1.0,
-          useNativeDriver: true,
-          speed: 20,
-        }),
+    const delay = Math.min(index, 8) * 35;
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        Animated.timing(mountOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(mountTranslY, { toValue: 0, speed: 22, bounciness: 4, useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, []);
+
+  const playCompleteAnimation = () => {
+    Animated.sequence([
+      Animated.spring(checkScale, { toValue: 1.5, useNativeDriver: true, speed: 50 }),
+      Animated.spring(checkScale, { toValue: 1.0, useNativeDriver: true, speed: 20 }),
+    ]).start();
+    Animated.sequence([
+      Animated.timing(flashOpacity, { toValue: 1, duration: 100, useNativeDriver: true }),
+      Animated.timing(flashOpacity, { toValue: 0, duration: 600, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const handleToggle = () => {
+    if (!task.completed) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      playCompleteAnimation();
+      // Native thread: fade + slide
+      Animated.parallel([
+        Animated.timing(exitOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+        Animated.timing(exitTranslY, { toValue: 10, duration: 220, useNativeDriver: true }),
+      ]).start(() => onToggle(task));
+      // JS thread: collapse height + margin at the same time so the gap closes with the card
+      Animated.parallel([
+        Animated.timing(heightAnim, { toValue: 0, duration: 240, useNativeDriver: false }),
+        Animated.timing(marginAnim, { toValue: 0, duration: 240, useNativeDriver: false }),
       ]).start();
-      Animated.sequence([
-        Animated.timing(flashOpacity, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(flashOpacity, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]).start();
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      onToggle(task);
     }
-    prevDone.current = task.completed;
-  }, [task.completed]);
+  };
 
   const handlePressIn = () =>
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      useNativeDriver: true,
-    }).start();
+    Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, speed: 80, bounciness: 0 }).start();
   const handlePressOut = () =>
-    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
+    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 4 }).start();
 
   const displayPriority = task.aiPriority || task.priority;
   const priorityColor = displayPriority
@@ -286,7 +305,25 @@ const TaskCard = ({
     : null;
 
   return (
-    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+    // Outer: JS-thread only (height + margin collapse). Native module never sees these.
+    <Animated.View
+      onLayout={(e) => {
+        if (measuredHeight === null) {
+          const h = e.nativeEvent.layout.height;
+          heightAnim.setValue(h);
+          setMeasuredHeight(h);
+        }
+      }}
+      style={[
+        { marginBottom: marginAnim },
+        measuredHeight !== null && { height: heightAnim, overflow: 'hidden' },
+      ]}
+    >
+    {/* Inner: native-thread only (opacity + transform). No layout props here. */}
+    <Animated.View style={{
+      opacity: Animated.multiply(mountOpacity, exitOpacity),
+      transform: [{ scale: scaleAnim }, { translateY: Animated.add(mountTranslY, exitTranslY) }],
+    }}>
       <TouchableOpacity
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -315,7 +352,7 @@ const TaskCard = ({
         <View style={styles.row}>
           {/* Checkbox */}
           <TouchableOpacity
-            onPress={() => onToggle(task)}
+            onPress={handleToggle}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Animated.View
@@ -481,6 +518,7 @@ const TaskCard = ({
           </View>
         </View>
       </TouchableOpacity>
+    </Animated.View>
     </Animated.View>
   );
 };

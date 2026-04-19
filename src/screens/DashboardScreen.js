@@ -9,17 +9,24 @@
 // ── Demo mode (set true for screenshots/TikTok, false for production) ──
 const DEMO_MODE = false;
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Alert,
   RefreshControl,
+  Animated,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from "react-native";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useTasks } from "../hooks/useTasks";
@@ -31,6 +38,7 @@ import TaskModal from "../components/TaskModal";
 import StatsBar from "../components/StatsBar";
 import WhatDoIDoButton from "../components/WhatDoIDoButton";
 import TodayFocusCard from "../components/TodayFocusCard";
+import { DashboardSkeleton } from "../components/SkeletonLoader";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../services/notifications";
 import NotificationPermissionPrompt, {
@@ -43,6 +51,7 @@ import {
   format,
   addDays,
   isToday,
+  startOfWeek,
   differenceInCalendarDays,
 } from "date-fns";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -140,20 +149,25 @@ const makeStyles = (colors, insets) =>
       marginBottom: spacing.md,
       padding: 3,
     },
-    segment: {
-      flex: 1,
-      paddingVertical: 7,
-      alignItems: "center",
-      justifyContent: "center",
+    segmentActivePill: {
+      position: "absolute",
+      top: 3,
+      left: 3,
+      bottom: 3,
       borderRadius: radius.sm,
-    },
-    segmentActive: {
       backgroundColor: colors.isDark ? colors.bgElevated : "#FFFFFF",
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: colors.isDark ? 0 : 0.1,
       shadowRadius: 2,
       elevation: 2,
+    },
+    segment: {
+      flex: 1,
+      paddingVertical: 7,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.sm,
     },
     segmentText: { fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.textSecondary },
     segmentTextActive: { color: colors.isDark ? colors.textPrimary : colors.accent },
@@ -188,13 +202,6 @@ const makeStyles = (colors, insets) =>
       textTransform: "uppercase",
       marginBottom: spacing.sm,
       marginTop: spacing.sm,
-    },
-
-    loadingContainer: { alignItems: "center", paddingTop: 60 },
-    loadingText: {
-      ...typography.body,
-      color: colors.textSecondary,
-      marginTop: spacing.md,
     },
 
     emptyContainer: { alignItems: "center", paddingTop: 48, paddingBottom: 24 },
@@ -297,6 +304,222 @@ const makeStyles = (colors, insets) =>
     },
   });
 
+// Animated insight strip — slides down and fades in each time a new insight appears
+const InsightStrip = ({ insight, styles, colors }) => {
+  const opacity    = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(-6)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity,    { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, speed: 28, bounciness: 0, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.insightStrip,
+        {
+          borderLeftColor: insight.color,
+          borderColor: insight.color + "33",
+          backgroundColor: colors.isDark ? insight.color + "10" : insight.color + "22",
+          opacity,
+          transform: [{ translateY }],
+        },
+      ]}
+    >
+      <Feather name={insight.icon} size={13} color={insight.color} />
+      <Text style={[styles.insightText, { color: insight.color }]}>{insight.text}</Text>
+    </Animated.View>
+  );
+};
+
+const CAL_DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const CAL_PRIO_ORDER = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+
+const calPillColor = (task, colors) => {
+  if (task.completed) return colors.textMuted;
+  switch (task.priority) {
+    case "HIGH":   return colors.high;
+    case "MEDIUM": return colors.medium;
+    default:       return colors.accent;
+  }
+};
+
+const WeekCalendar = ({ tasks, onEditTask, weekOffset, onWeekChange, colors }) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const weekStart = addDays(today, -today.getDay() + weekOffset * 7);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  const byDay = {};
+  days.forEach((d) => { byDay[format(d, "yyyy-MM-dd")] = []; });
+  tasks.forEach((t) => {
+    const d = safeDate(t.dueDate);
+    if (!d) return;
+    const key = format(d, "yyyy-MM-dd");
+    if (byDay[key]) byDay[key].push(t);
+  });
+  Object.values(byDay).forEach((arr) =>
+    arr.sort((a, b) => {
+      if (!a.completed && b.completed) return -1;
+      if (a.completed && !b.completed) return 1;
+      return (CAL_PRIO_ORDER[a.priority] ?? 1) - (CAL_PRIO_ORDER[b.priority] ?? 1);
+    })
+  );
+
+  const startLabel = format(weekStart, "MMM d");
+  const endLabel   = format(addDays(weekStart, 6), "MMM d");
+  const MAX_PILLS  = 5;
+
+  const gridBg = colors.isDark ? colors.bgCard : "#FFFFFF";
+
+  return (
+    <View style={{ marginHorizontal: -spacing.lg, marginBottom: spacing.md }}>
+      {/* Week nav */}
+      <View style={{
+        flexDirection: "row", alignItems: "center", gap: 8,
+        paddingHorizontal: spacing.lg, paddingVertical: 10,
+      }}>
+        <TouchableOpacity
+          onPress={() => onWeekChange(weekOffset - 1)}
+          style={{
+            width: 32, height: 32, borderRadius: 16,
+            backgroundColor: colors.accentGlow,
+            alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <Feather name="chevron-left" size={16} color={colors.accent} />
+        </TouchableOpacity>
+
+        <View style={{ flex: 1, alignItems: "center", gap: 2 }}>
+          <Text style={{ fontFamily: "Outfit-ExtraBold", fontSize: 15, color: colors.textPrimary, letterSpacing: -0.2 }}>
+            {startLabel} – {endLabel}
+          </Text>
+          {weekOffset !== 0 && (
+            <TouchableOpacity
+              onPress={() => onWeekChange(0)}
+              style={{
+                backgroundColor: colors.accent,
+                borderRadius: 999,
+                paddingHorizontal: 10, paddingVertical: 2,
+              }}
+            >
+              <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: "#fff" }}>
+                Back to today
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <TouchableOpacity
+          onPress={() => onWeekChange(weekOffset + 1)}
+          style={{
+            width: 32, height: 32, borderRadius: 16,
+            backgroundColor: colors.accentGlow,
+            alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <Feather name="chevron-right" size={16} color={colors.accent} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Grid — edge-to-edge, top+bottom border, column separators */}
+      <View style={{ borderTopWidth:1, borderBottomWidth:1, borderColor:colors.border, backgroundColor:gridBg }}>
+
+        {/* Day-of-week header row */}
+        <View style={{ flexDirection:"row", borderBottomWidth:1, borderBottomColor:colors.border }}>
+          {days.map((day, i) => {
+            const isTod = isToday(day);
+            return (
+              <View key={i} style={{
+                flex:1, alignItems:"center", paddingVertical:8,
+                backgroundColor: isTod ? colors.accentGlow : "transparent",
+                borderRightWidth: i < 6 ? 1 : 0,
+                borderRightColor: colors.border,
+              }}>
+                <Text style={{
+                  fontSize:10, fontFamily:"Outfit-Bold", letterSpacing:0.5,
+                  color: isTod ? colors.accent : colors.textMuted,
+                  marginBottom:4,
+                }}>
+                  {CAL_DAY_LABELS[day.getDay()]}
+                </Text>
+                <View style={{
+                  width:28, height:28, borderRadius:14,
+                  alignItems:"center", justifyContent:"center",
+                  backgroundColor: isTod ? colors.accent : "transparent",
+                }}>
+                  <Text style={{
+                    fontSize:14, fontFamily:"Outfit-ExtraBold",
+                    color: isTod ? "#fff" : colors.textPrimary,
+                  }}>
+                    {format(day, "d")}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Task pill columns */}
+        <View style={{ flexDirection:"row", minHeight:64, paddingVertical:6 }}>
+          {days.map((day, i) => {
+            const key      = format(day, "yyyy-MM-dd");
+            const dayTasks = byDay[key];
+            const isTod    = isToday(day);
+
+            return (
+              <View key={i} style={{
+                flex:1, paddingHorizontal:3, gap:3,
+                backgroundColor: isTod ? colors.accentGlow : "transparent",
+                borderRightWidth: i < 6 ? 1 : 0,
+                borderRightColor: colors.border,
+              }}>
+                {dayTasks.slice(0, MAX_PILLS).map((task) => {
+                  const pillColor = calPillColor(task, colors);
+                  const label = task.className ?? task.title;
+                  return (
+                    <TouchableOpacity
+                      key={task.id}
+                      onPress={() => onEditTask(task)}
+                      activeOpacity={0.75}
+                      style={{
+                        borderRadius:4,
+                        backgroundColor: pillColor + "20",
+                        borderLeftWidth:3,
+                        borderLeftColor: pillColor,
+                        paddingHorizontal:4,
+                        paddingVertical:4,
+                        opacity: task.completed ? 0.45 : 1,
+                      }}
+                    >
+                      <Text numberOfLines={1} style={{
+                        fontSize:10, fontFamily:"Outfit-SemiBold",
+                        color: task.completed ? colors.textMuted : pillColor,
+                      }}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {dayTasks.length > MAX_PILLS && (
+                  <Text style={{ fontSize:9, fontFamily:"Outfit-Medium", color:colors.textMuted, textAlign:"center" }}>
+                    +{dayTasks.length - MAX_PILLS}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
+        </View>
+
+      </View>
+    </View>
+  );
+};
+
 const TABS = ["All", "Today", "Done"];
 
 const bucketTasks = (tasks) => {
@@ -380,7 +603,10 @@ const DashboardScreen = ({ navigation }) => {
   const removeTask    = DEMO_MODE ? () => {} : realTasks.removeTask;
   const clearCompleted = DEMO_MODE ? () => {} : realTasks.clearCompleted;
 
+  const [completingIds, setCompletingIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState("All");
+  const [tabContainerWidth, setTabContainerWidth] = useState(0);
+  const tabIndicatorX = useRef(new Animated.Value(0)).current;
   const [modalVisible, setModalVisible] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [aiAnnotatedTasks, setAiAnnotatedTasks] = useState([]);
@@ -388,9 +614,13 @@ const DashboardScreen = ({ navigation }) => {
   const [now, setNow] = useState(new Date());
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
 
+  const [calendarMode, setCalendarMode] = useState(false);
+  const [calWeekOffset, setCalWeekOffset] = useState(0);
+
   const scrollRef      = useRef(null);
   const scrollOffsetY  = useRef(0);
   const taskViewRefs   = useRef({});
+  const fabScale       = useRef(new Animated.Value(1)).current;
 
   // Scroll to a task when it's highlighted from the Focus card, then clear it
   useEffect(() => {
@@ -417,6 +647,19 @@ const DashboardScreen = ({ navigation }) => {
     return () => clearInterval(timer);
   }, []);
 
+  // Once Firestore confirms a completion, remove from completingIds so
+  // the task reappears in the Done bucket.
+  useEffect(() => {
+    if (completingIds.size === 0) return;
+    const confirmed = tasks.filter((t) => t.completed && completingIds.has(t.id));
+    if (confirmed.length === 0) return;
+    setCompletingIds((prev) => {
+      const next = new Set(prev);
+      confirmed.forEach((t) => next.delete(t.id));
+      return next;
+    });
+  }, [tasks]);
+
   // Show notification permission prompt once, after the user has tasks
   // (asking before they've seen the app's value gets a lower grant rate)
   useEffect(() => {
@@ -431,7 +674,7 @@ const DashboardScreen = ({ navigation }) => {
   // Avoidance alerts — Scholar only, fires at most once per task per day
   useEffect(() => {
     if (!isPro || !patterns?.avoidanceScores?.length) return;
-    checkAndScheduleAvoidanceAlerts(patterns.avoidanceScores, patterns?.productiveTimeOfDay?.bestTime);
+    checkAndScheduleAvoidanceAlerts(patterns.avoidanceScores, patterns?.productiveTimeOfDay?.bestTime, user?.uid);
   }, [isPro, patterns?.avoidanceScores]);
 
   // Streak reminder — reschedule whenever streak or productive time changes
@@ -461,8 +704,9 @@ const DashboardScreen = ({ navigation }) => {
     aiAnnotatedTasks.forEach((t) => {
       aiMap[t.id] = { aiPriority: t.aiPriority, aiReason: t.aiReason };
     });
-    return gradeWeighted.map((t) => ({ ...t, ...(aiMap[t.id] || {}) }));
-  }, [tasks, aiAnnotatedTasks, profile?.classes]);
+    const annotated = gradeWeighted.map((t) => ({ ...t, ...(aiMap[t.id] || {}) }));
+    return completingIds.size > 0 ? annotated.filter((t) => !completingIds.has(t.id)) : annotated;
+  }, [tasks, aiAnnotatedTasks, profile?.classes, completingIds]);
 
   const sortByDue = (arr) =>
     [...arr].sort((a, b) => {
@@ -603,6 +847,19 @@ const DashboardScreen = ({ navigation }) => {
     return null;
   }, [patterns, enrichedTasks, tasks]);
 
+  const handleTabChange = useCallback((tab) => {
+    setActiveTab(tab);
+    if (tabContainerWidth > 0) {
+      const segW = (tabContainerWidth - 6) / TABS.length;
+      Animated.spring(tabIndicatorX, {
+        toValue: TABS.indexOf(tab) * segW,
+        useNativeDriver: true,
+        speed: 30,
+        bounciness: 0,
+      }).start();
+    }
+  }, [tabContainerWidth, tabIndicatorX]);
+
   const handleAddTask = () => {
     setEditingTask(null);
     setModalVisible(true);
@@ -648,8 +905,19 @@ const DashboardScreen = ({ navigation }) => {
 
   const handleToggle = (task) => {
     if (!task) return;
+    if (!task.completed) {
+      // Card animates its own height to 0 before calling here, so by the
+      // time setCompletingIds removes it from the tree the space is already gone.
+      setCompletingIds((prev) => new Set([...prev, task.id]));
+    } else {
+      setCompletingIds((prev) => {
+        if (!prev.has(task.id)) return prev;
+        const next = new Set(prev);
+        next.delete(task.id);
+        return next;
+      });
+    }
     completeTask(task);
-    // Completing a task should refresh today's focus suggestions
     invalidateTodayFocusCache();
   };
   const serializeTask = (task) => ({
@@ -698,7 +966,7 @@ const DashboardScreen = ({ navigation }) => {
             {taskList.length}
           </Text>
         </View>
-        {sortByDue(taskList).map((task) =>
+        {sortByDue(taskList).map((task, idx) =>
           task ? (
             <View key={task.id} ref={(r) => { if (r) taskViewRefs.current[task.id] = r; }}>
               <TaskCard
@@ -708,6 +976,7 @@ const DashboardScreen = ({ navigation }) => {
                 onDelete={handleDeleteTask}
                 onFocus={handleFocusTask}
                 highlighted={task.id === highlightedTaskId}
+                index={idx}
               />
             </View>
           ) : null
@@ -737,14 +1006,33 @@ const DashboardScreen = ({ navigation }) => {
             )}
           </View>
         </View>
-        <TouchableOpacity
-          onPress={() => navigation.navigate("SyllabusParser")}
-          style={styles.importBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Feather name="upload-cloud" size={14} color={colors.isDark ? colors.accent : colors.accent} />
-          <Text style={styles.importBtnText}>Import</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => {
+              setCalendarMode((m) => !m);
+              if (!calendarMode) setCalWeekOffset(0);
+            }}
+            style={[
+              styles.importBtn,
+              calendarMode && {
+                backgroundColor: colors.accentGlow,
+                borderColor: colors.accent,
+              },
+            ]}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="calendar" size={14} color={colors.accent} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("SyllabusParser")}
+            style={styles.importBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="upload-cloud" size={14} color={colors.accent} />
+            <Text style={styles.importBtnText}>Import</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -794,197 +1082,209 @@ const DashboardScreen = ({ navigation }) => {
 
         {/* Behavioral insight strip */}
         {behavioralInsight && (
-          <View style={[
-            styles.insightStrip,
-            {
-              borderLeftColor: behavioralInsight.color,
-              borderColor: behavioralInsight.color + "33",
-              backgroundColor: colors.isDark
-                ? behavioralInsight.color + "10"
-                : behavioralInsight.color + "22",
-            },
-          ]}>
-            <Feather
-              name={behavioralInsight.icon}
-              size={13}
-              color={behavioralInsight.color}
-            />
-            <Text
-              style={[styles.insightText, { color: behavioralInsight.color }]}
-            >
-              {behavioralInsight.text}
-            </Text>
-          </View>
+          <InsightStrip
+            key={behavioralInsight.text}
+            insight={behavioralInsight}
+            styles={styles}
+            colors={colors}
+          />
         )}
 
-        {/* Tabs */}
-        <View style={styles.segmentedControl}>
-          {TABS.map((tab) => {
-            const count =
-              tab === "Today" ? todaysTasks.length :
-              tab === "Done"  ? completedTasks.length : null;
-            return (
-              <TouchableOpacity
-                key={tab}
-                onPress={() => setActiveTab(tab)}
-                style={[styles.segment, activeTab === tab && styles.segmentActive]}
-              >
-                <Text style={[styles.segmentText, activeTab === tab && styles.segmentTextActive]}>
-                  {tab}{count !== null && count > 0 ? ` · ${count}` : ""}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Task list */}
-        {loading && tasks.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.accent} />
-            <Text style={styles.loadingText}>Loading tasks...</Text>
-          </View>
-        ) : isFirstTime ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIcon}>
-              <Feather name="zap" size={32} color={colors.accent} />
-            </View>
-            <Text style={styles.emptyTitle}>You're all set up!</Text>
-            <Text style={styles.emptySubtitle}>
-              Add your first task, or import your entire semester from a Canvas
-              calendar.
-            </Text>
-            <View style={styles.emptyActionsRow}>
-              <TouchableOpacity style={styles.emptyBtn} onPress={handleAddTask}>
-                <Feather name="plus" size={15} color="#fff" />
-                <Text style={styles.emptyBtnText}>Add Task</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.emptyBtnOutline}
-                onPress={() => navigation.navigate("SyllabusParser")}
-              >
-                <Feather name="upload" size={15} color={colors.accent} />
-                <Text style={styles.emptyBtnOutlineText}>Import</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : activeTab === "All" &&
-          displayedTasks.filter((t) => !t.completed).length === 0 &&
-          completedTasks.length > 0 ? (
-          <View style={styles.allDoneContainer}>
-            <View style={styles.allDoneIcon}>
-              <Feather name="check-circle" size={32} color={colors.low} />
-            </View>
-            <Text style={styles.allDoneTitle}>All done! 🎉</Text>
-            <Text style={styles.allDoneSubtitle}>
-              Nothing pending. Add something new or ask your coach for help.
-            </Text>
-          </View>
-        ) : activeTab === "All" ? (
-          <>
-            {renderBucket("Overdue", buckets.overdue, colors.high)}
-            {renderBucket("Due Today", buckets.dueToday, colors.medium)}
-            {renderBucket("This Week", buckets.thisWeek, colors.accent)}
-            {renderBucket("Later", buckets.later, colors.textMuted)}
-            {renderBucket("Someday", buckets.noDate, colors.textMuted)}
-            {buckets.completed.length > 0 && (
-              <View style={{ marginTop: spacing.sm }}>
-                <View style={styles.bucketHeader}>
-                  <View style={[styles.bucketDot, { backgroundColor: colors.low }]} />
-                  <Text style={[styles.bucketLabel, { color: colors.low }]}>Completed</Text>
-                  <Text style={[styles.bucketCount, { color: colors.low, backgroundColor: colors.low + "18" }]}>
-                    {buckets.completed.length}
-                  </Text>
-                </View>
-                {buckets.completed
-                  .slice(0, 5)
-                  .map((task) =>
-                    task ? (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        onToggle={handleToggle}
-                        onEdit={handleEditTask}
-                        onDelete={handleDeleteTask}
-                        onFocus={handleFocusTask}
-                      />
-                    ) : null
-                  )}
-                {buckets.completed.length > 5 && (
-                  <Text
-                    style={[
-                      styles.sectionLabel,
-                      { textAlign: "center", marginTop: spacing.xs },
-                    ]}
-                  >
-                    + {buckets.completed.length - 5} more completed
-                  </Text>
-                )}
-                <TouchableOpacity style={styles.clearBtn} onPress={handleClearCompleted}>
-                  <Feather name="trash-2" size={13} color={colors.high} />
-                  <Text style={styles.clearBtnText}>Clear completed</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </>
-        ) : displayedTasks.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIcon}>
-              <Feather
-                name={activeTab === "Done" ? "check-circle" : "inbox"}
-                size={28}
-                color={colors.accent}
-              />
-            </View>
-            <Text style={styles.emptyTitle}>
-              {activeTab === "Done"
-                ? "Nothing completed yet"
-                : activeTab === "Today"
-                ? "Nothing due today"
-                : "All clear!"}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {activeTab === "Done"
-                ? "Check off tasks and they'll appear here."
-                : activeTab === "Today"
-                ? nextUpTask
-                  ? `Next up: "${nextUpTask.title}" — due ${format(safeDate(nextUpTask.dueDate), "MMM d")}`
-                  : "You're ahead of schedule."
-                : "No pending tasks. Tap + to add one."}
-            </Text>
-          </View>
+        {calendarMode ? (
+          /* ── Calendar view ──────────────────────────────────── */
+          <WeekCalendar
+            tasks={enrichedTasks}
+            onEditTask={handleEditTask}
+            weekOffset={calWeekOffset}
+            onWeekChange={setCalWeekOffset}
+            colors={colors}
+          />
         ) : (
+          /* ── List view ──────────────────────────────────────── */
           <>
-            {displayedTasks.map((task) =>
-              task ? (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onToggle={handleToggle}
-                  onEdit={handleEditTask}
-                  onDelete={handleDeleteTask}
-                  onFocus={handleFocusTask}
-                  highlighted={task.id === highlightedTaskId}
+            {/* Tabs */}
+            <View
+              style={styles.segmentedControl}
+              onLayout={(e) => {
+                const w = e.nativeEvent.layout.width;
+                setTabContainerWidth(w);
+                tabIndicatorX.setValue(TABS.indexOf(activeTab) * ((w - 6) / TABS.length));
+              }}
+            >
+              {tabContainerWidth > 0 && (
+                <Animated.View
+                  style={[
+                    styles.segmentActivePill,
+                    {
+                      width: (tabContainerWidth - 6) / TABS.length,
+                      transform: [{ translateX: tabIndicatorX }],
+                    },
+                  ]}
                 />
-              ) : null
-            )}
-            {activeTab === "Done" && displayedTasks.length > 0 && (
-              <TouchableOpacity style={styles.clearBtn} onPress={handleClearCompleted}>
-                <Feather name="trash-2" size={13} color={colors.high} />
-                <Text style={styles.clearBtnText}>Clear completed</Text>
-              </TouchableOpacity>
+              )}
+              {TABS.map((tab) => {
+                const count =
+                  tab === "Today" ? todaysTasks.length :
+                  tab === "Done"  ? completedTasks.length : null;
+                return (
+                  <TouchableOpacity
+                    key={tab}
+                    onPress={() => handleTabChange(tab)}
+                    style={styles.segment}
+                  >
+                    <Text style={[styles.segmentText, activeTab === tab && styles.segmentTextActive]}>
+                      {tab}{count !== null && count > 0 ? ` · ${count}` : ""}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Task list */}
+            {loading && tasks.length === 0 ? (
+              <DashboardSkeleton />
+            ) : isFirstTime ? (
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIcon}>
+                  <Feather name="zap" size={32} color={colors.accent} />
+                </View>
+                <Text style={styles.emptyTitle}>You're all set up!</Text>
+                <Text style={styles.emptySubtitle}>
+                  Add your first task, or import your entire semester from a Canvas calendar.
+                </Text>
+                <View style={styles.emptyActionsRow}>
+                  <TouchableOpacity style={styles.emptyBtn} onPress={handleAddTask}>
+                    <Feather name="plus" size={15} color="#fff" />
+                    <Text style={styles.emptyBtnText}>Add Task</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.emptyBtnOutline}
+                    onPress={() => navigation.navigate("SyllabusParser")}
+                  >
+                    <Feather name="upload" size={15} color={colors.accent} />
+                    <Text style={styles.emptyBtnOutlineText}>Import</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : activeTab === "All" &&
+              displayedTasks.filter((t) => !t.completed).length === 0 &&
+              completedTasks.length > 0 ? (
+              <View style={styles.allDoneContainer}>
+                <View style={styles.allDoneIcon}>
+                  <Feather name="check-circle" size={32} color={colors.low} />
+                </View>
+                <Text style={styles.allDoneTitle}>All done! 🎉</Text>
+                <Text style={styles.allDoneSubtitle}>
+                  Nothing pending. Add something new or ask your coach for help.
+                </Text>
+              </View>
+            ) : activeTab === "All" ? (
+              <>
+                {renderBucket("Overdue", buckets.overdue, colors.high)}
+                {renderBucket("Due Today", buckets.dueToday, colors.medium)}
+                {renderBucket("This Week", buckets.thisWeek, colors.accent)}
+                {renderBucket("Later", buckets.later, colors.textMuted)}
+                {renderBucket("Someday", buckets.noDate, colors.textMuted)}
+                {buckets.completed.length > 0 && (
+                  <View style={{ marginTop: spacing.sm }}>
+                    <View style={styles.bucketHeader}>
+                      <View style={[styles.bucketDot, { backgroundColor: colors.low }]} />
+                      <Text style={[styles.bucketLabel, { color: colors.low }]}>Completed</Text>
+                      <Text style={[styles.bucketCount, { color: colors.low, backgroundColor: colors.low + "18" }]}>
+                        {buckets.completed.length}
+                      </Text>
+                    </View>
+                    {buckets.completed.slice(0, 5).map((task, idx) =>
+                      task ? (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          onToggle={handleToggle}
+                          onEdit={handleEditTask}
+                          onDelete={handleDeleteTask}
+                          onFocus={handleFocusTask}
+                          index={idx}
+                        />
+                      ) : null
+                    )}
+                    {buckets.completed.length > 5 && (
+                      <Text style={[styles.sectionLabel, { textAlign: "center", marginTop: spacing.xs }]}>
+                        + {buckets.completed.length - 5} more completed
+                      </Text>
+                    )}
+                    <TouchableOpacity style={styles.clearBtn} onPress={handleClearCompleted}>
+                      <Feather name="trash-2" size={13} color={colors.high} />
+                      <Text style={styles.clearBtnText}>Clear completed</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            ) : displayedTasks.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIcon}>
+                  <Feather
+                    name={activeTab === "Done" ? "check-circle" : "inbox"}
+                    size={28}
+                    color={colors.accent}
+                  />
+                </View>
+                <Text style={styles.emptyTitle}>
+                  {activeTab === "Done"
+                    ? "Nothing completed yet"
+                    : activeTab === "Today"
+                    ? "Nothing due today"
+                    : "All clear!"}
+                </Text>
+                <Text style={styles.emptySubtitle}>
+                  {activeTab === "Done"
+                    ? "Check off tasks and they'll appear here."
+                    : activeTab === "Today"
+                    ? nextUpTask
+                      ? `Next up: "${nextUpTask.title}" — due ${format(safeDate(nextUpTask.dueDate), "MMM d")}`
+                      : "You're ahead of schedule."
+                    : "No pending tasks. Tap + to add one."}
+                </Text>
+              </View>
+            ) : (
+              <>
+                {displayedTasks.map((task, idx) =>
+                  task ? (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onToggle={handleToggle}
+                      onEdit={handleEditTask}
+                      onDelete={handleDeleteTask}
+                      onFocus={handleFocusTask}
+                      highlighted={task.id === highlightedTaskId}
+                      index={idx}
+                    />
+                  ) : null
+                )}
+                {activeTab === "Done" && displayedTasks.length > 0 && (
+                  <TouchableOpacity style={styles.clearBtn} onPress={handleClearCompleted}>
+                    <Feather name="trash-2" size={13} color={colors.high} />
+                    <Text style={styles.clearBtnText}>Clear completed</Text>
+                  </TouchableOpacity>
+                )}
+              </>
             )}
           </>
         )}
       </ScrollView>
 
       {/* FAB — add task */}
-      <TouchableOpacity
-        onPress={handleAddTask}
-        style={[styles.fab, { bottom: fabBottom }]}
-        activeOpacity={0.85}
-      >
-        <Feather name="plus" size={26} color="#fff" />
-      </TouchableOpacity>
+      <Animated.View style={[styles.fab, { bottom: fabBottom, transform: [{ scale: fabScale }] }]}>
+        <TouchableOpacity
+          onPress={handleAddTask}
+          onPressIn={() => Animated.spring(fabScale, { toValue: 0.84, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
+          onPressOut={() => Animated.spring(fabScale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 8 }).start()}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+          activeOpacity={1}
+        >
+          <Feather name="plus" size={26} color="#fff" />
+        </TouchableOpacity>
+      </Animated.View>
 
       <TaskModal
         visible={modalVisible}
