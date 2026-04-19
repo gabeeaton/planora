@@ -42,9 +42,6 @@ import TodayFocusCard from "../components/TodayFocusCard";
 import { DashboardSkeleton, TaskListSkeleton, CalendarSkeleton } from "../components/SkeletonLoader";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../services/notifications";
-import NotificationPermissionPrompt, {
-  NOTIF_PROMPT_KEY,
-} from "../components/NotificationPermissionPrompt";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { Share } from "react-native";
@@ -614,7 +611,6 @@ const DashboardScreen = ({ navigation }) => {
   const [aiAnnotatedTasks, setAiAnnotatedTasks] = useState([]);
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
   const [now, setNow] = useState(new Date());
-  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
 
   const [calendarMode, setCalendarMode] = useState(false);
   const [calWeekOffset, setCalWeekOffset] = useState(0);
@@ -665,16 +661,6 @@ const DashboardScreen = ({ navigation }) => {
   }, [tasks]);
 
 
-  // Show notification permission prompt once, after the user has tasks
-  // (asking before they've seen the app's value gets a lower grant rate)
-  useEffect(() => {
-    if (tasks.length === 0 || loading) return;
-    AsyncStorage.getItem(NOTIF_PROMPT_KEY)
-      .then((shown) => {
-        if (!shown) setShowNotifPrompt(true);
-      })
-      .catch(() => {});
-  }, [tasks.length > 0, loading]);
 
   // Avoidance alerts — Scholar only, fires at most once per task per day
   useEffect(() => {
@@ -1309,10 +1295,6 @@ const DashboardScreen = ({ navigation }) => {
         onSave={handleSaveTask}
       />
 
-      <NotificationPermissionPrompt
-        visible={showNotifPrompt}
-        onDismiss={() => setShowNotifPrompt(false)}
-      />
     </View>
   );
 };
