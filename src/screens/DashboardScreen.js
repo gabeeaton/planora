@@ -9,7 +9,7 @@
 // ── Demo mode (set true for screenshots/TikTok, false for production) ──
 const DEMO_MODE = false;
 
-import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback, useContext } from "react";
 import {
   View,
   Text,
@@ -35,7 +35,6 @@ import { useAuth } from "../hooks/useAuth";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
 import TaskCard from "../components/TaskCard";
-import TaskModal from "../components/TaskModal";
 import StatsBar from "../components/StatsBar";
 import WhatDoIDoButton from "../components/WhatDoIDoButton";
 import TodayFocusCard from "../components/TodayFocusCard";
@@ -44,6 +43,7 @@ import { invalidateTodayFocusCache } from "../services/openai";
 import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../services/notifications";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
+import { AddTaskContext } from "../navigation/AppNavigator";
 import { Share } from "react-native";
 import {
   format,
@@ -290,17 +290,6 @@ const makeStyles = (colors, insets) =>
       lineHeight: 22,
     },
 
-    fab: {
-      position: "absolute",
-      right: spacing.lg,
-      width: 58,
-      height: 58,
-      borderRadius: 29,
-      backgroundColor: colors.accent,
-      alignItems: "center",
-      justifyContent: "center",
-      ...shadows.accent,
-    },
   });
 
 // Animated insight strip — slides down and fades in each time a new insight appears
@@ -602,12 +591,12 @@ const DashboardScreen = ({ navigation }) => {
   const removeTask    = DEMO_MODE ? () => {} : realTasks.removeTask;
   const clearCompleted = DEMO_MODE ? () => {} : realTasks.clearCompleted;
 
+  const { openAddTask } = useContext(AddTaskContext);
+
   const [completingIds, setCompletingIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState("All");
   const [tabContainerWidth, setTabContainerWidth] = useState(0);
   const tabIndicatorX = useRef(new Animated.Value(0)).current;
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingTask, setEditingTask] = useState(null);
   const [aiAnnotatedTasks, setAiAnnotatedTasks] = useState([]);
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
   const [now, setNow] = useState(new Date());
@@ -620,7 +609,6 @@ const DashboardScreen = ({ navigation }) => {
   const scrollRef      = useRef(null);
   const scrollOffsetY  = useRef(0);
   const taskViewRefs   = useRef({});
-  const fabScale       = useRef(new Animated.Value(1)).current;
 
   // Scroll to a task when it's highlighted from the Focus card, then clear it
   useEffect(() => {
@@ -854,20 +842,9 @@ const DashboardScreen = ({ navigation }) => {
     InteractionManager.runAfterInteractions(() => setTabLoading(false));
   }, [tabContainerWidth, tabIndicatorX]);
 
-  const handleAddTask = () => {
-    setEditingTask(null);
-    setModalVisible(true);
-  };
   const handleEditTask = (task) => {
     if (!task) return;
-    setEditingTask(task);
-    setModalVisible(true);
-  };
-  const handleSaveTask = async (taskData) => {
-    if (editingTask) await editTask(editingTask.id, taskData);
-    else await createTask(taskData);
-    // New or edited task — refresh today's focus
-    invalidateTodayFocusCache();
+    openAddTask(task);
   };
   const handleDeleteTask = (task) => {
     if (!task) return;
@@ -978,8 +955,6 @@ const DashboardScreen = ({ navigation }) => {
       </View>
     );
   };
-
-  const fabBottom = (insets.bottom || 16) + 20;
 
   return (
     <View style={[styles.safe, { paddingTop: insets.top }]}>
@@ -1155,7 +1130,7 @@ const DashboardScreen = ({ navigation }) => {
                   Add your first task, or import your entire semester from a Canvas calendar.
                 </Text>
                 <View style={styles.emptyActionsRow}>
-                  <TouchableOpacity style={styles.emptyBtn} onPress={() => { Haptics.selectionAsync().catch(() => {}); handleAddTask(); }}>
+                  <TouchableOpacity style={styles.emptyBtn} onPress={() => { Haptics.selectionAsync().catch(() => {}); openAddTask(); }}>
                     <Feather name="plus" size={15} color="#fff" />
                     <Text style={styles.emptyBtnText}>Add Task</Text>
                   </TouchableOpacity>
@@ -1274,26 +1249,6 @@ const DashboardScreen = ({ navigation }) => {
           </>
         )}
       </ScrollView>
-
-      {/* FAB — add task */}
-      <Animated.View style={[styles.fab, { bottom: fabBottom, transform: [{ scale: fabScale }] }]}>
-        <TouchableOpacity
-          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); handleAddTask(); }}
-          onPressIn={() => Animated.spring(fabScale, { toValue: 0.84, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
-          onPressOut={() => Animated.spring(fabScale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 8 }).start()}
-          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-          activeOpacity={1}
-        >
-          <Feather name="plus" size={26} color="#fff" />
-        </TouchableOpacity>
-      </Animated.View>
-
-      <TaskModal
-        visible={modalVisible}
-        task={editingTask}
-        onClose={() => setModalVisible(false)}
-        onSave={handleSaveTask}
-      />
 
     </View>
   );

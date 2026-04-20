@@ -52,6 +52,12 @@ const makeStyles = (colors) => StyleSheet.create({
     fontSize: 11, fontFamily: "Outfit-Bold", color: colors.textMuted,
     letterSpacing: 0.8, marginBottom: 8, textTransform: "uppercase",
   },
+  titleInput: {
+    fontSize: 20, fontFamily: "Outfit-SemiBold", color: colors.textPrimary,
+    paddingVertical: 6, paddingHorizontal: 0,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+    marginBottom: 20,
+  },
   input: {
     backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7",
     borderWidth: 1,
@@ -60,6 +66,17 @@ const makeStyles = (colors) => StyleSheet.create({
     color: colors.textPrimary, fontSize: 15,
   },
   textArea:   { height: 80, paddingTop: 12 },
+  addNotesBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingVertical: 10, marginBottom: 4,
+  },
+  addNotesText: { fontSize: 14, color: colors.textMuted, fontFamily: "Outfit-Regular" },
+  moreBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 6, paddingVertical: 12, marginTop: 4,
+    borderTopWidth: 1, borderTopColor: colors.border,
+  },
+  moreBtnText: { fontSize: 13, color: colors.textMuted, fontFamily: "Outfit-SemiBold" },
   classRow:   { flexDirection: "row", gap: 8 },
   classChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.full,
@@ -216,6 +233,7 @@ const generateId   = () => Math.random().toString(36).slice(2, 10);
 const TaskModal = ({ visible, task, onClose, onSave }) => {
   const { colors } = useTheme();
   const styles  = makeStyles(colors);
+  const handleClose = onClose;
   const { profile, updateProfile } = useUserProfile();
   const { tasks } = useTasks();
 
@@ -244,6 +262,8 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
   const [weeklyDay, setWeeklyDay]           = useState(1); // Mon default
   const [saving, setSaving]                 = useState(false);
   const [error, setError]                   = useState("");
+  const [showNotes, setShowNotes]           = useState(false);
+  const [showMore, setShowMore]             = useState(false);
 
   // ── Save-class prompt state (step 2) ─────────────────────
   const [modalStep, setModalStep]           = useState("form"); // "form" | "save-class"
@@ -287,6 +307,8 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
     setNewClassGrade("No grade yet");
     setNewClassCredits("3");
     setError("");
+    setShowNotes(!!(task?.description));
+    setShowMore(!!(task?.recurrence));
   }, [task, visible]);
 
   const selectClass = (cls) => {
@@ -356,7 +378,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
         setPendingClassName(finalClassName);
         setModalStep("save-class");
       } else {
-        onClose();
+        handleClose();
       }
     } catch (err) {
       setError(err.message || "Failed to save task");
@@ -379,7 +401,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
       // non-fatal — task is already saved
     } finally {
       setSaving(false);
-      onClose();
+      handleClose();
     }
   };
 
@@ -393,8 +415,8 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
     : "Add time";
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
+      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
         <View style={styles.sheet}>
           <View style={styles.handle} />
@@ -412,7 +434,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                   <Text style={[styles.calBtnText, { color: colors.accent }]}>Add to Calendar</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={() => { tap(); onClose(); }} style={styles.closeBtn}>
+              <TouchableOpacity onPress={() => { tap(); handleClose(); }} style={styles.closeBtn}>
                 <Feather name="x" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -478,32 +500,14 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
             ) : (
             <>
             {/* Title */}
-            <View style={styles.field}>
-              <Text style={styles.label}>TASK TITLE *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="What needs to be done?"
-                placeholderTextColor={colors.textMuted}
-                value={title}
-                onChangeText={setTitle}
-                autoFocus
-              />
-            </View>
-
-            {/* Description */}
-            <View style={styles.field}>
-              <Text style={styles.label}>DESCRIPTION</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Add notes or details..."
-                placeholderTextColor={colors.textMuted}
-                value={description}
-                onChangeText={setDescription}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            </View>
+            <TextInput
+              style={styles.titleInput}
+              placeholder="What needs to be done?"
+              placeholderTextColor={colors.textMuted}
+              value={title}
+              onChangeText={setTitle}
+              autoFocus
+            />
 
             {/* Class selector */}
             <View style={styles.field}>
@@ -577,70 +581,6 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
               </View>
             </View>
 
-            {/* ── RECURRENCE ── */}
-            <View style={styles.field}>
-              <Text style={styles.label}>REPEAT</Text>
-              <View style={styles.recurrenceRow}>
-                {RECURRENCE_OPTIONS.map((opt) => {
-                  const isActive = (opt.value === null && recurrence === null) ||
-                                   (opt.value !== null && activeRecurrenceType === opt.value.type);
-                  return (
-                    <TouchableOpacity
-                      key={opt.label}
-                      onPress={() => { tap(); selectRecurrence(opt); }}
-                      style={[styles.recurrenceChip, isActive && styles.recurrenceChipActive]}
-                    >
-                      <Text style={[styles.recurrenceChipText, isActive && styles.recurrenceChipTextActive]}>
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Day picker for Weekly / Biweekly */}
-              {(activeRecurrenceType === "weekly" || activeRecurrenceType === "biweekly") && (
-                <View style={styles.dayRow}>
-                  {DAY_LABELS.map((d, i) => (
-                    <TouchableOpacity
-                      key={d}
-                      onPress={() => { tap(); setWeeklyDay(i); }}
-                      style={[styles.dayChip, weeklyDay === i && styles.dayChipActive]}
-                    >
-                      <Text style={[styles.dayChipText, weeklyDay === i && styles.dayChipTextActive]}>
-                        {d}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              {/* Multi-day picker for Custom */}
-              {activeRecurrenceType === "custom_days" && (
-                <View style={styles.dayRow}>
-                  {DAY_LABELS.map((d, i) => (
-                    <TouchableOpacity
-                      key={d}
-                      onPress={() => { tap(); toggleCustomDay(i); }}
-                      style={[styles.dayChip, customDays.includes(i) && styles.dayChipActive]}
-                    >
-                      <Text style={[styles.dayChipText, customDays.includes(i) && styles.dayChipTextActive]}>
-                        {d}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              {/* Recurrence preview label */}
-              {recurrencePreviewLabel && (
-                <View style={styles.recurrencePreview}>
-                  <Feather name="repeat" size={11} color={colors.accent} />
-                  <Text style={styles.recurrencePreviewText}>{recurrencePreviewLabel}</Text>
-                </View>
-              )}
-            </View>
-
             {/* Due Date */}
             <View style={styles.field}>
               <View style={styles.dateHeaderRow}>
@@ -687,7 +627,6 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                         if (dueTime) {
                           d.setHours(dueTime[0], dueTime[1], 0, 0);
                         } else {
-                          // Default to now+1min for today, noon for future dates
                           const now = new Date();
                           const isToday = dueDate &&
                             dueDate.getFullYear() === now.getFullYear() &&
@@ -724,6 +663,92 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
                 </Text>
                 <Feather name="external-link" size={12} color={colors.accent} />
               </TouchableOpacity>
+            )}
+
+            {/* Notes — collapsed by default */}
+            {showNotes ? (
+              <View style={styles.field}>
+                <Text style={styles.label}>NOTES</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Add notes or details..."
+                  placeholderTextColor={colors.textMuted}
+                  value={description}
+                  onChangeText={setDescription}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.addNotesBtn} onPress={() => { tap(); setShowNotes(true); }}>
+                <Feather name="file-text" size={14} color={colors.textMuted} />
+                <Text style={styles.addNotesText}>Add notes...</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* More options — repeat */}
+            <TouchableOpacity style={styles.moreBtn} onPress={() => { tap(); setShowMore((v) => !v); }}>
+              <Text style={styles.moreBtnText}>{showMore ? "Fewer options" : "More options"}</Text>
+              <Feather name={showMore ? "chevron-up" : "chevron-down"} size={14} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            {showMore && (
+              <View style={[styles.field, { marginTop: 12 }]}>
+                <Text style={styles.label}>REPEAT</Text>
+                <View style={styles.recurrenceRow}>
+                  {RECURRENCE_OPTIONS.map((opt) => {
+                    const isActive = (opt.value === null && recurrence === null) ||
+                                     (opt.value !== null && activeRecurrenceType === opt.value.type);
+                    return (
+                      <TouchableOpacity
+                        key={opt.label}
+                        onPress={() => { tap(); selectRecurrence(opt); }}
+                        style={[styles.recurrenceChip, isActive && styles.recurrenceChipActive]}
+                      >
+                        <Text style={[styles.recurrenceChipText, isActive && styles.recurrenceChipTextActive]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {(activeRecurrenceType === "weekly" || activeRecurrenceType === "biweekly") && (
+                  <View style={styles.dayRow}>
+                    {DAY_LABELS.map((d, i) => (
+                      <TouchableOpacity
+                        key={d}
+                        onPress={() => { tap(); setWeeklyDay(i); }}
+                        style={[styles.dayChip, weeklyDay === i && styles.dayChipActive]}
+                      >
+                        <Text style={[styles.dayChipText, weeklyDay === i && styles.dayChipTextActive]}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {activeRecurrenceType === "custom_days" && (
+                  <View style={styles.dayRow}>
+                    {DAY_LABELS.map((d, i) => (
+                      <TouchableOpacity
+                        key={d}
+                        onPress={() => { tap(); toggleCustomDay(i); }}
+                        style={[styles.dayChip, customDays.includes(i) && styles.dayChipActive]}
+                      >
+                        <Text style={[styles.dayChipText, customDays.includes(i) && styles.dayChipTextActive]}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {recurrencePreviewLabel && (
+                  <View style={styles.recurrencePreview}>
+                    <Feather name="repeat" size={11} color={colors.accent} />
+                    <Text style={styles.recurrencePreviewText}>{recurrencePreviewLabel}</Text>
+                  </View>
+                )}
+              </View>
             )}
 
             {error ? (

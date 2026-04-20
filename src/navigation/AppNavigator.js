@@ -4,7 +4,7 @@
 //          safe-area bottom inset fix for black bar
 // ============================================================
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useCallback, useContext } from "react";
 import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text, Animated } from "react-native";
 import * as Haptics from "expo-haptics";
 import { NavigationContainer } from "@react-navigation/native";
@@ -28,6 +28,11 @@ import FocusModeScreen       from "../screens/FocusModeScreen";
 import ChatScreen            from "../screens/ChatScreen";
 import ResetPasswordScreen   from "../screens/ResetPasswordScreen";
 import { useTheme } from "../utils/ThemeContext";
+import TaskModal from "../components/TaskModal";
+import { useTasks } from "../hooks/useTasks";
+import { invalidateTodayFocusCache } from "../services/openai";
+
+export const AddTaskContext = React.createContext({ openAddTask: () => {} });
 
 const linking = {
   prefixes: ["planora://"],
@@ -106,6 +111,21 @@ const TabItem = ({ route, isFocused, onPress, colors }) => {
 const CustomTabBar = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { openAddTask } = useContext(AddTaskContext);
+  const plusScale = useRef(new Animated.Value(1)).current;
+
+  const mid = Math.floor(state.routes.length / 2);
+
+  const renderTab = (route, index) => {
+    const isFocused = state.index === index;
+    const onPress = () => {
+      const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+      if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+    };
+    return (
+      <TabItem key={route.key} route={route} isFocused={isFocused} onPress={onPress} colors={colors} />
+    );
+  };
 
   return (
     <View style={[
@@ -116,16 +136,27 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
         borderTopColor: colors.isDark ? colors.border : "#E0E0E8",
       }
     ]}>
-      {state.routes.map((route, index) => {
-        const isFocused = state.index === index;
-        const onPress = () => {
-          const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-          if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
-        };
-        return (
-          <TabItem key={route.key} route={route} isFocused={isFocused} onPress={onPress} colors={colors} />
-        );
-      })}
+      {state.routes.slice(0, mid).map((route, index) => renderTab(route, index))}
+
+      <View style={tabStyles.plusWrap}>
+        <Animated.View style={{ transform: [{ scale: plusScale }] }}>
+          <TouchableOpacity
+            style={[tabStyles.plusBtn, { backgroundColor: colors.accent }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+              openAddTask();
+            }}
+            onPressIn={() => Animated.spring(plusScale, { toValue: 0.88, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
+            onPressOut={() => Animated.spring(plusScale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 8 }).start()}
+            activeOpacity={1}
+          >
+            <Feather name="plus" size={22} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
+        <Text style={[tabStyles.label, { color: colors.accent }]}>Add</Text>
+      </View>
+
+      {state.routes.slice(mid).map((route, index) => renderTab(route, mid + index))}
     </View>
   );
 };
@@ -142,6 +173,11 @@ const tabStyles = StyleSheet.create({
   tab:      { flex: 1, alignItems: "center", gap: 4 },
   iconWrap: { width: 40, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 12 },
   label:    { fontSize: 10, fontFamily: "Outfit-SemiBold", letterSpacing: 0.3 },
+  plusWrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4 },
+  plusBtn: {
+    width: 40, height: 36, borderRadius: 12,
+    alignItems: "center", justifyContent: "center",
+  },
 });
 
 // ── Main tab navigator ────────────────────────────────────────
@@ -158,6 +194,37 @@ const MainTabs = () => (
     <Tab.Screen name="Profile"   component={ProfileScreen} />
   </Tab.Navigator>
 );
+
+const MainTabsMemo = React.memo(MainTabs);
+
+const MainTabsWithModal = () => {
+  const [visible, setVisible] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const { createTask, editTask } = useTasks();
+
+  const openAddTask = useCallback((task = null) => {
+    setEditingTask(task ?? null);
+    setVisible(true);
+  }, []);
+
+  const handleSave = async (taskData) => {
+    if (editingTask) await editTask(editingTask.id, taskData);
+    else await createTask(taskData);
+    invalidateTodayFocusCache();
+  };
+
+  return (
+    <AddTaskContext.Provider value={{ openAddTask }}>
+      <MainTabsMemo />
+      <TaskModal
+        visible={visible}
+        task={editingTask}
+        onClose={() => setVisible(false)}
+        onSave={handleSave}
+      />
+    </AddTaskContext.Provider>
+  );
+};
 
 // ── Root navigator ────────────────────────────────────────────
 
@@ -215,7 +282,7 @@ const AppNavigator = () => {
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
           <>
-            <Stack.Screen name="Main"           component={MainTabs} />
+            <Stack.Screen name="Main"           component={MainTabsWithModal} />
             <Stack.Screen name="Onboarding"     component={OnboardingScreen} />
             <Stack.Screen name="ResetPassword"  component={ResetPasswordScreen} options={{ presentation: "modal" }} />
             <Stack.Screen name="ICSReview"      component={ICSReviewScreen} />
