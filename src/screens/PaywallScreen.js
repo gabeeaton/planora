@@ -16,7 +16,7 @@ import { invalidateTodayFocusCache } from "../services/openai";
 import * as Haptics from "expo-haptics";
 
 const FEATURES = [
-  { icon: "cpu",            title: "Find My Focus",        desc: "One tap to know exactly what to work on right now, based on your deadlines and patterns." },
+  { icon: "cpu",            title: "Where Should I Start?", desc: "One tap to know exactly what to work on right now, based on your deadlines and patterns." },
   { icon: "message-circle", title: "Unlimited AI Chat",    desc: "Your coach knows your tasks, classes, and grades — and never hits a daily limit." },
   { icon: "bell",           title: "Avoidance Alerts",     desc: "Get nudged when you've been putting off a task too long. No more last-minute panic." },
   { icon: "zap",            title: "Smart Prioritization", desc: "AI ranks every task by urgency, grade impact, and how you actually work." },

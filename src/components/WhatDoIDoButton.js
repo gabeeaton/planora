@@ -190,7 +190,7 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
               : (
                 <>
                   <Feather name="cpu" size={18} color="#fff" />
-                  <Text style={styles.buttonText}>Find my focus</Text>
+                  <Text style={styles.buttonText}>Where should I start?</Text>
                   <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.6)" />
                 </>
               )
