@@ -1163,6 +1163,13 @@ const OnboardingScreen = ({ navigation }) => {
           classCount,
           learningStyle,
           preferredWorkTime: workTime ?? (workTimeFromStyle[learningStyle] ?? null),
+          classes: classes.filter((c) => c.name.trim()).map((c) => ({
+            id: c.id,
+            name: c.name.trim(),
+            creditHours: parseInt(c.creditHours) || 3,
+            grade: c.grade,
+          })),
+          hardestClass: hardestClass ?? null,
           onboardingComplete: true,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           isPro: false,
