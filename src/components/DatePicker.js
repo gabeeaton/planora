@@ -271,7 +271,7 @@ const DatePicker = ({ value, onChange, onClear }) => {
       {/* Clear button */}
       <TouchableOpacity onPress={() => { tap(); onClear(); }} style={styles.clearBtn}>
         <Feather name="x-circle" size={15} color="#FF6B6B" />
-        <Text style={styles.clearText}>No due date</Text>
+        <Text style={styles.clearText}>Task has no due date</Text>
       </TouchableOpacity>
     </View>
   );

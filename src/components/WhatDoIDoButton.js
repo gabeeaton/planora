@@ -13,7 +13,7 @@ import { Feather } from "@expo/vector-icons";
 import { spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useSubscription } from "../hooks/useSubscription";
-import { getWhatDoIDo, suggestPriorities } from "../services/openai";
+import { getWhatDoIDo } from "../services/openai";
 import * as Haptics from "expo-haptics";
 
 const makeStyles = (colors) => StyleSheet.create({
@@ -69,17 +69,7 @@ const makeStyles = (colors) => StyleSheet.create({
     gap: 5, paddingVertical: 9, borderRadius: radius.md,
   },
   actionBtnOutline: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgElevated },
-  actionBtnFilled:  { backgroundColor: colors.accent, ...shadows.accent },
   actionBtnText:    { fontSize: 12, color: colors.textSecondary, fontFamily: "Outfit-SemiBold" },
-  actionBtnTextFilled: { fontSize: 12, color: "#fff", fontFamily: "Outfit-Bold" },
-
-  priorityDoneBadge: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    alignSelf: "flex-start", backgroundColor: "rgba(92,255,143,0.12)",
-    borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: "#5CFF8F",
-  },
-  priorityDoneText: { fontSize: 12, color: "#5CFF8F", fontFamily: "Outfit-SemiBold" },
 
   errorCard: {
     flexDirection: "row", alignItems: "center",
@@ -89,16 +79,14 @@ const makeStyles = (colors) => StyleSheet.create({
   errorText: { color: "#FF5C5C", fontSize: 13, flex: 1 },
 });
 
-const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgrade, onPrioritiesUpdated }) => {
+const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgrade }) => {
   const { colors }       = useTheme();
   const styles           = makeStyles(colors);
   const { hasProAccess } = useSubscription();
 
-  const [loading, setLoading]                 = useState(false);
-  const [priorityLoading, setPriorityLoading] = useState(false);
-  const [result, setResult]                   = useState(null);
-  const [priorityDone, setPriorityDone]       = useState(false);
-  const [error, setError]                     = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult]   = useState(null);
+  const [error, setError]     = useState(null);
 
   const resultAnim  = useRef(new Animated.Value(0)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
@@ -109,7 +97,7 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
   const handlePress = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     if (!hasProAccess) { onUpgrade?.(); return; }
-    setLoading(true); setError(null); setResult(null); setPriorityDone(false);
+    setLoading(true); setError(null); setResult(null);
     resultAnim.setValue(0);
     try {
       const rec = await getWhatDoIDo(tasks, userProfile, patterns);
@@ -131,22 +119,6 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
     }
   };
 
-  const handleSuggestPriority = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    if (!hasProAccess) { onUpgrade?.(); return; }
-    setPriorityLoading(true);
-    try {
-      const pending   = tasks.filter((t) => !t.completed);
-      const annotated = await suggestPriorities(pending, patterns);
-      onPrioritiesUpdated?.(annotated);
-      setPriorityDone(true);
-    } catch {
-      // Silently fail — priority suggestion is a nice-to-have
-    } finally {
-      setPriorityLoading(false);
-    }
-  };
-
   const handleDismiss = () => {
     Haptics.selectionAsync().catch(() => {});
     Animated.timing(resultAnim, {
@@ -156,7 +128,6 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
     }).start(() => {
       setResult(null);
       setError(null);
-      setPriorityDone(false);
     });
   };
 
@@ -233,7 +204,7 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
             <TouchableOpacity
               style={[styles.actionBtn, styles.actionBtnOutline]}
               onPress={handlePress}
-              disabled={loading || priorityLoading}
+              disabled={loading}
             >
               {loading
                 ? <ActivityIndicator size={12} color={colors.textMuted} />
@@ -241,27 +212,6 @@ const WhatDoIDoButton = ({ tasks, userProfile, patterns, onTaskHighlight, onUpgr
               }
               <Text style={styles.actionBtnText}>Ask again</Text>
             </TouchableOpacity>
-
-            {!priorityDone ? (
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.actionBtnFilled]}
-                onPress={handleSuggestPriority}
-                disabled={loading || priorityLoading}
-              >
-                {priorityLoading
-                  ? <ActivityIndicator size={12} color="#fff" />
-                  : <Feather name="zap" size={12} color="#fff" />
-                }
-                <Text style={styles.actionBtnTextFilled}>
-                  {priorityLoading ? "Sorting..." : "Sort all by priority"}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.priorityDoneBadge}>
-                <Feather name="check" size={12} color="#5CFF8F" />
-                <Text style={styles.priorityDoneText}>Priorities updated</Text>
-              </View>
-            )}
           </View>
         </Animated.View>
       )}
