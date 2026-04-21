@@ -841,9 +841,14 @@ export const scheduleOverdueNudges = async (tasks, bestTime, uid) => {
       }
     }
 
-    // Prune entries for tasks that are now completed or deleted
+    // Prune entries for completed/deleted tasks — cancel their pending notifications too
     const activeIds = new Set(tasks.filter((t) => !t.completed).map((t) => t.id));
-    Object.keys(alerted).forEach((id) => { if (!activeIds.has(id)) delete alerted[id]; });
+    for (const [id, notifId] of Object.entries(alerted)) {
+      if (!activeIds.has(id)) {
+        Notifications.cancelScheduledNotificationAsync(notifId).catch(() => {});
+        delete alerted[id];
+      }
+    }
 
     await AsyncStorage.setItem(overdueManifestKey(uid), JSON.stringify(alerted)).catch(() => {});
   });
