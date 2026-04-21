@@ -38,9 +38,11 @@ import TaskCard from "../components/TaskCard";
 import StatsBar from "../components/StatsBar";
 import WhatDoIDoButton from "../components/WhatDoIDoButton";
 import TodayFocusCard from "../components/TodayFocusCard";
+import NotificationPermissionPrompt, { NOTIF_PROMPT_KEY } from "../components/NotificationPermissionPrompt";
 import { DashboardSkeleton, TaskListSkeleton, CalendarSkeleton } from "../components/SkeletonLoader";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../services/notifications";
+import * as Notifications from "expo-notifications";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { AddTaskContext } from "../navigation/AppNavigator";
@@ -623,6 +625,20 @@ const DashboardScreen = ({ navigation }) => {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [tabLoading, setTabLoading] = useState(false);
   const [planTodayCount, setPlanTodayCount] = useState(null);
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+
+  useEffect(() => {
+    if (tasks.length === 0) return;
+    AsyncStorage.getItem(NOTIF_PROMPT_KEY).then(async (val) => {
+      if (val) return;
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status === "granted") {
+        AsyncStorage.setItem(NOTIF_PROMPT_KEY, "true").catch(() => {});
+        return;
+      }
+      setShowNotifPrompt(true);
+    }).catch(() => {});
+  }, [tasks.length]);
 
   const scrollRef      = useRef(null);
   const scrollOffsetY  = useRef(0);
@@ -1278,6 +1294,10 @@ const DashboardScreen = ({ navigation }) => {
         )}
       </ScrollView>
 
+      <NotificationPermissionPrompt
+        visible={showNotifPrompt}
+        onDismiss={() => setShowNotifPrompt(false)}
+      />
     </View>
   );
 };

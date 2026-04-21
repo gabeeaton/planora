@@ -345,25 +345,24 @@ export const scheduleBatchReminders = async (tasks, bestTime, uid) => {
         } catch (err) { console.warn("batch 24h failed:", err); }
       }
 
-      // ── 2-hour batch — group by fire time (nearest 15 min) ─
-      const byFireTime = new Map();
+      // ── 2-hour reminders — group only tasks with identical due times ─
+      const byExactTime = new Map();
       for (const { task, due } of entries) {
         const fireAt = new Date(due.getTime() - 2 * 60 * 60 * 1000);
-        if (fireAt <= now) continue;
-        const bucket = Math.round(fireAt.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000);
-        if (!byFireTime.has(bucket)) byFireTime.set(bucket, []);
-        byFireTime.get(bucket).push(task);
+        if (fireAt < now) continue;
+        const key = fireAt.getTime();
+        if (!byExactTime.has(key)) byExactTime.set(key, { fireAt, tasks: [] });
+        byExactTime.get(key).tasks.push(task);
       }
 
-      for (const [bucket, group] of byFireTime) {
-        const fireDate = new Date(bucket);
+      for (const { fireAt, tasks: group } of byExactTime.values()) {
         const { title, body } = _build2hContent(group);
         try {
           const id = await Notifications.scheduleNotificationAsync({
             content: { title, body, data: { type: "batch-2h", date: dateStr }, sound: true },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireDate },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },
           });
-          manifest.push({ id, label: `2h-${dateStr}-${bucket}` });
+          manifest.push({ id, label: `2h-${fireAt.getTime()}-${dateStr}` });
         } catch (err) { console.warn("batch 2h failed:", err); }
       }
     }
