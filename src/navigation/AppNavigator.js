@@ -4,7 +4,7 @@
 //          safe-area bottom inset fix for black bar
 // ============================================================
 
-import React, { useEffect, useRef, useState, useCallback, useContext } from "react";
+import React, { useEffect, useRef, useState, useCallback, useContext, useMemo } from "react";
 import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text, Animated } from "react-native";
 import * as Haptics from "expo-haptics";
 import { NavigationContainer } from "@react-navigation/native";
@@ -27,6 +27,7 @@ import ICSReviewScreen      from "../screens/ICSReviewScreen";
 import FocusModeScreen       from "../screens/FocusModeScreen";
 import ChatScreen            from "../screens/ChatScreen";
 import ResetPasswordScreen   from "../screens/ResetPasswordScreen";
+import StudyPlanScreen       from "../screens/StudyPlanScreen";
 import { useTheme } from "../utils/ThemeContext";
 import TaskModal from "../components/TaskModal";
 import { useTasks } from "../hooks/useTasks";
@@ -185,7 +186,7 @@ const tabStyles = StyleSheet.create({
 const MainTabs = () => (
   <Tab.Navigator
     tabBar={(props) => <CustomTabBar {...props} />}
-    screenOptions={{ headerShown: false, lazy: false }}
+    screenOptions={{ headerShown: false }}
     sceneContainerStyle={{ backgroundColor: "transparent" }}
   >
     <Tab.Screen name="Dashboard" component={DashboardScreen} />
@@ -207,14 +208,16 @@ const MainTabsWithModal = () => {
     setVisible(true);
   }, []);
 
-  const handleSave = async (taskData) => {
+  const handleSave = useCallback(async (taskData) => {
     if (editingTask) await editTask(editingTask.id, taskData);
     else await createTask(taskData);
     invalidateTodayFocusCache();
-  };
+  }, [editingTask, editTask, createTask]);
+
+  const contextValue = useMemo(() => ({ openAddTask }), [openAddTask]);
 
   return (
-    <AddTaskContext.Provider value={{ openAddTask }}>
+    <AddTaskContext.Provider value={contextValue}>
       <MainTabsMemo />
       <TaskModal
         visible={visible}
@@ -295,6 +298,11 @@ const AppNavigator = () => {
               name="Paywall"
               component={PaywallScreen}
               options={{ presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="StudyPlan"
+              component={StudyPlanScreen}
+              options={{ presentation: "modal", headerShown: false }}
             />
             <Stack.Screen
               name="SyllabusParser"

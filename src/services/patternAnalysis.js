@@ -222,9 +222,9 @@ export const buildPatternContext = (patterns, userProfile = null) => {
   const lines = [];
   const { latenessProfile, productiveTimeOfDay, overallStats, staleTasks, urgentUntouched } = patterns;
 
-  // Only report lateness tendency once we have enough data to trust it
-  if (latenessProfile.totalSamples >= 3) {
-    lines.push(`User tendency: ${latenessProfile.label} (avg ${latenessProfile.avgDaysBefore} days before deadline)`);
+  // Only report lateness tendency with enough data to be meaningful
+  if (latenessProfile.totalSamples >= 6) {
+    lines.push(`User tendency: ${latenessProfile.label} (avg ${latenessProfile.avgDaysBefore} days before deadline, based on ${latenessProfile.totalSamples} tasks)`);
   }
 
   // Only report productive time once we have enough completions to see a real pattern
@@ -249,7 +249,7 @@ export const buildPatternContext = (patterns, userProfile = null) => {
   }
 
   // Only include per-class patterns for classes with enough history to be meaningful
-  const classPatterns = Object.values(patterns.completionByClass).filter((c) => c.completedCount >= 3);
+  const classPatterns = Object.values(patterns.completionByClass).filter((c) => c.completedCount >= 5);
   if (classPatterns.length > 0) {
     lines.push("Per-class patterns:");
     classPatterns.forEach((c) => {

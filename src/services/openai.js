@@ -10,6 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { APP_CONFIG, VERCEL_API_URL } from "../config";
 import { buildPatternContext } from "./patternAnalysis";
 import { auth } from "./firebase";
+import { format, addDays } from "date-fns";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -464,6 +465,176 @@ export const sendChatMessage = async (
     error.limitReached = err?.limitReached ?? false;
     throw error;
   }
+};
+
+// ── 5. Study Plan Generator ──────────────────────────────────
+
+const TASK_DURATION_MINUTES = (title = "") => {
+  const t = title.toLowerCase();
+  if (/final|midterm/.test(t))                        return 180;
+  if (/exam|test/.test(t))                            return 150;
+  if (/paper|essay|report|thesis|write/.test(t))      return 120;
+  if (/project|presentation|lab report/.test(t))      return 90;
+  if (/lab|assignment|problem set|pset|hw|homework/.test(t)) return 60;
+  if (/quiz|discussion|post|response/.test(t))        return 45;
+  if (/read|chapter|pages|textbook|article/.test(t))  return 60;
+  return 60;
+};
+
+export const generateStudyPlan = async (tasks, userProfile, patterns, availability) => {
+  const now = new Date();
+  const todayStr = format(now, "yyyy-MM-dd");
+
+  const pending = (tasks ?? [])
+    .filter((t) => !t.completed && t.dueDate)
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .slice(0, 15);
+
+  if (pending.length === 0) throw new Error("No upcoming tasks to plan around.");
+
+  const taskLines = pending.map((t) => {
+    const daysUntil = Math.ceil((new Date(t.dueDate) - now) / (1000 * 60 * 60 * 24));
+    const est = TASK_DURATION_MINUTES(t.title);
+    const cls = t.className ? `[${t.className}]` : "";
+    const urgency = daysUntil < 0
+      ? "OVERDUE (already past due — catch up ASAP, 1 session only)"
+      : daysUntil === 0 ? "DUE TODAY"
+      : daysUntil === 1 ? "DUE TOMORROW"
+      : `due in ${daysUntil} days`;
+
+    // Pre-compute minutes available before this task's deadline
+    const taskDueDate = t.dueDate?.toDate ? t.dueDate.toDate() : t.dueDate?.seconds ? new Date(t.dueDate.seconds * 1000) : new Date(t.dueDate);
+    const dueDateLocalStr = format(taskDueDate, "yyyy-MM-dd");
+    const minsAvailable = availability
+      .filter((d) => {
+        if (daysUntil <= 0) return d.date === todayStr; // overdue/due today: only today
+        return d.date >= todayStr && d.date < dueDateLocalStr; // before due date
+      })
+      .reduce((sum, d) => sum + d.hours * 60, 0);
+
+    const timeNote = minsAvailable < est ? " ⚠️ tight on time — tell student to prioritize this" : "";
+
+    return `- [ID:${t.id}] ${cls} "${t.title}" — ${urgency}, est. ${est} min${timeNote}, priority: ${t.aiPriority ?? t.priority ?? "MEDIUM"}`;
+  }).join("\n");
+
+  const availLines = availability
+    .filter((d) => d.hours > 0)
+    .map((d) => `${d.label} (${d.date}): ${d.hours * 60} min available`)
+    .join("\n");
+
+  const name = userProfile?.name ? `Student: ${userProfile.name}. ` : "";
+  const patternContext = patterns ? buildPatternContext(patterns, userProfile) : null;
+
+  const workStyle = userProfile?.learningStyle === "procrastinator"
+    ? "This student tends to procrastinate — schedule key sessions earlier than feels necessary."
+    : userProfile?.learningStyle === "structured"
+    ? "This student needs structure — be explicit about what to do first in each session."
+    : null;
+
+  const prompt = `You are an expert academic coach building a personalized weekly study plan. Your job is to produce sessions that are specific, actionable, and actually useful — not generic filler. Every session should feel like it was written by someone who knows this student.
+
+${name}Today: ${today()} (date: ${todayStr})
+${workStyle ? `Work style note: ${workStyle}` : ""}
+
+Daily availability (soft guide for spreading non-urgent work):
+${availLines || "120 min/day for all days"}
+
+Tasks to schedule:
+${taskLines}
+${patternContext ? `\nSTUDENT BEHAVIORAL PATTERNS (use these actively — they are real data):\n${patternContext}` : ""}
+
+═══ SCHEDULING RULES ═══
+
+1. DATE CONSTRAINT: Every session must be scheduled BEFORE the task's due date. Never on or after it. OVERDUE tasks → schedule today only.
+
+2. URGENT (OVERDUE or DUE TODAY): Schedule today. Ignore availability limits entirely.
+
+3. DUE TOMORROW: Schedule today. Ignore availability limits if needed.
+
+4. AVAILABILITY: For tasks due in 2+ days, use daily availability as a soft guide. Never let it push a session past a deadline.
+
+5. TIGHT TIME (⚠️ tasks): Schedule what you can. In the activity, tell the student directly that this is urgent and they need to make time — no specifics about minutes.
+
+6. SPREAD: Multi-session tasks spread across days. The FINAL session lands on the last available day before the due date.
+
+7. FINAL "COMPLETE" SESSION — NO EXCEPTIONS: Every single task must end with a concrete submission/completion session (e.g. "Submit discussion post", "Turn in problem set", "Upload final essay"). This is the session that actually does and submits the work. For homework, quizzes, discussion posts — ONE final session only; never split into "start" + "finish". Prep sessions (review, outline, draft) come before it.
+
+8. TASK-TYPE SESSION REQUIREMENTS:
+   - EXAM or TEST → minimum 2 sessions: (1) focused review of key concepts, (2) final practice/self-quiz the day before
+   - PAPER or ESSAY → minimum 3 sessions: (1) outline/thesis, (2) draft body, (3) revise and submit
+   - DISCUSSION POST or RESPONSE → 1 session: write and submit in one sitting
+   - HOMEWORK/PROBLEM SET → 1–2 sessions: optional review first, then complete and submit
+   - READING → 1 session: read + take notes (active reading, not passive)
+
+9. BEHAVIORAL PERSONALIZATION: If patterns are listed above, use them:
+   - Procrastinator or high late rate for this class → front-load sessions, don't wait until day before
+   - Struggling grade (⚠️) → add an extra "review concepts" session before submission
+   - Productive time listed → mention it in the activity ("you tend to get this done best in the [time]")
+   - ONLY reference patterns explicitly in the data above. Never invent.
+
+═══ SESSION QUALITY RULES ═══
+
+10. SESSION TITLE: 3–7 words, action-verb first, specific to the work — e.g. "Outline argument structure", "Solve problems 1–15", "Review lecture notes Ch. 4", "Draft body paragraphs", "Submit discussion response". Never repeat the raw task title.
+
+11. ACTIVITY: 2 sentences max.
+    Sentence 1 — how to START: what to open, pull up, or have in front of you (be specific to the actual task).
+    Sentence 2 — what to PRODUCE: what you'll have when the session ends ("3 body paragraphs drafted", "all assigned problems attempted", "post submitted and done").
+    If a pattern or deadline is especially relevant, work it naturally into sentence 2.
+
+12. COVERAGE: Every task in the list gets at least one session.
+
+Output ONLY a raw JSON array — no markdown, no explanation:
+[{
+  "taskId": "exact_id_from_list",
+  "sessionTitle": "Short specific title",
+  "date": "YYYY-MM-DD",
+  "durationMinutes": 60,
+  "activity": "How to start. What you'll have when done."
+}]`;
+
+  const content = await callProxy({
+    model: "gpt-4o",
+    messages: [
+      { role: "system", content: BASE_SYSTEM },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.3,
+    max_tokens: 2500,
+  });
+
+  const sessions = safeParseJSON(content.trim(), "array");
+
+  const validIds = new Set(pending.map((t) => t.id));
+
+  return sessions
+    .filter((s) => validIds.has(s.taskId))
+    .map((s) => {
+      const task = pending.find((t) => t.id === s.taskId);
+      const dueDate = task.dueDate?.toDate ? task.dueDate.toDate() : task.dueDate?.seconds ? new Date(task.dueDate.seconds * 1000) : new Date(task.dueDate);
+      const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+      const isOverdue = daysUntilDue < 0;
+
+      // Hard enforce in code: overdue → today, future → must be before due date
+      let date = s.date;
+      if (isOverdue) {
+        date = todayStr;
+      } else {
+        const dueDateLocalStr = format(dueDate, "yyyy-MM-dd");
+        const dayBeforeStr = format(addDays(dueDate, -1), "yyyy-MM-dd");
+        if (date > dueDateLocalStr) {
+          // Session is after due date — move to day before, minimum today
+          date = dayBeforeStr >= todayStr ? dayBeforeStr : todayStr;
+        }
+      }
+
+      return {
+        ...s,
+        date,
+        sessionTitle: s.sessionTitle ?? task?.title ?? "Study session",
+        taskTitle: task?.title ?? "",
+        className: task?.className ?? null,
+      };
+    });
 };
 
 // ── 4. AI Priority Suggestion ────────────────────────────────

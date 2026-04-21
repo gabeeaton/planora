@@ -49,6 +49,7 @@ import {
   format,
   addDays,
   isToday,
+  startOfToday,
   startOfWeek,
   differenceInCalendarDays,
 } from "date-fns";
@@ -97,12 +98,10 @@ const makeStyles = (colors, insets) =>
       color: colors.isDark ? colors.medium : "#CC6600",
     },
     importBtn: {
-      flexDirection: "row", alignItems: "center", gap: 5,
+      width: 36, height: 36, borderRadius: 18,
+      alignItems: "center", justifyContent: "center",
       backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
-      borderRadius: radius.full,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: 10, paddingVertical: 6,
+      borderWidth: 1, borderColor: colors.border,
       shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
       shadowOpacity: colors.isDark ? 0 : 0.06, shadowRadius: 4, elevation: 2,
     },
@@ -126,6 +125,25 @@ const makeStyles = (colors, insets) =>
 
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 80 },
+
+    planCard: {
+      flexDirection: "row", alignItems: "center",
+      borderRadius: radius.md, borderWidth: 1,
+      borderColor: colors.isDark ? colors.border : "#E0E0EE",
+      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+      paddingHorizontal: 14, paddingVertical: 13,
+      marginBottom: spacing.sm, gap: 10,
+      shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: colors.isDark ? 0 : 0.05, shadowRadius: 4, elevation: 1,
+    },
+    planCardIconWrap: {
+      width: 32, height: 32, borderRadius: 10,
+      alignItems: "center", justifyContent: "center",
+      backgroundColor: colors.accent + "18",
+    },
+    planCardText: { flex: 1 },
+    planCardTitle: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
+    planCardSub: { fontSize: 11, fontFamily: "Outfit-Regular", color: colors.textMuted, marginTop: 1 },
 
     insightStrip: {
       flexDirection: "row",
@@ -289,7 +307,6 @@ const makeStyles = (colors, insets) =>
       textAlign: "center",
       lineHeight: 22,
     },
-
   });
 
 // Animated insight strip — slides down and fades in each time a new insight appears
@@ -605,6 +622,7 @@ const DashboardScreen = ({ navigation }) => {
   const [calWeekOffset, setCalWeekOffset] = useState(0);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [tabLoading, setTabLoading] = useState(false);
+  const [planTodayCount, setPlanTodayCount] = useState(null);
 
   const scrollRef      = useRef(null);
   const scrollOffsetY  = useRef(0);
@@ -661,6 +679,18 @@ const DashboardScreen = ({ navigation }) => {
     const bestTime = patterns?.productiveTimeOfDay?.bestTime ?? "evening";
     scheduleStreakReminder(streak, bestTime, user?.uid);
   }, [streak, patterns?.productiveTimeOfDay?.bestTime, user?.uid]);
+
+  useEffect(() => {
+    AsyncStorage.getItem("@planora_study_plan_cache").then((raw) => {
+      if (!raw) return;
+      try {
+        const { plan } = JSON.parse(raw);
+        const todayStr = format(startOfToday(), "yyyy-MM-dd");
+        const todaySessions = plan.filter((s) => s.date === todayStr);
+        setPlanTodayCount(todaySessions.length > 0 ? todaySessions.length : 0);
+      } catch {}
+    }).catch(() => {});
+  }, []);
 
   const enrichedTasks = useMemo(() => {
     const gradeMap = {};
@@ -748,7 +778,7 @@ const DashboardScreen = ({ navigation }) => {
     if (urgentUntouched?.length > 0) {
       const t = urgentUntouched[0];
       return {
-        text: `"${t.title}" is due soon and hasn't been started.`,
+        text: `"${t.title}" is due soon — make sure you leave time for it.`,
         icon: "alert-triangle",
         color: colors.high,
       };
@@ -977,6 +1007,13 @@ const DashboardScreen = ({ navigation }) => {
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <TouchableOpacity
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); navigation.navigate("StudyPlan"); }}
+            style={styles.importBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="edit-3" size={16} color={colors.accent} />
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => {
               Haptics.selectionAsync().catch(() => {});
               setCalendarLoading(true);
@@ -984,26 +1021,18 @@ const DashboardScreen = ({ navigation }) => {
               if (!calendarMode) setCalWeekOffset(0);
               InteractionManager.runAfterInteractions(() => setCalendarLoading(false));
             }}
-            style={[
-              styles.importBtn,
-              calendarMode && {
-                backgroundColor: colors.accentGlow,
-                borderColor: colors.accent,
-              },
-            ]}
+            style={[styles.importBtn, calendarMode && { backgroundColor: colors.accentGlow, borderColor: colors.accent }]}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Feather name="calendar" size={14} color={calendarMode ? colors.accent : colors.textSecondary} />
-            <Text style={[styles.importBtnText, { color: calendarMode ? colors.accent : colors.textSecondary }]}>Week</Text>
+            <Feather name="calendar" size={16} color={calendarMode ? colors.accent : colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
             style={styles.importBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Feather name="upload-cloud" size={14} color={colors.accent} />
-            <Text style={styles.importBtnText}>Import</Text>
+            <Feather name="upload-cloud" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1043,15 +1072,14 @@ const DashboardScreen = ({ navigation }) => {
         {/* What should I do right now — Pro feature */}
         {tasks.length > 0 && (
           <WhatDoIDoButton
-            tasks={tasks}
-            userProfile={profile}
-            patterns={patterns}
-            onTaskHighlight={setHighlightedTaskId}
-            onUpgrade={() => navigation.navigate("Paywall")}
-            onPrioritiesUpdated={setAiAnnotatedTasks}
-          />
+              tasks={tasks}
+              userProfile={profile}
+              patterns={patterns}
+              onTaskHighlight={setHighlightedTaskId}
+              onUpgrade={() => navigation.navigate("Paywall")}
+              onPrioritiesUpdated={setAiAnnotatedTasks}
+            />
         )}
-
 
         {/* Behavioral insight strip */}
         {behavioralInsight && (

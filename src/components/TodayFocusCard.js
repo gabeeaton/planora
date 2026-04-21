@@ -156,6 +156,12 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   errorText: { fontSize: 13, color: colors.textMuted, flex: 1 },
   retryText: { fontSize: 13, color: colors.accent, fontFamily: "Outfit-SemiBold" },
+  insightRow: {
+    flexDirection: "row", alignItems: "center", gap: 7,
+    paddingHorizontal: spacing.md, paddingVertical: 9,
+    borderTopWidth: 1, borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
+  },
+  insightText: { fontSize: 12, fontFamily: "Outfit-Regular", color: colors.textSecondary, flex: 1, lineHeight: 17 },
 });
 
 const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
