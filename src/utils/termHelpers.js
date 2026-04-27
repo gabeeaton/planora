@@ -8,7 +8,7 @@ export const generateTerms = (system = "semester") => {
   const now = new Date();
   const year = now.getFullYear();
   const results = [];
-  for (let y = year; y <= year + 2; y++) {
+  for (let y = year - 1; y <= year + 2; y++) {
     const seasons = system === "quarter"
       ? [
           { name: `Winter ${y}`, startMonth: 0 },
@@ -23,7 +23,8 @@ export const generateTerms = (system = "semester") => {
         ];
     seasons.forEach(({ name, startMonth }) => {
       const monthsAgo = (now.getFullYear() - y) * 12 + (now.getMonth() - startMonth);
-      if (monthsAgo <= 3) results.push(name);
+      // show: started ≤4 months ago (still ongoing) or starting ≤8 months from now (upcoming)
+      if (monthsAgo >= -8 && monthsAgo <= 4) results.push(name);
     });
   }
   return [...new Set(results)].slice(0, 8);

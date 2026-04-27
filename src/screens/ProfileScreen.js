@@ -25,9 +25,10 @@ import { useSubscription } from "../hooks/useSubscription";
 import { typography, spacing, radius, shadows, COLOR_THEMES } from "../utils/theme";
 import { generateTerms, WORK_TIMES, GRADES, CREDIT_OPTS } from "../utils/termHelpers";
 import { useTheme } from "../utils/ThemeContext";
-import { saveUserProfile } from "../services/firebase";
+import { saveUserProfile, deleteUserAccount, deleteAllUserTasks, clearIncompleteTasksForSemester } from "../services/firebase";
 import { testAllNotifications, testBatchNotifications, testStudyPlanNotification } from "../services/notifications";
 import { useTasks } from "../hooks/useTasks";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
@@ -323,6 +324,38 @@ const ProfileScreen = ({ navigation }) => {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "This permanently deletes your account and all data. This cannot be undone.\n\nEnter your password to confirm.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            Alert.prompt(
+              "Confirm Password",
+              "Enter your password to delete your account.",
+              async (password) => {
+                if (!password) return;
+                try {
+                  await deleteUserAccount(password);
+                } catch (err) {
+                  const msg = err.code === "auth/wrong-password" || err.code === "auth/invalid-credential"
+                    ? "Incorrect password. Please try again."
+                    : err.message ?? "Something went wrong. Please try again.";
+                  Alert.alert("Error", msg);
+                }
+              },
+              "secure-text"
+            );
+          },
+        },
+      ]
+    );
+  };
+
   const handleSaveName = async () => {
     await saveUserProfile(user.uid, { name: nameInput.trim() || null });
     setEditingName(false);
@@ -341,8 +374,32 @@ const ProfileScreen = ({ navigation }) => {
     await saveUserProfile(user.uid, { schoolSystem: sys, semester: null });
   };
   const pickSemester = async (s) => {
-    await saveUserProfile(user.uid, { semester: s });
-    setModal(null);
+    const isNewTerm = profile?.semester && profile.semester !== s;
+    if (isNewTerm) {
+      setModal(null);
+      Alert.alert(
+        "New Semester",
+        `Switch to ${s}?\n\nWould you also like to clear all current tasks? This can't be undone.`,
+        [
+          { text: "Switch & Clear Tasks", style: "destructive", onPress: async () => {
+            await saveUserProfile(user.uid, { semester: s });
+            const { invalidateTodayFocusCache } = await import("../services/openai");
+            const { cancelStudyPlanReminders } = await import("../services/notifications");
+            await Promise.all([
+              clearIncompleteTasksForSemester(user.uid),
+              AsyncStorage.removeItem("@planora_study_plan_cache"),
+              cancelStudyPlanReminders(user.uid),
+              invalidateTodayFocusCache(),
+            ]).catch(() => {});
+          }},
+          { text: "Just Switch", onPress: () => saveUserProfile(user.uid, { semester: s }) },
+          { text: "Cancel", style: "cancel" },
+        ]
+      );
+    } else {
+      await saveUserProfile(user.uid, { semester: s });
+      setModal(null);
+    }
   };
 
   // ── Work time picker ──
@@ -614,6 +671,7 @@ const ProfileScreen = ({ navigation }) => {
         <SectionHeader title="" />
         <View style={styles.card}>
           <Row icon="log-out" label="Sign Out" onPress={handleLogout} danger />
+          <Row icon="trash-2" label="Delete Account" onPress={handleDeleteAccount} danger />
         </View>
 
         {/* <SectionHeader title="Developer" />

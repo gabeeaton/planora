@@ -31,6 +31,8 @@ import ResetPasswordScreen   from "../screens/ResetPasswordScreen";
 import StudyPlanScreen       from "../screens/StudyPlanScreen";
 import { useTheme } from "../utils/ThemeContext";
 import TaskModal from "../components/TaskModal";
+import WalkthroughOverlay from "../components/WalkthroughOverlay";
+import { WalkthroughProvider, useWalkthroughTargets } from "../utils/WalkthroughContext";
 import { useTasks } from "../hooks/useTasks";
 import { invalidateTodayFocusCache } from "../services/openai";
 
@@ -54,11 +56,12 @@ const Tab   = createBottomTabNavigator();
 const TAB_ICONS  = { Dashboard: "home", Stats: "bar-chart-2", Chat: "message-circle", Profile: "user" };
 const TAB_LABELS = { Dashboard: "Home", Stats: "Progress",    Chat: "Coach",          Profile: "Profile" };
 
-const TabItem = ({ route, isFocused, onPress, colors }) => {
+const TAB_TARGET_NAMES = { Dashboard: "homeTab", Stats: "statsTab", Chat: "chatTab", Profile: "profileTab" };
+
+const TabItem = ({ route, isFocused, onPress, colors, onMeasure }) => {
+  const outerRef   = useRef(null);
   const scaleAnim  = useRef(new Animated.Value(1)).current;
-  // Native-driver anim: drives background pill + dual icon crossfade (opacity/transform only)
   const nativeAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
-  // JS-driver anim: drives label color interpolation only
   const colorAnim  = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
   useEffect(() => {
@@ -80,20 +83,24 @@ const TabItem = ({ route, isFocused, onPress, colors }) => {
 
   return (
     <TouchableOpacity
+      ref={outerRef}
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={tabStyles.tab}
       activeOpacity={1}
+      onLayout={() => {
+        outerRef.current?.measureInWindow((x, y, w, h) => {
+          onMeasure?.({ cx: x + w / 2, cy: y + h / 2, w, h, r: 12 });
+        });
+      }}
     >
       <View style={tabStyles.iconWrap}>
-        {/* Background pill — native driver opacity */}
         <Animated.View style={[StyleSheet.absoluteFill, {
           borderRadius: 12,
           backgroundColor: colors.isDark ? colors.accentGlow : colors.accent + "22",
           opacity: nativeAnim,
         }]} />
-        {/* Dual icons crossfade + scale — all native driver */}
         <Animated.View style={{ transform: [{ scale: scaleAnim }], width: 20, height: 20 }}>
           <Animated.View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", opacity: unfocusedOpacity }]}>
             <Feather name={iconName} size={20} color={colors.textMuted} />
@@ -114,7 +121,9 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { openAddTask } = useContext(AddTaskContext);
+  const { setTarget } = useWalkthroughTargets();
   const plusScale = useRef(new Animated.Value(1)).current;
+  const plusRef   = useRef(null);
 
   const mid = Math.floor(state.routes.length / 2);
 
@@ -124,8 +133,16 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
       const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
       if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
     };
+    const targetName = TAB_TARGET_NAMES[route.name];
     return (
-      <TabItem key={route.key} route={route} isFocused={isFocused} onPress={onPress} colors={colors} />
+      <TabItem
+        key={route.key}
+        route={route}
+        isFocused={isFocused}
+        onPress={onPress}
+        colors={colors}
+        onMeasure={targetName ? (rect) => setTarget(targetName, rect) : undefined}
+      />
     );
   };
 
@@ -140,7 +157,15 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
     ]}>
       {state.routes.slice(0, mid).map((route, index) => renderTab(route, index))}
 
-      <View style={tabStyles.plusWrap}>
+      <View
+        ref={plusRef}
+        style={tabStyles.plusWrap}
+        onLayout={() => {
+          plusRef.current?.measureInWindow((x, y, w, h) => {
+            setTarget("plus", { cx: x + w / 2, cy: y + h / 2, w: 44, h: 40, r: 12 });
+          });
+        }}
+      >
         <Animated.View style={{ transform: [{ scale: plusScale }] }}>
           <TouchableOpacity
             style={[tabStyles.plusBtn, { backgroundColor: colors.accent }]}
@@ -202,8 +227,25 @@ const MainTabsMemo = React.memo(MainTabs);
 const MainTabsWithModal = () => {
   const [visible, setVisible] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
   const { createTask, editTask } = useTasks();
+  const { user } = useAuth();
+  const { profile } = useUserProfile();
   const navigation = useNavigation();
+  const walkthroughTriggered = useRef(false);
+
+  useEffect(() => {
+    if (walkthroughTriggered.current || profile == null) return;
+    walkthroughTriggered.current = true;
+    if (!profile.walkthroughComplete) {
+      setTimeout(() => setShowWalkthrough(true), 900);
+    }
+  }, [profile]);
+
+  const handleWalkthroughDone = useCallback(() => {
+    setShowWalkthrough(false);
+    if (user?.uid) saveUserProfile(user.uid, { walkthroughComplete: true }).catch(() => {});
+  }, [user?.uid]);
 
   // Open StudyPlan when user taps a study-plan-reminder notification
   const lastNotifResponse = Notifications.useLastNotificationResponse();
@@ -227,15 +269,18 @@ const MainTabsWithModal = () => {
   const contextValue = useMemo(() => ({ openAddTask }), [openAddTask]);
 
   return (
-    <AddTaskContext.Provider value={contextValue}>
-      <MainTabsMemo />
-      <TaskModal
-        visible={visible}
-        task={editingTask}
-        onClose={() => setVisible(false)}
-        onSave={handleSave}
-      />
-    </AddTaskContext.Provider>
+    <WalkthroughProvider>
+      <AddTaskContext.Provider value={contextValue}>
+        <MainTabsMemo />
+        <TaskModal
+          visible={visible}
+          task={editingTask}
+          onClose={() => setVisible(false)}
+          onSave={handleSave}
+        />
+        {showWalkthrough && <WalkthroughOverlay onDone={handleWalkthroughDone} />}
+      </AddTaskContext.Provider>
+    </WalkthroughProvider>
   );
 };
 

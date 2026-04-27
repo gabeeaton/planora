@@ -45,6 +45,7 @@ import * as Notifications from "expo-notifications";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { AddTaskContext } from "../navigation/AppNavigator";
+import { useWalkthroughTargets } from "../utils/WalkthroughContext";
 import { Share } from "react-native";
 import {
   format,
@@ -610,6 +611,15 @@ const DashboardScreen = ({ navigation }) => {
   const clearCompleted = DEMO_MODE ? () => {} : realTasks.clearCompleted;
 
   const { openAddTask } = useContext(AddTaskContext);
+  const { setTarget } = useWalkthroughTargets();
+  const studyPlanBtnRef  = useRef(null);
+  const calendarBtnRef   = useRef(null);
+  const syllabusBtnRef   = useRef(null);
+  const measureBtn = (ref, name) => {
+    ref.current?.measureInWindow((x, y, w, h) => {
+      setTarget(name, { cx: x + w / 2, cy: y + h / 2, w, h, r: 18 });
+    });
+  };
 
   const [completingIds, setCompletingIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState("All");
@@ -1015,16 +1025,19 @@ const DashboardScreen = ({ navigation }) => {
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <TouchableOpacity
+            ref={studyPlanBtnRef}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
               navigation.navigate(isPro ? "StudyPlan" : "Paywall");
             }}
             style={styles.importBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onLayout={() => measureBtn(studyPlanBtnRef, "studyPlan")}
           >
             <Feather name="edit-3" size={16} color={colors.accent} />
           </TouchableOpacity>
           <TouchableOpacity
+            ref={calendarBtnRef}
             onPress={() => {
               Haptics.selectionAsync().catch(() => {});
               setCalendarLoading(true);
@@ -1035,13 +1048,16 @@ const DashboardScreen = ({ navigation }) => {
             style={[styles.importBtn, calendarMode && { backgroundColor: colors.accentGlow, borderColor: colors.accent }]}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onLayout={() => measureBtn(calendarBtnRef, "calendar")}
           >
             <Feather name="calendar" size={16} color={calendarMode ? colors.accent : colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
+            ref={syllabusBtnRef}
             onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
             style={styles.importBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onLayout={() => measureBtn(syllabusBtnRef, "syllabusImport")}
           >
             <Feather name="upload-cloud" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
