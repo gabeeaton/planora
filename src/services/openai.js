@@ -8,7 +8,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { APP_CONFIG, VERCEL_API_URL } from "../config";
-import { buildPatternContext } from "./patternAnalysis";
+import { buildPatternContext, isStrugglingGrade } from "./patternAnalysis";
 import { auth } from "./firebase";
 import { format, addDays } from "date-fns";
 
@@ -398,12 +398,12 @@ Task creation: If the user explicitly asks you to add, create, or schedule a tas
 1. If no class is mentioned and the user has classes set up, ask which class it's for before creating it.
 2. For due dates, always calculate relative to the Today date provided in the context block below. "Tomorrow" = Today + 1 day, "Friday" = the next upcoming Friday from Today, etc. Never guess the date independently.
 3. Set priority using your own judgment — weigh ALL of these factors together:
-   - Deadline proximity: due today/tomorrow → leans HIGH; due within 7 days → leans MEDIUM; further out → leans LOW
-   - Assignment weight: final exam / midterm / major paper → always at least MEDIUM, usually HIGH if due soon; quiz / discussion post → MEDIUM; reading / participation → LOW unless due very soon
+   - Due today → always HIGH, no exceptions (even reading or low-stakes work)
+   - Due tomorrow → HIGH unless the task is genuinely trivial (e.g. "buy coffee")
+   - Due within 7 days → MEDIUM; further out → LOW
+   - Assignment weight: final exam / midterm / major paper → bump up one level if within 2 weeks
    - Class importance: if the student's hardest class or highest-credit class is in context, weight its tasks higher
-   - No due date: use assignment type to decide — a final project with no date is still MEDIUM, a casual reading is LOW
-   - Override: if a task is clearly low-stakes regardless of deadline (e.g. "buy coffee"), keep it LOW even if due tomorrow
-   Use HIGH sparingly — it should feel urgent, not default.
+   - No due date: use assignment type — a final project with no date is still MEDIUM, casual participation is LOW
 4. For a SINGLE task, append this block at the very end of your response:
 %%ACTION:{"type":"createTask","title":"<task title>","dueDate":"<YYYY-MM-DD or null>","className":"<class name or null>","priority":"<HIGH|MEDIUM|LOW>"}%%
 5. If the user asks to break down, split, or create subtasks for a task, first look up the task in the context above — its due date, class, and priority are already there. Only ask for details that are NOT in the context (e.g. page count, specific requirements, format). If you need to ask, ask everything in one message with each question on its own line so the user can reply all at once. Never ask for information already available in context. Once you have enough info, generate 3-5 specific actionable subtasks following these rules exactly:
@@ -494,7 +494,7 @@ const TASK_DURATION_MINUTES = (title = "") => {
   return 60;
 };
 
-export const generateStudyPlan = async (tasks, userProfile, patterns, availability) => {
+export const generateStudyPlan = async (tasks, userProfile, patterns, availability, completedSessions = []) => {
   const now = new Date();
   const todayStr = format(now, "yyyy-MM-dd");
 
@@ -505,10 +505,30 @@ export const generateStudyPlan = async (tasks, userProfile, patterns, availabili
 
   if (pending.length === 0) throw new Error("No upcoming tasks to plan around.");
 
+  // Build class lookup: name → { grade, credits }
+  const classLookup = {};
+  (userProfile?.classes ?? []).forEach((c) => {
+    if (c.name) classLookup[c.name] = c;
+  });
+
+  // Build avoidance lookup: taskId → daysSinceTouched
+  const avoidanceLookup = {};
+  (patterns?.avoidanceScores ?? []).forEach((a) => {
+    if (a.isBeingAvoided) avoidanceLookup[a.taskId] = a.daysSinceTouched;
+  });
+
   const taskLines = pending.map((t) => {
     const daysUntil = Math.ceil((new Date(t.dueDate) - now) / (1000 * 60 * 60 * 24));
     const est = TASK_DURATION_MINUTES(t.title);
-    const cls = t.className ? `[${t.className}]` : "";
+
+    // Class context: grade + credits
+    const clsData  = t.className ? classLookup[t.className] : null;
+    const gradeStr = clsData?.grade && clsData.grade !== "No grade yet"
+      ? ` | grade: ${clsData.grade}${isStrugglingGrade(clsData.grade) ? " ⚠️ struggling" : ""}`
+      : "";
+    const creditStr = clsData?.credits ? ` | ${clsData.credits} credits` : "";
+    const cls = t.className ? `[${t.className}${gradeStr}${creditStr}]` : "";
+
     const urgency = daysUntil < 0
       ? "OVERDUE (already past due — catch up ASAP, 1 session only)"
       : daysUntil === 0 ? "DUE TODAY"
@@ -520,14 +540,15 @@ export const generateStudyPlan = async (tasks, userProfile, patterns, availabili
     const dueDateLocalStr = format(taskDueDate, "yyyy-MM-dd");
     const minsAvailable = availability
       .filter((d) => {
-        if (daysUntil <= 0) return d.date === todayStr; // overdue/due today: only today
-        return d.date >= todayStr && d.date < dueDateLocalStr; // before due date
+        if (daysUntil <= 0) return d.date === todayStr;
+        return d.date >= todayStr && d.date < dueDateLocalStr;
       })
       .reduce((sum, d) => sum + d.hours * 60, 0);
 
-    const timeNote = minsAvailable < est ? " ⚠️ tight on time — tell student to prioritize this" : "";
+    const timeNote    = minsAvailable < est ? " ⚠️ tight on time — tell student to prioritize this" : "";
+    const avoidedNote = avoidanceLookup[t.id] ? ` | ⚠️ being avoided (${avoidanceLookup[t.id]}d untouched — front-load this)` : "";
 
-    return `- [ID:${t.id}] ${cls} "${t.title}" — ${urgency}, est. ${est} min${timeNote}, priority: ${t.aiPriority ?? t.priority ?? "MEDIUM"}`;
+    return `- [ID:${t.id}] ${cls} "${t.title}" — ${urgency}, est. ${est} min${timeNote}${avoidedNote}, priority: ${t.aiPriority ?? t.priority ?? "MEDIUM"}`;
   }).join("\n");
 
   const availLines = availability
@@ -538,22 +559,16 @@ export const generateStudyPlan = async (tasks, userProfile, patterns, availabili
   const name = userProfile?.name ? `Student: ${userProfile.name}. ` : "";
   const patternContext = patterns ? buildPatternContext(patterns, userProfile) : null;
 
-  const workStyle = userProfile?.learningStyle === "procrastinator"
-    ? "This student tends to procrastinate — schedule key sessions earlier than feels necessary."
-    : userProfile?.learningStyle === "structured"
-    ? "This student needs structure — be explicit about what to do first in each session."
-    : null;
-
-  const prompt = `You are an expert academic coach building a personalized weekly study plan. Your job is to produce sessions that are specific, actionable, and actually useful — not generic filler. Every session should feel like it was written by someone who knows this student.
+  const prompt = `You are an expert academic coach building a personalized weekly study plan. Produce sessions that are specific, actionable, and genuinely useful — not generic filler. Every session must feel written for this student specifically.
 
 ${name}Today: ${today()} (date: ${todayStr})
-${workStyle ? `Work style note: ${workStyle}` : ""}
 
 Daily availability (soft guide for spreading non-urgent work):
 ${availLines || "120 min/day for all days"}
 
 Tasks to schedule:
 ${taskLines}
+${completedSessions.length > 0 ? `\nAlready completed this week — reduce remaining time estimates for these tasks accordingly:\n${completedSessions.map((s) => `- ${s.className ? `[${s.className}] ` : ""}"${s.sessionTitle}" (${s.durationMinutes ?? 0}min logged)`).join("\n")}` : ""}
 ${patternContext ? `\nSTUDENT BEHAVIORAL PATTERNS (use these actively — they are real data):\n${patternContext}` : ""}
 
 ═══ SCHEDULING RULES ═══
@@ -564,37 +579,44 @@ ${patternContext ? `\nSTUDENT BEHAVIORAL PATTERNS (use these actively — they a
 
 3. DUE TOMORROW: Schedule today. Ignore availability limits if needed.
 
-4. AVAILABILITY: For tasks due in 2+ days, use daily availability as a soft guide. Never let it push a session past a deadline.
+4. AVAILABILITY: For tasks due in 2+ days, use daily availability as a soft guide. Never let it push a session past a deadline. If the only days before a deadline have 0 availability, schedule there anyway — the student needs to find time.
 
-5. TIGHT TIME (⚠️ tasks): Schedule what you can. In the activity, tell the student directly that this is urgent and they need to make time — no specifics about minutes.
+5. DAILY CAP: Maximum 4 study sessions per calendar day. If you must choose, prioritize by urgency then priority.
 
-6. SPREAD: Multi-session tasks spread across days. The FINAL session lands on the last available day before the due date.
+6. ZERO-AVAILABILITY OVERRIDE: If a task is due in ≤3 days and no available day before the deadline has study time, schedule the session anyway. In the activity, tell the student directly: "You'll need to carve out time for this — it's due [date] and can't wait."
 
-7. FINAL "COMPLETE" SESSION — NO EXCEPTIONS: Every single task must end with a concrete submission/completion session (e.g. "Submit discussion post", "Turn in problem set", "Upload final essay"). This is the session that actually does and submits the work. For homework, quizzes, discussion posts — ONE final session only; never split into "start" + "finish". Prep sessions (review, outline, draft) come before it.
+7. TIGHT TIME (⚠️ tasks): Always schedule these, even on 0-availability days. Activity must explicitly say the student needs to make time — be direct, not soft.
 
-8. TASK-TYPE SESSION REQUIREMENTS:
-   - EXAM or TEST → minimum 2 sessions: (1) focused review of key concepts, (2) final practice/self-quiz the day before
-   - PAPER or ESSAY → minimum 3 sessions: (1) outline/thesis, (2) draft body, (3) revise and submit
-   - DISCUSSION POST or RESPONSE → 1 session: write and submit in one sitting
-   - HOMEWORK/PROBLEM SET → 1–2 sessions: optional review first, then complete and submit
-   - READING → 1 session: read + take notes (active reading, not passive)
+9. AVOIDED TASKS (⚠️ being avoided): Front-load these — schedule the first session as early as possible, not near the deadline.
 
-9. BEHAVIORAL PERSONALIZATION: If patterns are listed above, use them:
-   - Procrastinator or high late rate for this class → front-load sessions, don't wait until day before
-   - Struggling grade (⚠️) → add an extra "review concepts" session before submission
-   - Productive time listed → mention it in the activity ("you tend to get this done best in the [time]")
-   - ONLY reference patterns explicitly in the data above. Never invent.
+10. FINAL "COMPLETE" SESSION — NO EXCEPTIONS: Every task must end with a concrete submission/completion session (e.g. "Submit discussion post", "Turn in problem set", "Upload final essay"). For homework, quizzes, discussion posts — ONE final session only. Prep sessions come before it.
+
+11. TASK-TYPE SESSION REQUIREMENTS:
+    - EXAM or TEST → minimum 2 sessions: (1) focused review of key concepts, (2) practice/self-quiz the day before
+    - PAPER or ESSAY → minimum 3 sessions: (1) outline/thesis, (2) draft body, (3) revise and submit
+    - DISCUSSION POST or RESPONSE → 1 session: write and submit in one sitting
+    - HOMEWORK/PROBLEM SET → 1–2 sessions: optional review first, then complete and submit
+    - READING → 1 session: read + active notes
+
+12. CLASS WEIGHT: Tasks for classes with struggling grades (⚠️) get an extra review session. Higher credit courses take priority when daily time is limited.
+
+13. BEHAVIORAL PERSONALIZATION:
+    - Procrastinator / high late rate → front-load sessions, never schedule key work for the day before
+    - Struggling grade (⚠️) → extra "review concepts" session before submission
+    - Productive time listed → reference it naturally in the activity
+    - ONLY use patterns explicitly stated above. Never invent.
 
 ═══ SESSION QUALITY RULES ═══
 
-10. SESSION TITLE: 3–7 words, action-verb first, specific to the work — e.g. "Outline argument structure", "Solve problems 1–15", "Review lecture notes Ch. 4", "Draft body paragraphs", "Submit discussion response". Never repeat the raw task title.
+14. SESSION TITLE: 3–7 words, action-verb first, specific — e.g. "Outline argument structure", "Solve problems 1–15", "Review Ch. 4 lecture notes", "Draft body paragraphs", "Submit discussion response". Never restate the raw task title.
 
-11. ACTIVITY: 2 sentences max.
-    Sentence 1 — how to START: what to open, pull up, or have in front of you (be specific to the actual task).
-    Sentence 2 — what to PRODUCE: what you'll have when the session ends ("3 body paragraphs drafted", "all assigned problems attempted", "post submitted and done").
-    If a pattern or deadline is especially relevant, work it naturally into sentence 2.
+15. ACTIVITY: Exactly 2 sentences.
+    Sentence 1 — how to START: name specific materials (chapter, problem set numbers, essay section, lecture slides). Never say "review your notes" or "work on the assignment" — name the actual thing.
+    Sentence 2 — what to PRODUCE: concrete output ("3 body paragraphs drafted", "problems 1–20 attempted and checked", "post submitted"). If urgency or a pattern is relevant, weave it in naturally.
 
-12. COVERAGE: Every task in the list gets at least one session.
+16. DURATION: Use the est. minutes as a floor. Adjust up for struggling grades or avoided tasks. Keep individual sessions under 120 min.
+
+17. COVERAGE: Every task in the list gets at least one session.
 
 Output ONLY a raw JSON array — no markdown, no explanation:
 [{
@@ -602,7 +624,7 @@ Output ONLY a raw JSON array — no markdown, no explanation:
   "sessionTitle": "Short specific title",
   "date": "YYYY-MM-DD",
   "durationMinutes": 60,
-  "activity": "How to start. What you'll have when done."
+  "activity": "Specific how-to-start sentence. Concrete output sentence."
 }]`;
 
   const content = await callProxy({
@@ -611,8 +633,8 @@ Output ONLY a raw JSON array — no markdown, no explanation:
       { role: "system", content: BASE_SYSTEM },
       { role: "user", content: prompt },
     ],
-    temperature: 0.3,
-    max_tokens: 2500,
+    temperature: 0.2,
+    max_tokens: 4000,
   });
 
   const sessions = safeParseJSON(content.trim(), "array");
@@ -646,6 +668,7 @@ Output ONLY a raw JSON array — no markdown, no explanation:
         sessionTitle: s.sessionTitle ?? task?.title ?? "Study session",
         taskTitle: task?.title ?? "",
         className: task?.className ?? null,
+        taskDueDate: format(dueDate, "M/d"),
       };
     });
 };
@@ -669,9 +692,9 @@ ${taskList}
 Note: showing ${shown} of ${tasks.length} total pending tasks, sorted by urgency. You may be seeing a partial list.
 
 Rules:
-- HIGH: Due today or tomorrow, or student historically struggles with this class
-- MEDIUM: Due within a week, or moderate importance
-- LOW: No deadline, or low stakes
+- HIGH: Due today → always HIGH, no exceptions. Due tomorrow → HIGH unless genuinely trivial. Student historically struggles with this class → HIGH.
+- MEDIUM: Due within 7 days, or moderate-stakes assignment
+- LOW: No deadline, or clearly low-stakes
 - If your reason exceeds 12 words, cut it to the single most important phrase. Never give more than one reason per task.
 
 CRITICAL: Output ONLY a raw JSON array. Start with [ end with ]. No markdown, no text.

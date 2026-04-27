@@ -23,6 +23,7 @@ import {
   Platform,
   UIManager,
   InteractionManager,
+  DeviceEventEmitter,
 } from "react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -45,7 +46,7 @@ import * as Notifications from "expo-notifications";
 import { typography, spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { AddTaskContext } from "../navigation/AppNavigator";
-import { useWalkthroughTargets } from "../utils/WalkthroughContext";
+import { useSetWalkthroughTarget } from "../utils/WalkthroughContext";
 import { Share } from "react-native";
 import {
   format,
@@ -75,8 +76,8 @@ const makeStyles = (colors, insets) =>
       alignItems: "center",
       justifyContent: "space-between",
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.md,
-      paddingBottom: spacing.md,
+      paddingTop: 10,
+      paddingBottom: 10,
       borderBottomWidth: 1,
       borderBottomColor: colors.isDark ? colors.border : "#EAEAF0",
     },
@@ -100,16 +101,16 @@ const makeStyles = (colors, insets) =>
       color: colors.isDark ? colors.medium : "#CC6600",
     },
     importBtn: {
-      width: 36, height: 36, borderRadius: 18,
-      alignItems: "center", justifyContent: "center",
+      alignItems: "center", justifyContent: "center", gap: 2,
+      paddingHorizontal: 10, paddingVertical: 4,
+      borderRadius: 12,
       backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
       borderWidth: 1, borderColor: colors.border,
       shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
       shadowOpacity: colors.isDark ? 0 : 0.06, shadowRadius: 4, elevation: 2,
     },
-    importBtnText: {
-      fontSize: 12, fontFamily: "Outfit-Bold",
-      color: colors.isDark ? colors.accent : colors.textPrimary,
+    importBtnLabel: {
+      fontSize: 9, fontFamily: "Outfit-SemiBold", letterSpacing: 0.2,
     },
     clearBtn: {
       flexDirection: "row",
@@ -611,7 +612,7 @@ const DashboardScreen = ({ navigation }) => {
   const clearCompleted = DEMO_MODE ? () => {} : realTasks.clearCompleted;
 
   const { openAddTask } = useContext(AddTaskContext);
-  const { setTarget } = useWalkthroughTargets();
+  const setTarget = useSetWalkthroughTarget();
   const studyPlanBtnRef  = useRef(null);
   const calendarBtnRef   = useRef(null);
   const syllabusBtnRef   = useRef(null);
@@ -633,6 +634,7 @@ const DashboardScreen = ({ navigation }) => {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [tabLoading, setTabLoading] = useState(false);
   const [planTodayCount, setPlanTodayCount] = useState(null);
+  const [todayPlanSessions, setTodayPlanSessions] = useState([]);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
 
   useEffect(() => {
@@ -704,17 +706,25 @@ const DashboardScreen = ({ navigation }) => {
     scheduleStreakReminder(streak, bestTime, user?.uid);
   }, [streak, patterns?.productiveTimeOfDay?.bestTime, user?.uid]);
 
-  useEffect(() => {
+  const loadTodayPlanSessions = useCallback(() => {
     AsyncStorage.getItem("@planora_study_plan_cache").then((raw) => {
       if (!raw) return;
       try {
         const { plan } = JSON.parse(raw);
         const todayStr = format(startOfToday(), "yyyy-MM-dd");
-        const todaySessions = plan.filter((s) => s.date === todayStr);
-        setPlanTodayCount(todaySessions.length > 0 ? todaySessions.length : 0);
+        const sessions = plan.filter((s) => s.date === todayStr && !s.completed && !s.missed);
+        setPlanTodayCount(sessions.length > 0 ? sessions.length : 0);
+        setTodayPlanSessions(sessions);
       } catch {}
     }).catch(() => {});
   }, []);
+
+  useEffect(() => { loadTodayPlanSessions(); }, []);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener("studyPlanUpdated", loadTodayPlanSessions);
+    return () => sub.remove();
+  }, [loadTodayPlanSessions]);
 
   const enrichedTasks = useMemo(() => {
     const gradeMap = {};
@@ -1031,10 +1041,11 @@ const DashboardScreen = ({ navigation }) => {
               navigation.navigate(isPro ? "StudyPlan" : "Paywall");
             }}
             style={styles.importBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             onLayout={() => measureBtn(studyPlanBtnRef, "studyPlan")}
           >
-            <Feather name="edit-3" size={16} color={colors.accent} />
+            <Feather name="edit-3" size={15} color={colors.accent} />
+            <Text style={[styles.importBtnLabel, { color: colors.accent }]}>Plan</Text>
           </TouchableOpacity>
           <TouchableOpacity
             ref={calendarBtnRef}
@@ -1047,19 +1058,21 @@ const DashboardScreen = ({ navigation }) => {
             }}
             style={[styles.importBtn, calendarMode && { backgroundColor: colors.accentGlow, borderColor: colors.accent }]}
             activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             onLayout={() => measureBtn(calendarBtnRef, "calendar")}
           >
-            <Feather name="calendar" size={16} color={calendarMode ? colors.accent : colors.textSecondary} />
+            <Feather name="calendar" size={15} color={calendarMode ? colors.accent : colors.textSecondary} />
+            <Text style={[styles.importBtnLabel, { color: calendarMode ? colors.accent : colors.textSecondary }]}>Week</Text>
           </TouchableOpacity>
           <TouchableOpacity
             ref={syllabusBtnRef}
             onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
             style={styles.importBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             onLayout={() => measureBtn(syllabusBtnRef, "syllabusImport")}
           >
-            <Feather name="upload-cloud" size={16} color={colors.textSecondary} />
+            <Feather name="upload-cloud" size={15} color={colors.textSecondary} />
+            <Text style={[styles.importBtnLabel, { color: colors.textSecondary }]}>Sync</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1093,6 +1106,9 @@ const DashboardScreen = ({ navigation }) => {
             userProfile={profile}
             patterns={patterns}
             onTaskHighlight={setHighlightedTaskId}
+            navigation={navigation}
+            isPro={isPro}
+            todaySessions={isPro ? todayPlanSessions : []}
           />
         )}
 

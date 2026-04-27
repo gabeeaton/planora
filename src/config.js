@@ -32,8 +32,14 @@ export const APP_CONFIG = {
 // ── Feature flags ─────────────────────────────────────────────
 // Set BETA_PRO_UNLOCKED = true  → everyone gets Scholar (TestFlight / soft launch)
 // Set BETA_PRO_UNLOCKED = false → only real RevenueCat subscribers get Scholar
+//
+// DEV-only testing flags (ignored in production builds):
+//   FORCE_ONBOARDING   = true → onboarding runs every launch (never skipped)
+//   FORCE_WALKTHROUGH  = true → walkthrough overlay runs every launch
 export const FEATURE_FLAGS = {
-  BETA_PRO_UNLOCKED: true,
+  BETA_PRO_UNLOCKED:  true,
+  FORCE_ONBOARDING:   false, // flip to true to test onboarding repeatedly
+  FORCE_WALKTHROUGH:  false, // flip to true to test walkthrough repeatedly
 };
 
 // ── Dev safety check ─────────────────────────────────────────

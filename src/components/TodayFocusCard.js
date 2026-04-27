@@ -162,9 +162,15 @@ const makeStyles = (colors) => StyleSheet.create({
     borderTopWidth: 1, borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
   },
   insightText: { fontSize: 12, fontFamily: "Outfit-Regular", color: colors.textSecondary, flex: 1, lineHeight: 17 },
+  sessionsRow: {
+    flexDirection: "row", alignItems: "center", gap: 7,
+    paddingHorizontal: spacing.md, paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
+  },
+  sessionsText: { fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.accent, flex: 1 },
 });
 
-const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
+const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigation, isPro, todaySessions = [] }) => {
   const { colors } = useTheme();
   const PRIORITY_COLORS = priorityColors(colors.isDark);
   const styles = makeStyles(colors);
@@ -282,13 +288,29 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight }) => {
           key={task.id}
           task={task}
           idx={idx}
-          isLast={idx === focusTasks.length - 1}
+          isLast={idx === focusTasks.length - 1 && todaySessions.length === 0}
           onPress={onTaskHighlight}
           styles={styles}
           colors={colors}
           PRIORITY_COLORS={PRIORITY_COLORS}
         />
       ))}
+
+      {todaySessions.length > 0 && (
+        <TouchableOpacity style={styles.sessionsRow} onPress={() => navigation?.navigate("StudyPlan")} activeOpacity={0.7}>
+          <Feather name="book-open" size={13} color={colors.accent} />
+          <Text style={styles.sessionsText}>
+            {(() => {
+              const totalMins = todaySessions.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
+              const timeStr = totalMins >= 60
+                ? `${Math.floor(totalMins / 60)}h${totalMins % 60 > 0 ? ` ${totalMins % 60}min` : ""}`
+                : `${totalMins}min`;
+              return `${todaySessions.length} study session${todaySessions.length !== 1 ? "s" : ""} · ${timeStr} today`;
+            })()}
+          </Text>
+          <Feather name="chevron-right" size={13} color={colors.accent} />
+        </TouchableOpacity>
+      )}
     </Animated.View>
   );
 };

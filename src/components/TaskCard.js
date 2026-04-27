@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Animated,
   PanResponder,
+  Alert,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
@@ -25,6 +26,7 @@ import { useTheme } from "../utils/ThemeContext";
 import { format } from "date-fns";
 import ClassTag from "./ClassTag";
 import { getRecurrenceLabel } from "../services/recurringTasks";
+import { getEffectivePriority } from "../utils/priority";
 
 const makeStyles = (colors) =>
   StyleSheet.create({
@@ -348,7 +350,7 @@ const TaskCard = ({
   const handlePressOut = () =>
     Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 4 }).start();
 
-  const displayPriority = task.aiPriority || task.priority;
+  const displayPriority = getEffectivePriority(task);
   const priorityColor = displayPriority
     ? priorityColors(colors.isDark)[displayPriority]
     : colors.textMuted;
@@ -477,24 +479,37 @@ const TaskCard = ({
                 {task.title}
               </Text>
               {displayPriority && (
-                <View
-                  style={[
-                    styles.badge,
-                    { backgroundColor: glowColor, borderColor: priorityColor },
-                  ]}
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                    const label = displayPriority === "HIGH" ? "High — due very soon or high stakes" :
+                                  displayPriority === "MEDIUM" ? "Medium — due within a week or moderate importance" :
+                                  "Low — not urgent, no deadline pressure";
+                    const source = task.aiPriority ? `\n\n⚡ AI reason: ${task.aiReason ?? "Based on your deadlines and patterns"}` : "";
+                    Alert.alert("Priority", label + source);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
                 >
-                  {task.aiPriority && (
-                    <Feather
-                      name="zap"
-                      size={8}
-                      color={priorityColor}
-                      style={{ marginRight: 2 }}
-                    />
-                  )}
-                  <Text style={[styles.badgeText, { color: priorityColor }]}>
-                    {displayPriority}
-                  </Text>
-                </View>
+                  <View
+                    style={[
+                      styles.badge,
+                      { backgroundColor: glowColor, borderColor: priorityColor },
+                    ]}
+                  >
+                    {task.aiPriority && (
+                      <Feather
+                        name="zap"
+                        size={8}
+                        color={priorityColor}
+                        style={{ marginRight: 2 }}
+                      />
+                    )}
+                    <Text style={[styles.badgeText, { color: priorityColor }]}>
+                      {displayPriority}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               )}
             </View>
 

@@ -1,31 +1,31 @@
 // ============================================================
 // src/hooks/useUserProfile.js
-// Manages the user's academic profile (classes, preferences).
+// Context-based — one Firestore listener shared across all screens.
 // ============================================================
 
-import { useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAuth } from "./useAuth";
 import { subscribeUserProfile, saveUserProfile } from "../services/firebase";
 import { cacheUserProfile, loadCachedProfile } from "../services/offlineStorage";
 
-export const useUserProfile = () => {
+const UserProfileContext = createContext(null);
+
+export const UserProfileProvider = ({ children }) => {
   const { user } = useAuth();
-  const [profile, setProfile]             = useState(null);
-  const [loading, setLoading]             = useState(true);
+  const [profile, setProfile]               = useState(null);
+  const [loading, setLoading]               = useState(true);
   const [firestoreReady, setFirestoreReady] = useState(false);
 
   useEffect(() => {
     if (!user) { setProfile(null); setLoading(false); setFirestoreReady(false); return; }
     setFirestoreReady(false);
 
-    // Load cache immediately for snappy UI
     loadCachedProfile().then((cached) => {
       if (cached) { setProfile(cached); setLoading(false); }
     });
 
     const unsubscribe = subscribeUserProfile(user.uid, (freshProfile) => {
       setProfile(freshProfile);
-      // Always sync cache — if no profile exists, clear any stale cache from a previous account
       cacheUserProfile(freshProfile ?? null);
       setLoading(false);
       setFirestoreReady(true);
@@ -39,11 +39,18 @@ export const useUserProfile = () => {
     await saveUserProfile(user.uid, data);
   }, [user]);
 
-  // True if the user has completed onboarding
   const hasCompletedOnboarding = !!profile?.onboardingComplete;
-
-  // True if user is on Pro plan
   const isPro = !!profile?.isPro;
 
-  return { profile, loading, firestoreReady, updateProfile, hasCompletedOnboarding, isPro };
+  return (
+    <UserProfileContext.Provider value={{ profile, loading, firestoreReady, updateProfile, hasCompletedOnboarding, isPro }}>
+      {children}
+    </UserProfileContext.Provider>
+  );
+};
+
+export const useUserProfile = () => {
+  const ctx = useContext(UserProfileContext);
+  if (!ctx) throw new Error("useUserProfile must be used within UserProfileProvider");
+  return ctx;
 };

@@ -32,9 +32,10 @@ import StudyPlanScreen       from "../screens/StudyPlanScreen";
 import { useTheme } from "../utils/ThemeContext";
 import TaskModal from "../components/TaskModal";
 import WalkthroughOverlay from "../components/WalkthroughOverlay";
-import { WalkthroughProvider, useWalkthroughTargets } from "../utils/WalkthroughContext";
+import { WalkthroughProvider, useSetWalkthroughTarget } from "../utils/WalkthroughContext";
 import { useTasks } from "../hooks/useTasks";
 import { invalidateTodayFocusCache } from "../services/openai";
+import { FEATURE_FLAGS } from "../config";
 
 export const AddTaskContext = React.createContext({ openAddTask: () => {} });
 
@@ -62,16 +63,13 @@ const TabItem = ({ route, isFocused, onPress, colors, onMeasure }) => {
   const outerRef   = useRef(null);
   const scaleAnim  = useRef(new Animated.Value(1)).current;
   const nativeAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
-  const colorAnim  = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
   useEffect(() => {
-    Animated.timing(nativeAnim, { toValue: isFocused ? 1 : 0, duration: 220, useNativeDriver: true }).start();
-    Animated.timing(colorAnim,  { toValue: isFocused ? 1 : 0, duration: 220, useNativeDriver: false }).start();
+    Animated.timing(nativeAnim, { toValue: isFocused ? 1 : 0, duration: 200, useNativeDriver: true }).start();
   }, [isFocused]);
 
-  const iconName   = TAB_ICONS[route.name]  ?? "circle";
-  const label      = TAB_LABELS[route.name] ?? route.name;
-  const labelColor = colorAnim.interpolate({ inputRange: [0, 1], outputRange: [colors.textMuted, colors.accent] });
+  const iconName         = TAB_ICONS[route.name]  ?? "circle";
+  const label            = TAB_LABELS[route.name] ?? route.name;
   const unfocusedOpacity = nativeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
 
   const handlePressIn  = () => Animated.spring(scaleAnim, { toValue: 0.90, useNativeDriver: true, speed: 60, bounciness: 0 }).start();
@@ -110,9 +108,14 @@ const TabItem = ({ route, isFocused, onPress, colors, onMeasure }) => {
           </Animated.View>
         </Animated.View>
       </View>
-      <Animated.Text style={[tabStyles.label, { color: labelColor }]}>
-        {label}
-      </Animated.Text>
+      <View style={{ height: 14 }}>
+        <Animated.Text style={[tabStyles.label, { color: colors.textMuted, opacity: unfocusedOpacity }]}>
+          {label}
+        </Animated.Text>
+        <Animated.Text style={[tabStyles.label, { color: colors.accent, opacity: nativeAnim, position: "absolute" }]}>
+          {label}
+        </Animated.Text>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -121,17 +124,22 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { openAddTask } = useContext(AddTaskContext);
-  const { setTarget } = useWalkthroughTargets();
+  const setTarget = useSetWalkthroughTarget();
   const plusScale = useRef(new Animated.Value(1)).current;
   const plusRef   = useRef(null);
+
+  const [localIndex, setLocalIndex] = useState(state.index);
+  useEffect(() => { setLocalIndex(state.index); }, [state.index]);
 
   const mid = Math.floor(state.routes.length / 2);
 
   const renderTab = (route, index) => {
-    const isFocused = state.index === index;
+    const isFocused = localIndex === index;
     const onPress = () => {
+      if (isFocused) return;
+      setLocalIndex(index);
       const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-      if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+      if (!event.defaultPrevented) navigation.navigate(route.name);
     };
     const targetName = TAB_TARGET_NAMES[route.name];
     return (
@@ -237,14 +245,16 @@ const MainTabsWithModal = () => {
   useEffect(() => {
     if (walkthroughTriggered.current || profile == null) return;
     walkthroughTriggered.current = true;
-    if (!profile.walkthroughComplete) {
+    if (FEATURE_FLAGS.FORCE_WALKTHROUGH || !profile.walkthroughComplete) {
       setTimeout(() => setShowWalkthrough(true), 900);
     }
   }, [profile]);
 
   const handleWalkthroughDone = useCallback(() => {
     setShowWalkthrough(false);
-    if (user?.uid) saveUserProfile(user.uid, { walkthroughComplete: true }).catch(() => {});
+    if (!FEATURE_FLAGS.FORCE_WALKTHROUGH && user?.uid) {
+      saveUserProfile(user.uid, { walkthroughComplete: true }).catch(() => {});
+    }
   }, [user?.uid]);
 
   // Open StudyPlan when user taps a study-plan-reminder notification
@@ -308,7 +318,8 @@ const AppNavigator = () => {
   const loading = authLoading || (!!user && (profileLoading || !firestoreReady));
 
   // Firestore is the source of truth — only show onboarding once Firestore confirms no profile
-  const shouldOnboard = !!user && !loading && firestoreReady && profile?.onboardingComplete !== true;
+  const shouldOnboard = !!user && !loading && firestoreReady &&
+    (FEATURE_FLAGS.FORCE_ONBOARDING || profile?.onboardingComplete !== true);
 
   if (loading) {
     return (

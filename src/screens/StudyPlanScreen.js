@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Animated, Alert,
+  Animated, Alert, DeviceEventEmitter,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -130,6 +130,14 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.isDark ? colors.bgCard : "#fff",
     flexDirection: "row", overflow: "hidden",
   },
+  sessionCheck: {
+    width: 44, alignItems: "center", justifyContent: "center",
+  },
+  sessionCircle: {
+    width: 20, height: 20, borderRadius: 10,
+    borderWidth: 1.5, borderColor: colors.border,
+    alignItems: "center", justifyContent: "center",
+  },
   sessionAccent: { width: 4 },
   sessionBody: { flex: 1, paddingVertical: 12, paddingHorizontal: 12 },
   sessionClassTag: {
@@ -205,7 +213,11 @@ const StudyPlanScreen = ({ navigation }) => {
         const yesterdayStr = format(addDays(startOfToday(), -1), "yyyy-MM-dd");
         const filtered = cached
           .filter((s) => s.date >= yesterdayStr)
-          .map((s) => (s.date < todayStr ? { ...s, missed: true } : s));
+          .map((s, i) => ({
+            ...s,
+            _key: s._key ?? `loaded_${i}`,
+            missed: s.date < todayStr && !s.completed,
+          }));
         if (filtered.length > 0) {
           setPlan(filtered);
           // Reschedule notifications for any remaining future sessions
@@ -239,21 +251,42 @@ const StudyPlanScreen = ({ navigation }) => {
   const setHours = (index, hours) =>
     setAvailability((prev) => prev.map((d, i) => i === index ? { ...d, hours } : d));
 
+  const toggleSessionDone = useCallback((key) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setPlan((prev) => {
+      const updated = prev.map((s) => {
+        if (s._key !== key) return s;
+        const nowDone = !s.completed;
+        return { ...s, completed: nowDone, completedAt: nowDone ? Date.now() : null };
+      });
+      AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: updated }))
+        .then(() => DeviceEventEmitter.emit("studyPlanUpdated"))
+        .catch(() => {});
+      return updated;
+    });
+  }, []);
+
   const handleGenerate = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    const completedSessions = (plan ?? []).filter((s) => s.completed);
     setLoading(true);
     setPlan(null);
     try {
-      const result = await generateStudyPlan(tasks, profile, patterns, availability);
-      setPlan(result);
-      AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: result })).catch(() => {});
+      const result = await generateStudyPlan(tasks, profile, patterns, availability, completedSessions);
+      const ts = Date.now();
+      const newSessions = result.map((s, i) => ({ ...s, _key: `gen_${ts}_${i}` }));
+      const merged = [...completedSessions, ...newSessions].sort((a, b) => a.date.localeCompare(b.date));
+      setPlan(merged);
+      AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: merged }))
+        .then(() => DeviceEventEmitter.emit("studyPlanUpdated"))
+        .catch(() => {});
       scheduleStudyPlanReminders(result, user?.uid).catch(() => {});
     } catch (err) {
       Alert.alert("Couldn't generate plan", err.message ?? "Try again in a moment.");
     } finally {
       setLoading(false);
     }
-  }, [tasks, profile, patterns, availability, user?.uid]);
+  }, [plan, tasks, profile, patterns, availability, user?.uid]);
 
   const pendingTasks = tasks.filter((t) => !t.completed && t.dueDate);
 
@@ -388,8 +421,12 @@ const StudyPlanScreen = ({ navigation }) => {
                           </View>
                         )}
                         <Text style={[styles.sessionTitle, { color: colors.textMuted }]}>{s.sessionTitle}</Text>
-                        {s.taskTitle && s.taskTitle !== s.sessionTitle && (
-                          <Text style={styles.sessionSourceTask}>For: {s.taskTitle}</Text>
+                        {(s.taskDueDate || (s.taskTitle && s.taskTitle !== s.sessionTitle)) && (
+                          <Text style={styles.sessionSourceTask}>
+                            {s.taskTitle && s.taskTitle !== s.sessionTitle ? s.taskTitle : ""}
+                            {s.taskTitle && s.taskTitle !== s.sessionTitle && s.taskDueDate ? " · " : ""}
+                            {s.taskDueDate ? `due ${s.taskDueDate}` : ""}
+                          </Text>
                         )}
                       </View>
                       <View style={[styles.durationBadge, { justifyContent: "center" }]}>
@@ -426,9 +463,23 @@ const StudyPlanScreen = ({ navigation }) => {
                   })}
 
                   {day.sessions.map((s, idx) => {
+                    const key = s._key ?? `${s.date}_${idx}`;
                     const accentColor = colorForClass(s.className);
                     return (
-                      <View key={idx} style={styles.sessionCard}>
+                      <View key={key} style={[styles.sessionCard, s.completed && { opacity: 0.45 }]}>
+                        {/* Circle checkbox */}
+                        <TouchableOpacity
+                          style={styles.sessionCheck}
+                          onPress={() => toggleSessionDone(key)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+                        >
+                          <View style={[
+                            styles.sessionCircle,
+                            s.completed && { backgroundColor: colors.low, borderColor: colors.low },
+                          ]}>
+                            {s.completed && <Feather name="check" size={11} color="#fff" />}
+                          </View>
+                        </TouchableOpacity>
                         <View style={[styles.sessionAccent, { backgroundColor: accentColor }]} />
                         <View style={styles.sessionBody}>
                           {s.className && (
@@ -436,11 +487,17 @@ const StudyPlanScreen = ({ navigation }) => {
                               <Text style={[styles.sessionClassText, { color: accentColor }]}>{s.className}</Text>
                             </View>
                           )}
-                          <Text style={styles.sessionTitle}>{s.sessionTitle}</Text>
-                          {s.taskTitle && s.taskTitle !== s.sessionTitle && (
-                            <Text style={styles.sessionSourceTask}>For: {s.taskTitle}</Text>
+                          <Text style={[styles.sessionTitle, s.completed && { textDecorationLine: "line-through", color: colors.textMuted }]}>
+                            {s.sessionTitle}
+                          </Text>
+                          {!s.completed && (s.taskDueDate || (s.taskTitle && s.taskTitle !== s.sessionTitle)) && (
+                            <Text style={styles.sessionSourceTask}>
+                              {s.taskTitle && s.taskTitle !== s.sessionTitle ? s.taskTitle : ""}
+                              {s.taskTitle && s.taskTitle !== s.sessionTitle && s.taskDueDate ? " · " : ""}
+                              {s.taskDueDate ? `due ${s.taskDueDate}` : ""}
+                            </Text>
                           )}
-                          <Text style={styles.sessionActivity}>{s.activity}</Text>
+                          {!s.completed && <Text style={styles.sessionActivity}>{s.activity}</Text>}
                         </View>
                         <View style={styles.durationBadge}>
                           <Text style={styles.durationText}>{s.durationMinutes}</Text>

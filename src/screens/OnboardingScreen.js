@@ -620,7 +620,7 @@ const STEP_COUNT = 4;
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // ── Import Step Sub-component ─────────────────────────────────
-const tap = () => Haptics.selectionAsync().catch(() => {});
+const tap = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
 const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors }) => {
   const { createManyTasks } = useTasks();
