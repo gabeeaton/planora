@@ -64,6 +64,11 @@ const _ensureAndroidChannels = async () => {
       lightColor: "#9060E8",
       sound: true,
     });
+    await Notifications.setNotificationChannelAsync("study-plan-reminders", {
+      name: "Study Plan",
+      importance: Notifications.AndroidImportance.DEFAULT,
+      sound: true,
+    });
   } catch (err) {
     console.warn("Failed to set Android notification channels:", err);
   }
@@ -404,6 +409,129 @@ export const cancelTaskReminder = async (notificationIds) => {
   }
 };
 
+// ── Study plan reminders ──────────────────────────────────────
+
+const studyPlanManifestKey = (uid) => `@planora_study_plan_manifest_${uid}`;
+
+const STUDY_PLAN_HOUR = 8; // 8:00 AM
+
+/**
+ * Schedule one morning notification per day that has study sessions.
+ * Always cancels existing study plan notifications first — safe to call
+ * after generating or loading from cache.
+ *
+ * @param {Array}  plan  Array of session objects (same shape as StudyPlanScreen cache)
+ * @param {string} uid   Firebase user ID
+ */
+export const scheduleStudyPlanReminders = async (plan, uid) => {
+  if (!uid || !plan?.length) return;
+  await _withLock(`study-plan-${uid}`, async () => {
+    const granted = await checkNotificationPermissions();
+    if (!granted) return;
+
+    await cancelStudyPlanReminders(uid);
+
+    const now = new Date();
+    const manifest = [];
+
+    // Group non-missed sessions by date
+    const byDate = new Map();
+    for (const session of plan) {
+      if (!session.date || session.missed) continue;
+      if (!byDate.has(session.date)) byDate.set(session.date, []);
+      byDate.get(session.date).push(session);
+    }
+
+    for (const [dateStr, sessions] of byDate) {
+      // Build fire time: 8:00 AM local time on that day
+      // "YYYY-MM-DDT08:00:00" parsed without Z stays in local time
+      const fireTime = new Date(`${dateStr}T${String(STUDY_PLAN_HOUR).padStart(2, "0")}:00:00`);
+      if (isNaN(fireTime.getTime()) || fireTime <= now) continue;
+
+      // Summarise sessions for the body line
+      const totalMins = sessions.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
+      const hours = Math.floor(totalMins / 60);
+      const mins  = totalMins % 60;
+      const timeStr = hours > 0
+        ? (mins > 0 ? `${hours}h ${mins}min` : `${hours}h`)
+        : `${mins}min`;
+
+      const names = sessions
+        .slice(0, 2)
+        .map((s) => s.className ?? s.sessionTitle)
+        .filter(Boolean)
+        .join(" · ");
+      const extra    = sessions.length > 2 ? ` +${sessions.length - 2} more` : "";
+      const timeSuffix = totalMins > 0 ? ` — ${timeStr} total` : "";
+      const body = names
+        ? `${names}${extra}${timeSuffix}`
+        : `${sessions.length} session${sessions.length !== 1 ? "s" : ""}${timeSuffix}`;
+
+      try {
+        const id = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "📚 Today's study plan",
+            body,
+            data: { type: "study-plan-reminder", date: dateStr },
+            sound: true,
+            ...(Platform.OS === "android" && { channelId: "study-plan-reminders" }),
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: fireTime,
+          },
+        });
+        manifest.push({ id, date: dateStr });
+      } catch (err) {
+        console.warn("Failed to schedule study plan reminder:", err);
+      }
+    }
+
+    await AsyncStorage.setItem(studyPlanManifestKey(uid), JSON.stringify(manifest)).catch(() => {});
+  });
+};
+
+/**
+ * Cancel all pending study plan reminders for a user.
+ * Call when the plan is cleared or a new one is generated (scheduleStudyPlanReminders
+ * already calls this internally, so only call directly when clearing without regenerating).
+ */
+export const cancelStudyPlanReminders = async (uid) => {
+  if (!uid) return;
+  try {
+    const raw = await AsyncStorage.getItem(studyPlanManifestKey(uid));
+    if (!raw) return;
+    const manifest = JSON.parse(raw);
+    await Promise.all(
+      manifest.map(({ id }) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {}))
+    );
+    await AsyncStorage.removeItem(studyPlanManifestKey(uid)).catch(() => {});
+  } catch {}
+};
+
+/**
+ * Fire a study-plan notification in 5 seconds with realistic sample content.
+ * Use from the dev menu to verify content and tap-to-open behaviour.
+ */
+export const testStudyPlanNotification = async () => {
+  const granted = await checkNotificationPermissions();
+  if (!granted) return;
+  const fire = new Date(Date.now() + 5000);
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "📚 Today's study plan",
+      body: "HIST 201 · MATH 240 — 1h 45min total",
+      data: { type: "study-plan-reminder", date: new Date().toISOString().slice(0, 10) },
+      sound: true,
+      ...(Platform.OS === "android" && { channelId: "study-plan-reminders" }),
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: fire,
+    },
+  }).catch((err) => console.warn("testStudyPlanNotification failed:", err));
+};
+
 // ── Cancel ALL reminders (on logout / account wipe) ──────────
 
 export const cancelAllReminders = async () => {
@@ -504,6 +632,7 @@ export const cancelAllNotifications = async (uid) => {
       `@planora_avoidance_alerted_${uid}`,
       `@planora_batch_manifest_${uid}`,
       `@planora_overdue_manifest_${uid}`,
+      `@planora_study_plan_manifest_${uid}`,
     ]).catch(() => {});
   }
 };

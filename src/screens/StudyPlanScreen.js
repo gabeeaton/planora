@@ -7,9 +7,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useTheme } from "../utils/ThemeContext";
+import { useAuth } from "../hooks/useAuth";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useTasks } from "../hooks/useTasks";
 import { useSubscription } from "../hooks/useSubscription";
+import { scheduleStudyPlanReminders, cancelStudyPlanReminders } from "../services/notifications";
 import { generateStudyPlan } from "../services/openai";
 import { spacing, radius } from "../utils/theme";
 import { addDays, format, startOfToday, isSameDay } from "date-fns";
@@ -172,6 +174,7 @@ const StudyPlanScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { profile } = useUserProfile();
   const { tasks, patterns } = useTasks();
   const { isPro } = useSubscription();
@@ -198,15 +201,19 @@ const StudyPlanScreen = ({ navigation }) => {
       if (!raw) return;
       try {
         const { plan: cached } = JSON.parse(raw);
-        const todayStr    = format(startOfToday(), "yyyy-MM-dd");
+        const todayStr     = format(startOfToday(), "yyyy-MM-dd");
         const yesterdayStr = format(addDays(startOfToday(), -1), "yyyy-MM-dd");
         const filtered = cached
           .filter((s) => s.date >= yesterdayStr)
           .map((s) => (s.date < todayStr ? { ...s, missed: true } : s));
-        if (filtered.length > 0) setPlan(filtered);
+        if (filtered.length > 0) {
+          setPlan(filtered);
+          // Reschedule notifications for any remaining future sessions
+          scheduleStudyPlanReminders(filtered, user?.uid).catch(() => {});
+        }
       } catch {}
     }).catch(() => {});
-  }, []);
+  }, [user?.uid]);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const progressAnimation = useRef(null);
 
@@ -240,12 +247,13 @@ const StudyPlanScreen = ({ navigation }) => {
       const result = await generateStudyPlan(tasks, profile, patterns, availability);
       setPlan(result);
       AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: result })).catch(() => {});
+      scheduleStudyPlanReminders(result, user?.uid).catch(() => {});
     } catch (err) {
       Alert.alert("Couldn't generate plan", err.message ?? "Try again in a moment.");
     } finally {
       setLoading(false);
     }
-  }, [tasks, profile, patterns, availability]);
+  }, [tasks, profile, patterns, availability, user?.uid]);
 
   const pendingTasks = tasks.filter((t) => !t.completed && t.dueDate);
 
@@ -447,7 +455,12 @@ const StudyPlanScreen = ({ navigation }) => {
 
             <TouchableOpacity
               style={[styles.regenerateBtn, { borderColor: colors.border }]}
-              onPress={() => { tap(); setPlan(null); AsyncStorage.removeItem(PLAN_CACHE_KEY).catch(() => {}); }}
+              onPress={() => {
+                tap();
+                setPlan(null);
+                AsyncStorage.removeItem(PLAN_CACHE_KEY).catch(() => {});
+                cancelStudyPlanReminders(user?.uid).catch(() => {});
+              }}
             >
               <Feather name="chevron-left" size={14} color={colors.textMuted} />
               <Text style={[styles.regenerateBtnText, { color: colors.textMuted }]}>Adjust availability</Text>

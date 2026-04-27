@@ -7,7 +7,8 @@
 import React, { useEffect, useRef, useState, useCallback, useContext, useMemo } from "react";
 import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text, Animated } from "react-native";
 import * as Haptics from "expo-haptics";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigation } from "@react-navigation/native";
+import * as Notifications from "expo-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -202,6 +203,15 @@ const MainTabsWithModal = () => {
   const [visible, setVisible] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const { createTask, editTask } = useTasks();
+  const navigation = useNavigation();
+
+  // Open StudyPlan when user taps a study-plan-reminder notification
+  const lastNotifResponse = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    if (lastNotifResponse?.notification?.request?.content?.data?.type === "study-plan-reminder") {
+      navigation.navigate("StudyPlan");
+    }
+  }, [lastNotifResponse]);
 
   const openAddTask = useCallback((task = null) => {
     setEditingTask(task ?? null);

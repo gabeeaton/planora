@@ -26,7 +26,7 @@ import { typography, spacing, radius, shadows, COLOR_THEMES } from "../utils/the
 import { generateTerms, WORK_TIMES, GRADES, CREDIT_OPTS } from "../utils/termHelpers";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
-import { testAllNotifications, testBatchNotifications } from "../services/notifications";
+import { testAllNotifications, testBatchNotifications, testStudyPlanNotification } from "../services/notifications";
 import { useTasks } from "../hooks/useTasks";
 import * as Haptics from "expo-haptics";
 
@@ -618,6 +618,15 @@ const ProfileScreen = ({ navigation }) => {
 
         {/* <SectionHeader title="Developer" />
         <View style={styles.card}>
+          <Row
+            icon="book-open"
+            label="Test Study Plan Notification"
+            value="fires in 5 seconds"
+            onPress={() => {
+              testStudyPlanNotification();
+              Alert.alert("Study plan test scheduled", "Lock your phone — notification arrives in 5 seconds. Tap it to verify it opens the study plan.");
+            }}
+          />
           <Row
             icon="layers"
             label="Test Batch Notifications"
