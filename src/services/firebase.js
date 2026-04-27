@@ -31,6 +31,9 @@ import {
   confirmPasswordReset,
   signOut,
   onAuthStateChanged,
+  deleteUser,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
 } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FIREBASE_CONFIG } from "../config";
@@ -293,3 +296,49 @@ export const setProStatus = (userId, isPro) =>
     },
     { merge: true }
   );
+
+// ── Account deletion ──────────────────────────────────────────
+
+const batchDeleteCollection = async (q) => {
+  const snap = await getDocs(q);
+  if (snap.empty) return;
+  for (let i = 0; i < snap.docs.length; i += 400) {
+    const batch = writeBatch(db);
+    snap.docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+};
+
+// Full wipe — used for account deletion only
+export const deleteAllUserTasks = (userId) =>
+  Promise.all([
+    batchDeleteCollection(query(collection(db, "tasks"),       where("userId", "==", userId))),
+    batchDeleteCollection(query(collection(db, "taskHistory"), where("userId", "==", userId))),
+  ]);
+
+// Semester switch — only removes incomplete tasks, preserves history and stats
+export const clearIncompleteTasksForSemester = (userId) =>
+  batchDeleteCollection(
+    query(collection(db, "tasks"), where("userId", "==", userId), where("completed", "==", false))
+  );
+
+export const deleteUserAccount = async (password) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not logged in.");
+
+  const credential = EmailAuthProvider.credential(user.email, password);
+  await reauthenticateWithCredential(user, credential);
+
+  const uid = user.uid;
+  const { cancelAllNotifications } = await import("./notifications");
+  const { clearStreak } = await import("../utils/streakHelpers");
+
+  await Promise.all([
+    cancelAllNotifications(uid).catch(() => {}),
+    clearStreak(uid).catch(() => {}),
+    deleteAllUserTasks(uid),
+    deleteDoc(doc(db, "userProfiles", uid)).catch(() => {}),
+  ]);
+
+  await deleteUser(user);
+};
