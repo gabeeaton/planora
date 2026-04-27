@@ -307,7 +307,7 @@ const AppNavigator = () => {
             <Stack.Screen
               name="Paywall"
               component={PaywallScreen}
-              options={{ presentation: "modal" }}
+              options={{ presentation: "transparentModal", headerShown: false }}
             />
             <Stack.Screen
               name="StudyPlan"

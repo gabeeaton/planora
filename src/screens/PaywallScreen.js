@@ -1,187 +1,173 @@
-// ============================================================
-// src/screens/PaywallScreen.js
-// ============================================================
-
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, Alert, Linking, Animated,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { spacing, radius, shadows, typography } from "../utils/theme";
+import { spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { getOfferings, purchasePackage, restorePurchases } from "../services/purchases";
 import { invalidateTodayFocusCache } from "../services/openai";
 import * as Haptics from "expo-haptics";
 
 const FEATURES = [
-  { icon: "cpu",            title: "Where Should I Start?", desc: "One tap to know exactly what to work on right now, based on your deadlines and patterns." },
-  { icon: "message-circle", title: "Unlimited AI Chat",    desc: "Your coach knows your tasks, classes, and grades — and never hits a daily limit." },
-  { icon: "bell",           title: "Avoidance Alerts",     desc: "Get nudged when you've been putting off a task too long. No more last-minute panic." },
-  { icon: "zap",            title: "Smart Prioritization", desc: "AI ranks every task by urgency, grade impact, and how you actually work." },
-  { icon: "save",           title: "Chat History Forever", desc: "Conversations saved to your account — never lost, even if you reinstall." },
+  { icon: "edit-3",         title: "AI Study Planner",       desc: "Builds your week around your deadlines and free time — day by day." },
+  { icon: "cpu",            title: "Where Should I Start?",  desc: "One tap to know exactly what to tackle right now." },
+  { icon: "message-circle", title: "Unlimited AI Coach",     desc: "Knows your tasks, classes, and grades. No daily limits." },
+  { icon: "bell",           title: "Avoidance Alerts",       desc: "Get nudged before a task slips into last-minute panic." },
 ];
 
 const PLANS = [
-  { key: "monthly",  label: "Monthly",  price: "$4.99",  per: "/month",       savings: null,           badge: null },
-  { key: "semester", label: "6 Months", price: "$17.99", per: "/ 6 months",   savings: "Save 40% — $3.00/mo", badge: "Most Popular" },
-  { key: "annual",   label: "Annual",   price: "$29.99", per: "/year",        savings: "Save 50% — $2.50/mo", badge: "Best Value" },
+  { key: "monthly",  label: "Monthly",  displayPrice: "$4.99", per: "/mo", badge: null,       billed: "Billed monthly" },
+  { key: "semester", label: "6 Months", displayPrice: "$3.00", per: "/mo", badge: "Save 40%", billed: "Billed as $17.99 for 6 months" },
+  { key: "annual",   label: "Annual",   displayPrice: "$2.50", per: "/mo", badge: "Save 50%", billed: "Billed as $29.99/yr" },
 ];
 
-// ── Plan card with press scale ────────────────────────────────
-const PlanCard = ({ plan, active, onPress, styles, colors }) => {
-  const scale = useRef(new Animated.Value(1)).current;
-  return (
-    <TouchableOpacity
-      onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }}
-      onPressIn={() => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
-      onPressOut={() => Animated.spring(scale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start()}
-      activeOpacity={1}
-    >
-      <Animated.View style={[styles.planCard, active && styles.planCardActive, { transform: [{ scale }] }]}>
-        {/* Radio */}
-        {active
-          ? <View style={styles.planCheck}><Feather name="check" size={12} color="#fff" /></View>
-          : <View style={styles.planCheckEmpty} />
-        }
-        {/* Label */}
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={[styles.planLabel, active && styles.planLabelActive]}>{plan.label}</Text>
-            {plan.badge && (
-              <View style={[styles.planBadge, active && styles.planBadgeActive]}>
-                <Text style={styles.planBadgeText}>{plan.badge}</Text>
-              </View>
-            )}
-          </View>
-          {plan.savings
-            ? <Text style={[styles.planSavings, active && styles.planSavingsActive]}>{plan.savings}</Text>
-            : <Text style={styles.planSub}>Billed monthly</Text>
-          }
-        </View>
-        {/* Price */}
-        <View style={{ alignItems: "flex-end" }}>
-          <Text style={[styles.planPrice, active && styles.planPriceActive]}>{plan.price}</Text>
-          <Text style={styles.planPer}>{plan.per}</Text>
-        </View>
-      </Animated.View>
-    </TouchableOpacity>
-  );
-};
-
-const makeStyles = (colors) => StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: "row", alignItems: "center",
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+const makeStyles = (colors, insets) => StyleSheet.create({
+  root: {
+    maxHeight: "92%",
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: "hidden",
   },
-  closeBtn: { padding: 4, marginRight: spacing.sm },
-
-  scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 48 },
-
-  // Hero
-  heroSection:  { alignItems: "center", marginBottom: spacing.xl, paddingTop: spacing.sm },
-  iconWrap: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center", marginBottom: spacing.md,
-    ...shadows.accent,
+  handle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: colors.isDark ? colors.border : "#D1D1D8",
+    alignSelf: "center", marginTop: 12, marginBottom: 4,
   },
-  heroTitle:    { fontSize: 28, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, textAlign: "center", letterSpacing: -0.5, marginBottom: 8 },
-  heroSubtitle: { fontSize: 15, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.md, paddingHorizontal: spacing.sm },
-  heroBadge: {
+  closeRow: {
+    flexDirection: "row", justifyContent: "flex-end",
+    paddingHorizontal: spacing.lg, paddingTop: 6,
+  },
+  closeBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: colors.isDark ? colors.bgCard : "#F2F2F7",
+    alignItems: "center", justifyContent: "center",
+  },
+
+  scroll: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: Math.max(insets.bottom, 24) + 16,
+  },
+
+  // ── Hero ──────────────────────────────────────────────────────
+  hero: { alignItems: "center", paddingTop: 8, paddingBottom: 28 },
+  trialBadge: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: colors.accentGlow, borderRadius: radius.full,
-    paddingHorizontal: 12, paddingVertical: 5,
-    borderWidth: 1, borderColor: colors.accent,
+    backgroundColor: colors.accentGlow,
+    borderRadius: radius.full, borderWidth: 1, borderColor: colors.accent,
+    paddingHorizontal: 14, paddingVertical: 6,
+    marginBottom: 20,
   },
-  heroBadgeText: { fontSize: 12, color: colors.accent, fontFamily: "Outfit-Bold" },
+  trialBadgeText: { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.accent },
+  heroTitle: {
+    fontSize: 38, fontFamily: "Outfit-ExtraBold",
+    color: colors.textPrimary, textAlign: "center",
+    letterSpacing: -1, lineHeight: 44, marginBottom: 10,
+  },
+  heroAccent: { color: colors.accent },
+  heroSub: {
+    fontSize: 15, color: colors.textSecondary,
+    textAlign: "center", lineHeight: 22,
+  },
 
-  // Features
-  sectionLabel: { fontSize: 11, fontFamily: "Outfit-ExtraBold", color: colors.textMuted, letterSpacing: 1, marginBottom: spacing.sm, paddingLeft: 2, textTransform: "uppercase" },
-  featuresCard: {
-    borderRadius: radius.lg, borderWidth: 1, borderColor: colors.isDark ? colors.border : "#EBEBF5",
-    marginBottom: spacing.xl, overflow: "hidden",
-    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
-    ...(colors.isDark ? {} : { shadowColor: "#6B6B8A", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 }),
+  // ── Features ─────────────────────────────────────────────────
+  featuresWrap: { marginBottom: 24, gap: 2 },
+  featureRow: {
+    flexDirection: "row", alignItems: "flex-start", gap: 14,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.isDark ? colors.border : "#F0F0F5",
   },
-  featureRow:     { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.md, paddingVertical: 14 },
-  featureDivider: { height: 1, backgroundColor: colors.isDark ? colors.border : "#F0F0F5", marginLeft: 52 },
-  featureIconWrap: {
-    width: 34, height: 34, borderRadius: 9,
-    backgroundColor: colors.accentGlow, alignItems: "center", justifyContent: "center",
-    borderWidth: 1, borderColor: colors.accent, flexShrink: 0,
+  featureRowLast: { borderBottomWidth: 0 },
+  featureCheck: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: colors.accentGlow,
+    borderWidth: 1.5, borderColor: colors.accent,
+    alignItems: "center", justifyContent: "center",
+    flexShrink: 0, marginTop: 1,
   },
   featureTitle: { fontSize: 14, fontFamily: "Outfit-Bold", color: colors.textPrimary, marginBottom: 2 },
   featureDesc:  { fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
 
-  // Plans
-  plansRow: { gap: 10, marginBottom: spacing.lg },
-  planCard: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
-    borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.isDark ? colors.border : "#DDDDE8",
-    paddingVertical: 18, paddingHorizontal: 16,
+  // ── Plan toggle ───────────────────────────────────────────────
+  planToggleWrap: { marginBottom: 8 },
+  planToggle: {
+    flexDirection: "row",
+    backgroundColor: colors.isDark ? colors.bgCard : "#F2F2F7",
+    borderRadius: radius.md,
+    padding: 4,
+    marginBottom: 14,
   },
-  planCardActive: {
-    borderColor: colors.accent,
-    backgroundColor: colors.isDark ? colors.bgCard : colors.accentGlow,
+  planSegment: {
+    flex: 1, borderRadius: radius.md - 2,
+    paddingVertical: 12, alignItems: "center", gap: 2,
+  },
+  planSegmentActive: {
+    backgroundColor: colors.accent,
     ...shadows.accent,
   },
-  planBadge: {
-    backgroundColor: colors.border, borderRadius: radius.full,
-    paddingHorizontal: 8, paddingVertical: 3,
+  planSegmentLabel: {
+    fontSize: 14, fontFamily: "Outfit-Bold",
+    color: colors.textMuted,
   },
-  planBadgeActive:   { backgroundColor: colors.accent },
-  planBadgeText:     { fontSize: 9, color: "#fff", fontFamily: "Outfit-ExtraBold", letterSpacing: 0.5, textTransform: "uppercase" },
-  planLabel:         { fontSize: 15, color: colors.textSecondary, fontFamily: "Outfit-Bold" },
-  planLabelActive:   { color: colors.textPrimary },
-  planSub:           { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  planPrice:         { fontSize: 22, fontFamily: "Outfit-ExtraBold", color: colors.textMuted, letterSpacing: -0.5 },
-  planPriceActive:   { color: colors.textPrimary },
-  planPer:           { fontSize: 11, color: colors.textMuted, marginTop: 1 },
-  planSavings:       { fontSize: 12, color: colors.textMuted, fontFamily: "Outfit-SemiBold", marginTop: 2 },
-  planSavingsActive: { color: colors.accent },
-  planCheck: {
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", marginRight: spacing.sm,
+  planSegmentLabelActive: { color: "#fff" },
+  planSegmentBadge: {
+    fontSize: 10, fontFamily: "Outfit-ExtraBold",
+    color: colors.accent, letterSpacing: 0.3,
   },
-  planCheckEmpty: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 1.5, borderColor: colors.border, marginRight: spacing.sm,
-  },
+  planSegmentBadgeActive: { color: "rgba(255,255,255,0.85)" },
 
-  // CTA
+  planPriceRow: {
+    flexDirection: "row", alignItems: "baseline",
+    justifyContent: "center", gap: 2, marginBottom: 4,
+  },
+  planPrice:  { fontSize: 32, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, letterSpacing: -1 },
+  planPer:    { fontSize: 14, color: colors.textMuted, fontFamily: "Outfit-Medium" },
+  planBilled: { fontSize: 12, color: colors.textMuted, textAlign: "center", marginBottom: 20 },
+
+  // ── CTA ──────────────────────────────────────────────────────
   ctaBtn: {
-    backgroundColor: colors.accent, borderRadius: radius.md,
-    paddingVertical: 17, alignItems: "center", justifyContent: "center",
-    marginBottom: spacing.sm, ...shadows.accent,
+    backgroundColor: colors.accent,
+    borderRadius: radius.md,
+    paddingVertical: 18,
+    alignItems: "center",
+    marginBottom: 12,
+    ...shadows.accent,
   },
   ctaBtnDisabled: { opacity: 0.6 },
-  ctaBtnText:     { color: "#fff", fontSize: 17, fontFamily: "Outfit-ExtraBold" },
-  ctaBtnSub:      { color: "rgba(255,255,255,0.75)", fontSize: 12, marginTop: 3, fontFamily: "Outfit-Medium" },
+  ctaBtnText:     { fontSize: 17, fontFamily: "Outfit-ExtraBold", color: "#fff", letterSpacing: 0.1 },
+  ctaBtnSub:      { fontSize: 12, color: "rgba(255,255,255,0.75)", marginTop: 3, fontFamily: "Outfit-Medium" },
 
   restoreBtn:     { alignItems: "center", paddingVertical: 10 },
   restoreBtnText: { fontSize: 13, color: colors.textMuted },
-  legal:          { fontSize: 11, color: colors.textMuted, textAlign: "center", lineHeight: 16, marginTop: spacing.xs },
+
+  legal: {
+    fontSize: 10, color: colors.textMuted,
+    textAlign: "center", lineHeight: 15,
+    marginTop: 6, paddingHorizontal: 8,
+  },
+  legalLink: { textDecorationLine: "underline" },
 });
 
-const PaywallScreen = ({ navigation }) => {
-  const { colors } = useTheme();
-  const styles = makeStyles(colors);
-  const [selectedPlan, setSelectedPlan] = useState("semester");
+export default function PaywallScreen({ navigation }) {
+  const { colors }    = useTheme();
+  const insets        = useSafeAreaInsets();
+  const styles        = makeStyles(colors, insets);
+  const [selectedPlan, setSelectedPlan] = useState("annual");
   const [loading, setLoading]           = useState(false);
   const [packages, setPackages]         = useState({});
 
   const fadeAnim  = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(16)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
   const ctaScale  = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     getOfferings().then(setPackages).catch(() => {});
     Animated.parallel([
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 320, useNativeDriver: true }),
+      Animated.timing(fadeAnim,  { toValue: 1, duration: 300, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, speed: 18, bounciness: 4, useNativeDriver: true }),
     ]).start();
   }, []);
@@ -199,7 +185,7 @@ const PaywallScreen = ({ navigation }) => {
       await purchasePackage(pkg);
       invalidateTodayFocusCache();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      Alert.alert("Welcome to Scholar!", "All AI features are now unlocked.", [
+      Alert.alert("You're in!", "Scholar is now unlocked. Build your first plan.", [
         { text: "Let's go!", onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
@@ -230,10 +216,12 @@ const PaywallScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
-          <Feather name="x" size={22} color={colors.textPrimary} />
+    <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
+    <View style={styles.root}>
+      <View style={styles.handle} />
+      <View style={styles.closeRow}>
+        <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Feather name="x" size={16} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -242,96 +230,103 @@ const PaywallScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
       >
-        {/* Hero */}
-        <View style={styles.heroSection}>
-          <View style={styles.iconWrap}>
-            <Feather name="zap" size={28} color={colors.accent} />
+        {/* ── Hero ── */}
+        <View style={styles.hero}>
+          <View style={styles.trialBadge}>
+            <Feather name="gift" size={13} color={colors.accent} />
+            <Text style={styles.trialBadgeText}>7-Day Free Trial</Text>
           </View>
-          <Text style={styles.heroTitle}>Your AI Academic Coach</Text>
-          <Text style={styles.heroSubtitle}>
-            Scholar learns how you work and tells you exactly what to tackle — every day, all semester.
+          <Text style={styles.heroTitle}>
+            {"Study smarter.\nStay ahead."}
           </Text>
-          <View style={styles.heroBadge}>
-            <Feather name="check" size={12} color={colors.accent} />
-            <Text style={styles.heroBadgeText}>Free forever · Scholar unlocks AI</Text>
-          </View>
+          <Text style={styles.heroSub}>
+            No credit card required to start.{"\n"}Cancel anytime.
+          </Text>
         </View>
 
-        {/* Features */}
-        <Text style={styles.sectionLabel}>What's included</Text>
-        <View style={styles.featuresCard}>
+        {/* ── Features ── */}
+        <View style={styles.featuresWrap}>
           {FEATURES.map((f, i) => (
-            <View key={f.title}>
-              <View style={styles.featureRow}>
-                <View style={styles.featureIconWrap}>
-                  <Feather name={f.icon} size={15} color={colors.accent} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.featureTitle}>{f.title}</Text>
-                  <Text style={styles.featureDesc}>{f.desc}</Text>
-                </View>
+            <View key={f.title} style={[styles.featureRow, i === FEATURES.length - 1 && styles.featureRowLast]}>
+              <View style={styles.featureCheck}>
+                <Feather name="check" size={13} color={colors.accent} />
               </View>
-              {i < FEATURES.length - 1 && <View style={styles.featureDivider} />}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.featureTitle}>{f.title}</Text>
+                <Text style={styles.featureDesc}>{f.desc}</Text>
+              </View>
             </View>
           ))}
         </View>
 
-        {/* Plan selector */}
-        <Text style={styles.sectionLabel}>Choose your plan</Text>
-        <View style={styles.plansRow}>
-          {PLANS.map((plan) => (
-            <PlanCard
-              key={plan.key}
-              plan={plan}
-              active={selectedPlan === plan.key}
-              onPress={() => setSelectedPlan(plan.key)}
-              styles={styles}
-              colors={colors}
-            />
-          ))}
+        {/* ── Plan toggle ── */}
+        <View style={styles.planToggleWrap}>
+          <View style={styles.planToggle}>
+            {PLANS.map((plan) => {
+              const active = selectedPlan === plan.key;
+              return (
+                <TouchableOpacity
+                  key={plan.key}
+                  style={[styles.planSegment, active && styles.planSegmentActive]}
+                  onPress={() => { Haptics.selectionAsync().catch(() => {}); setSelectedPlan(plan.key); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.planSegmentLabel, active && styles.planSegmentLabelActive]}>
+                    {plan.label}
+                  </Text>
+                  {plan.badge && (
+                    <Text style={[styles.planSegmentBadge, active && styles.planSegmentBadgeActive]}>
+                      {plan.badge}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={styles.planPriceRow}>
+            <Text style={styles.planPrice}>{activePlan?.displayPrice}</Text>
+            <Text style={styles.planPer}>{activePlan?.per}</Text>
+          </View>
+          <Text style={styles.planBilled}>{activePlan?.billed}</Text>
         </View>
 
-        {/* CTA */}
-        <TouchableOpacity
-          style={[styles.ctaBtn, loading && styles.ctaBtnDisabled]}
-          onPress={handleUpgrade}
-          onPressIn={() => Animated.spring(ctaScale, { toValue: 0.97, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
-          onPressOut={() => Animated.spring(ctaScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start()}
-          disabled={loading}
-          activeOpacity={1}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Text style={styles.ctaBtnText}>Get Scholar</Text>
-              <Text style={styles.ctaBtnSub}>
-                {activePlan?.price}{activePlan?.per} · Cancel anytime
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {/* ── CTA ── */}
+        <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
+          <TouchableOpacity
+            style={[styles.ctaBtn, loading && styles.ctaBtnDisabled]}
+            onPress={handleUpgrade}
+            onPressIn={() => Animated.spring(ctaScale, { toValue: 0.97, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
+            onPressOut={() => Animated.spring(ctaScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start()}
+            disabled={loading}
+            activeOpacity={1}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text style={styles.ctaBtnText}>Start Free Trial</Text>
+                <Text style={styles.ctaBtnSub}>
+                  7 days free · then {activePlan?.displayPrice}{activePlan?.per}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
 
         <TouchableOpacity onPress={handleRestore} style={styles.restoreBtn}>
           <Text style={styles.restoreBtnText}>Restore purchases</Text>
         </TouchableOpacity>
 
         <Text style={styles.legal}>
-          {selectedPlan === "annual"
-            ? "Billed as $29.99/year."
-            : selectedPlan === "semester"
-            ? "Billed as $17.99 for 6 months."
-            : "Billed monthly at $4.99."
-          }{" "}
-          By continuing you agree to our{" "}
-          <Text style={{ textDecorationLine: "underline" }} onPress={() => Linking.openURL("https://planoraapp.net/terms")}>Terms</Text>
-          {" "}and{" "}
-          <Text style={{ textDecorationLine: "underline" }} onPress={() => Linking.openURL("https://planoraapp.net/privacy")}>Privacy Policy</Text>.
+          After your 7-day free trial, {activePlan?.billed?.toLowerCase()}.
+          {" "}Subscription renews automatically unless cancelled at least 24 hours before the end of the period. Manage in your Apple ID settings.{" "}
+          <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/terms")}>Terms</Text>
+          {" "}·{" "}
+          <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/privacy")}>Privacy</Text>
         </Text>
-
       </Animated.ScrollView>
-    </SafeAreaView>
+    </View>
+    </View>
   );
-};
-
-export default PaywallScreen;
+}
