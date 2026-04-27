@@ -1,11 +1,12 @@
 // ============================================================
 // src/hooks/useTasks.js
+// Context-based — one Firestore listener shared across all screens.
 // Notification strategy: batch-based (scheduleBatchReminders).
 //   - All mutations call scheduleBatchReminders with updated task list.
 //   - syncNotificationWindow (12s debounce) handles quiet background sync.
 // ============================================================
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   subscribeTasks,
@@ -16,6 +17,7 @@ import {
   recordTaskCompletion,
   loadTaskHistory,
   clearCompletedTasks,
+  auth,
 } from "../services/firebase";
 import {
   cacheTasksLocally,
@@ -33,6 +35,8 @@ import {
 } from "../services/notifications";
 import { spawnNextRecurringTask } from "../services/recurringTasks";
 import { analyzePatterns } from "../services/patternAnalysis";
+import { suggestPriorities } from "../services/openai";
+import { isPriorityStale } from "../utils/priority";
 import { useAuth } from "./useAuth";
 import { useUserProfile } from "./useUserProfile";
 import {
@@ -43,7 +47,9 @@ import {
   checkAndResetStreak,
 } from "../utils/streakHelpers";
 
-export const useTasks = () => {
+const TasksContext = createContext(null);
+
+export const TasksProvider = ({ children }) => {
   const { user } = useAuth();
   const { profile } = useUserProfile();
   const [tasks, setTasks] = useState([]);
@@ -53,52 +59,71 @@ export const useTasks = () => {
   const [patterns, setPatterns] = useState(null);
   const [streak, setStreak] = useState(0);
 
-  // Keep a ref so createManyTasks can read current tasks without stale closure
   const tasksRef = useRef([]);
   const lastEditTimeRef = useRef(0);
-  useEffect(() => {
-    tasksRef.current = tasks;
-  }, [tasks]);
+  const priorityRecalcDone = useRef(false);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
 
-  // Keep bestTime in a ref so reminder scheduling always uses the latest value
-  // without needing to add patterns to every useCallback dep array
   const bestTimeRef = useRef(null);
   useEffect(() => {
     bestTimeRef.current = patterns?.productiveTimeOfDay?.bestTime ?? null;
   }, [patterns?.productiveTimeOfDay?.bestTime]);
 
-  // Load persisted streak on mount — resets if user missed a day
   useEffect(() => {
     if (!user?.uid) return;
-    checkAndResetStreak(user.uid)
-      .then(setStreak)
-      .catch(() => {});
+    checkAndResetStreak(user.uid).then(setStreak).catch(() => {});
   }, [user?.uid]);
 
-  // Recompute patterns whenever tasks or history change
   useEffect(() => {
     if (tasks.length > 0 || history.length > 0) {
       setPatterns(analyzePatterns(tasks, history, profile));
     }
   }, [tasks, history]);
 
-  // Keep app icon badge in sync with overdue count
-  useEffect(() => {
-    updateOverdueBadge(tasks);
-  }, [tasks]);
+  useEffect(() => { updateOverdueBadge(tasks); }, [tasks]);
 
-  // Reschedule morning digest whenever tasks or productive time changes
+  // Background priority recalculation — runs once per session after tasks load.
+  // Finds tasks whose stored priority is stale (due date crossed a tier boundary)
+  // and silently updates them via the AI + Firestore.
+  useEffect(() => {
+    if (priorityRecalcDone.current || loading || !user?.uid || tasks.length === 0) return;
+    const staleTasks = tasks.filter((t) => !t.completed && isPriorityStale(t));
+    if (staleTasks.length === 0) { priorityRecalcDone.current = true; return; }
+    priorityRecalcDone.current = true;
+
+    // Delay 12s so auth.currentUser is guaranteed to be ready (tasks may load from cache first)
+    const timer = setTimeout(async () => {
+      if (!auth.currentUser) return;
+      const RECALC_KEY = "@tf_priority_recalc_at";
+      try {
+        const raw = await AsyncStorage.getItem(RECALC_KEY);
+        const last = raw ? parseInt(raw, 10) : 0;
+        if (Date.now() - last < 12 * 60 * 60 * 1000) return; // at most once per 12 hours
+        await AsyncStorage.setItem(RECALC_KEY, String(Date.now()));
+        const updated = await suggestPriorities(staleTasks, patterns, profile);
+        await Promise.all(
+          updated
+            .filter((t) => {
+              const orig = staleTasks.find((s) => s.id === t.id);
+              return orig && t.aiPriority !== orig.aiPriority;
+            })
+            .map((t) => updateTask(t.id, { aiPriority: t.aiPriority, aiReason: t.aiReason }))
+        );
+      } catch {
+        // silent — background optimization
+      }
+    }, 12000);
+    return () => clearTimeout(timer);
+  }, [loading, user?.uid, tasks.length]);
+
   useEffect(() => {
     if (!user?.uid) return;
-
     const timer = setTimeout(() => {
       scheduleDailyDigest(tasks, bestTimeRef.current, user.uid);
     }, 12000);
-
     return () => clearTimeout(timer);
   }, [tasks, user?.uid, patterns?.productiveTimeOfDay?.bestTime]);
 
-  // Schedule overdue nudges whenever tasks change
   useEffect(() => {
     if (!user?.uid) return;
     const timer = setTimeout(() => {
@@ -107,14 +132,11 @@ export const useTasks = () => {
     return () => clearTimeout(timer);
   }, [tasks, user?.uid]);
 
-  // Reschedule weekly summary whenever tasks, history, or productive time changes
   useEffect(() => {
     if (!user?.uid) return;
-
     const timer = setTimeout(() => {
       scheduleWeeklySummary(tasks, history, user.uid);
     }, 12000);
-
     return () => clearTimeout(timer);
   }, [tasks, history, user?.uid, patterns?.productiveTimeOfDay?.bestTime]);
 
@@ -125,39 +147,28 @@ export const useTasks = () => {
       setLoading(false);
       return;
     }
-    // Load cached data immediately for snappy offline-first UI
     Promise.all([loadCachedTasks(), loadCachedHistory()]).then(
       ([cachedTasks, cachedHistory]) => {
         if (cachedTasks.length > 0) {
           const sanitized = cachedTasks.map((t) => ({
             ...t,
-            className:
-              typeof t.className === "string"
-                ? t.className
-                : t.className?.name ?? null,
+            className: typeof t.className === "string" ? t.className : t.className?.name ?? null,
           }));
           setTasks(sanitized);
           setLoading(false);
         }
-        if (cachedHistory.length > 0) {
-          setHistory(cachedHistory);
-        }
+        if (cachedHistory.length > 0) setHistory(cachedHistory);
       }
     );
 
-    // Subscribe to live task updates
     const unsubscribe = subscribeTasks(user.uid, (freshTasks) => {
       setTasks(freshTasks);
       cacheTasksLocally(freshTasks);
       setLoading(false);
     });
 
-    // Load full task history for pattern analysis (non-blocking)
     loadTaskHistory(user.uid, 100)
-      .then((freshHistory) => {
-        setHistory(freshHistory);
-        cacheTaskHistory(freshHistory);
-      })
+      .then((freshHistory) => { setHistory(freshHistory); cacheTaskHistory(freshHistory); })
       .catch(() => {});
 
     return unsubscribe;
@@ -165,160 +176,82 @@ export const useTasks = () => {
 
   useEffect(() => {
     if (!user?.uid || tasks.length === 0) return;
-
     const timer = setTimeout(() => {
       if (Date.now() - lastEditTimeRef.current < 15_000) return;
       syncNotificationWindow(tasks, bestTimeRef.current, user.uid);
     }, 12000);
-
     return () => clearTimeout(timer);
   }, [tasks, user?.uid]);
 
-  // ── Create task ─────────────────────────────────────────────
+  const createTask = useCallback(async (taskData) => {
+    if (!user) throw new Error("Not logged in.");
+    try {
+      const docRef = await addTask(user.uid, taskData);
+      const optimistic = [...tasksRef.current, { ...taskData, id: docRef.id, completed: false }];
+      scheduleBatchReminders(optimistic, bestTimeRef.current, user.uid).catch(() => {});
+      return docRef;
+    } catch (err) {
+      const msg = err.message?.includes("permission") ? "Permission denied. Please sign in again." : err.message || "Failed to create task.";
+      setError(msg);
+      throw new Error(msg);
+    }
+  }, [user]);
 
-  const createTask = useCallback(
-    async (taskData) => {
-      if (!user) throw new Error("Not logged in.");
-      try {
-        const docRef = await addTask(user.uid, taskData);
-        // Schedule immediately — don't wait for the 12s debounce
-        const optimistic = [...tasksRef.current, { ...taskData, id: docRef.id, completed: false }];
-        scheduleBatchReminders(optimistic, bestTimeRef.current, user.uid).catch(() => {});
-        return docRef;
-      } catch (err) {
-        const msg = err.message?.includes("permission")
-          ? "Permission denied. Please sign in again."
-          : err.message || "Failed to create task.";
-        setError(msg);
-        throw new Error(msg);
+  const createManyTasks = useCallback(async (tasksArray) => {
+    if (!user) throw new Error("Not logged in.");
+    try {
+      const existingCanvasIds = new Set(tasksRef.current.filter((t) => t.canvasId).map((t) => String(t.canvasId)));
+      const existingIcsUids = new Set(tasksRef.current.filter((t) => t.icsUid).map((t) => String(t.icsUid)));
+      const toCreate = tasksArray.filter(
+        (t) => (!t.canvasId || !existingCanvasIds.has(String(t.canvasId))) && (!t.icsUid || !existingIcsUids.has(String(t.icsUid)))
+      );
+      const skipped = tasksArray.length - toCreate.length;
+      if (toCreate.length === 0) return { created: 0, skipped };
+      const docRefs = await Promise.all(toCreate.map((t) => addTask(user.uid, t)));
+      const newTasks = toCreate.map((t, i) => ({ ...t, id: docRefs[i].id, completed: false }));
+      const optimistic = [...tasksRef.current, ...newTasks];
+      scheduleBatchReminders(optimistic, bestTimeRef.current, user.uid).catch(() => {});
+      return { created: toCreate.length, skipped };
+    } catch (err) {
+      const msg = err.message || "Failed to import tasks.";
+      setError(msg);
+      throw new Error(msg);
+    }
+  }, [user]);
+
+  const editTask = useCallback(async (taskId, updates) => {
+    try {
+      await updateTask(taskId, updates);
+      if ("dueDate" in updates || "dueTime" in updates) {
+        lastEditTimeRef.current = Date.now();
+        const updatedTasks = tasksRef.current.map((t) => t.id === taskId ? { ...t, ...updates } : t);
+        scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
       }
-    },
-    [user]
-  );
+    } catch (err) {
+      const msg = err.message?.includes("permission") ? "Permission denied." : err.message || "Failed to update task.";
+      setError(msg);
+      throw new Error(msg);
+    }
+  }, [tasks, user]);
 
-  // ── Create many tasks (bulk import) ────────────────────────
-
-  const createManyTasks = useCallback(
-    async (tasksArray) => {
-      if (!user) throw new Error("Not logged in.");
-      try {
-        // Deduplicate re-imports: skip tasks whose canvasId or icsUid already exists
-        const existingCanvasIds = new Set(
-          tasksRef.current
-            .filter((t) => t.canvasId)
-            .map((t) => String(t.canvasId))
-        );
-        const existingIcsUids = new Set(
-          tasksRef.current.filter((t) => t.icsUid).map((t) => String(t.icsUid))
-        );
-        const toCreate = tasksArray.filter(
-          (t) =>
-            (!t.canvasId || !existingCanvasIds.has(String(t.canvasId))) &&
-            (!t.icsUid || !existingIcsUids.has(String(t.icsUid)))
-        );
-        const skipped = tasksArray.length - toCreate.length;
-
-        if (toCreate.length === 0) return { created: 0, skipped };
-
-        const docRefs = await Promise.all(
-          toCreate.map((t) => addTask(user.uid, t))
-        );
-
-        // Schedule immediately with optimistic task list
-        const newTasks = toCreate.map((t, i) => ({ ...t, id: docRefs[i].id, completed: false }));
-        const optimistic = [...tasksRef.current, ...newTasks];
-        scheduleBatchReminders(optimistic, bestTimeRef.current, user.uid).catch(() => {});
-
-        return { created: toCreate.length, skipped };
-      } catch (err) {
-        const msg = err.message || "Failed to import tasks.";
-        setError(msg);
-        throw new Error(msg);
+  const completeTask = useCallback(async (task) => {
+    try {
+      await toggleTask(task.id, task.completed);
+      if (!task.completed) {
+        incrementStreak(user?.uid).then(setStreak).catch(() => {});
+        if (task.recurrence) await spawnNextRecurringTask({ ...task, userId: user.uid });
+        await recordTaskCompletion({ ...task, userId: user.uid });
+        const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: true } : t);
+        scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+        loadTaskHistory(user.uid, 100).then((fresh) => { setHistory(fresh); cacheTaskHistory(fresh); }).catch(() => {});
+      } else {
+        const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: false } : t);
+        scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
       }
-    },
-    [user]
-  );
-
-  // ── Edit task ───────────────────────────────────────────────
-
-  const editTask = useCallback(
-    async (taskId, updates) => {
-      try {
-        await updateTask(taskId, updates);
-
-        // Reschedule batch notifications immediately when date/time changes
-        if ("dueDate" in updates || "dueTime" in updates) {
-          lastEditTimeRef.current = Date.now();
-          const updatedTasks = tasksRef.current.map((t) =>
-            t.id === taskId ? { ...t, ...updates } : t
-          );
-          scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
-        }
-      } catch (err) {
-        const msg = err.message?.includes("permission")
-          ? "Permission denied."
-          : err.message || "Failed to update task.";
-        setError(msg);
-        throw new Error(msg);
-      }
-    },
-    [tasks, user]
-  );
-
-  // ── Complete / toggle task ──────────────────────────────────
-
-  const completeTask = useCallback(
-    async (task) => {
-      try {
-        await toggleTask(task.id, task.completed);
-
-        if (!task.completed) {
-          // Task is being marked complete
-
-          // Increment streak — guarded inside incrementStreak so re-completing
-          // the same task today won't double-count
-          incrementStreak(user?.uid)
-            .then((newCount) => {
-              setStreak(newCount);
-            })
-            .catch(() => {});
-
-          // Spawn next occurrence for recurring tasks
-          if (task.recurrence) {
-            await spawnNextRecurringTask({ ...task, userId: user.uid });
-          }
-
-          // Record for pattern analysis
-          await recordTaskCompletion({ ...task, userId: user.uid });
-
-          // Reschedule batch reminders excluding this completed task
-          const updatedTasks = tasksRef.current.map((t) =>
-            t.id === task.id ? { ...t, completed: true } : t
-          );
-          scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
-
-          // Refresh history so patterns update after completion
-          loadTaskHistory(user.uid, 100)
-            .then((fresh) => {
-              setHistory(fresh);
-              cacheTaskHistory(fresh);
-            })
-            .catch(() => {});
-        } else {
-          // Task is being un-completed — reschedule batch with it included
-          const updatedTasks = tasksRef.current.map((t) =>
-            t.id === task.id ? { ...t, completed: false } : t
-          );
-          scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
-        }
-      } catch (err) {
-        setError(err.message || "Failed to update task.");
-      }
-    },
-    [user]
-  );
-
-  // ── Delete task ─────────────────────────────────────────────
+    } catch (err) {
+      setError(err.message || "Failed to update task.");
+    }
+  }, [user]);
 
   const removeTask = useCallback(async (taskId) => {
     try {
@@ -331,8 +264,6 @@ export const useTasks = () => {
       throw new Error(msg);
     }
   }, [user]);
-
-  // ── Clear all completed tasks ───────────────────────────────
 
   const clearCompleted = useCallback(async () => {
     if (!user) return 0;
@@ -347,35 +278,22 @@ export const useTasks = () => {
     }
   }, [user]);
 
-  // ── Derived lists ───────────────────────────────────────────
-
-  const pendingTasks = tasks.filter((t) => !t.completed);
+  const pendingTasks   = tasks.filter((t) => !t.completed);
   const completedTasks = tasks.filter((t) => t.completed);
-  const todaysTasks = tasks.filter((t) => {
+  const todaysTasks    = tasks.filter((t) => {
     if (!t.dueDate) return false;
     const today = new Date();
-    const due = new Date(t.dueDate);
-    return (
-      due.getDate() === today.getDate() &&
-      due.getMonth() === today.getMonth() &&
-      due.getFullYear() === today.getFullYear()
-    );
+    const due   = new Date(t.dueDate);
+    return due.getDate() === today.getDate() && due.getMonth() === today.getMonth() && due.getFullYear() === today.getFullYear();
   });
 
-  return {
-    tasks,
-    pendingTasks,
-    completedTasks,
-    todaysTasks,
-    loading,
-    error,
-    patterns,
-    streak,
-    createTask,
-    createManyTasks,
-    editTask,
-    completeTask,
-    removeTask,
-    clearCompleted,
-  };
+  const value = { tasks, pendingTasks, completedTasks, todaysTasks, loading, error, patterns, streak, createTask, createManyTasks, editTask, completeTask, removeTask, clearCompleted };
+
+  return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
+};
+
+export const useTasks = () => {
+  const ctx = useContext(TasksContext);
+  if (!ctx) throw new Error("useTasks must be used within TasksProvider");
+  return ctx;
 };

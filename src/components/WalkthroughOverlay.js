@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   Animated, useWindowDimensions,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import { useTheme } from "../utils/ThemeContext";
 import { useWalkthroughTargets } from "../utils/WalkthroughContext";
@@ -15,7 +16,7 @@ const STEPS = [
     key:   "plus",
     icon:  "plus-circle",
     title: "Add your tasks",
-    desc:  "Tap + to log any assignment, exam, reading, or project with a due date.",
+    desc:  "Tap + to log any assignment, exam, or project. AI labels each one High, Medium, or Low priority based on the due date and assignment type.",
     tooltipSide: "above",
   },
   {
@@ -35,8 +36,8 @@ const STEPS = [
   {
     key:   "syllabusImport",
     icon:  "upload-cloud",
-    title: "Import from syllabus",
-    desc:  "Upload a syllabus PDF and AI will pull out every deadline automatically.",
+    title: "Sync your assignments",
+    desc:  "Link your Canvas, Brightspace, or Blackboard calendar to pull in every deadline automatically.",
     tooltipSide: "below",
   },
   {
@@ -65,7 +66,7 @@ const STEPS = [
 export default function WalkthroughOverlay({ onDone }) {
   const { colors }                = useTheme();
   const { width: SW, height: SH } = useWindowDimensions();
-  const { targets }               = useWalkthroughTargets();
+  const targets = useWalkthroughTargets();
   const [step, setStep]           = useState(0);
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(14)).current;
@@ -82,6 +83,7 @@ export default function WalkthroughOverlay({ onDone }) {
   }, [step]);
 
   const advance = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (step < STEPS.length - 1) {
       setStep((s) => s + 1);
     } else {
@@ -90,6 +92,7 @@ export default function WalkthroughOverlay({ onDone }) {
   };
 
   const dismiss = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(onDone);
   };
 

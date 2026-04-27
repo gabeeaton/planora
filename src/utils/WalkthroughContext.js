@@ -1,17 +1,29 @@
 import { createContext, useContext, useState, useCallback } from "react";
 
-export const WalkthroughContext = createContext({ targets: {}, setTarget: () => {} });
+// Separate contexts: components that only call setTarget don't re-render when targets change
+const WalkthroughTargetsContext = createContext({});
+const WalkthroughSetterContext  = createContext(() => {});
 
-export const useWalkthroughTargets = () => useContext(WalkthroughContext);
+export const useWalkthroughTargets = () => useContext(WalkthroughTargetsContext);
+export const useSetWalkthroughTarget = () => useContext(WalkthroughSetterContext);
 
 export const WalkthroughProvider = ({ children }) => {
   const [targets, setTargets] = useState({});
+
   const setTarget = useCallback((name, rect) => {
-    setTargets((prev) => ({ ...prev, [name]: rect }));
+    setTargets((prev) => {
+      const old = prev[name];
+      // Skip update if position hasn't meaningfully changed
+      if (old && old.cx === rect.cx && old.cy === rect.cy && old.w === rect.w && old.h === rect.h) return prev;
+      return { ...prev, [name]: rect };
+    });
   }, []);
+
   return (
-    <WalkthroughContext.Provider value={{ targets, setTarget }}>
-      {children}
-    </WalkthroughContext.Provider>
+    <WalkthroughSetterContext.Provider value={setTarget}>
+      <WalkthroughTargetsContext.Provider value={targets}>
+        {children}
+      </WalkthroughTargetsContext.Provider>
+    </WalkthroughSetterContext.Provider>
   );
 };

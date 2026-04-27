@@ -9,6 +9,8 @@ TextInput.defaultProps = TextInput.defaultProps || {};
 TextInput.defaultProps.style = { fontFamily: "Outfit-Regular" };
 import * as Sentry from "@sentry/react-native";
 import { AuthProvider } from "./src/hooks/useAuth";
+import { UserProfileProvider } from "./src/hooks/useUserProfile";
+import { TasksProvider } from "./src/hooks/useTasks";
 import { ThemeProvider } from "./src/utils/ThemeContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -66,8 +68,12 @@ function App() {
   return (
     <ThemeProvider initialTheme={savedTheme} initialMode={savedMode}>
       <AuthProvider>
-        <StatusBar style="auto" />
-        <AppNavigator />
+        <UserProfileProvider>
+          <TasksProvider>
+            <StatusBar style="auto" />
+            <AppNavigator />
+          </TasksProvider>
+        </UserProfileProvider>
       </AuthProvider>
     </ThemeProvider>
   );

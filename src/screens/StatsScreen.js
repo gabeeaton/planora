@@ -41,6 +41,28 @@ const toDate = (val) => {
 
 const GRADE_POINTS = { A: 4.0, B: 3.0, C: 2.0, D: 1.0, F: 0.0 };
 
+const getSemesterProgress = (semester) => {
+  if (!semester) return 0;
+  const match = semester.match(/(Spring|Summer|Fall|Winter)\s+(\d{4})/i);
+  if (!match) return 0;
+  const season = match[1].toLowerCase();
+  const year   = parseInt(match[2]);
+  const ranges = {
+    spring: { start: [year, 0, 15],  end: [year, 4, 15] },  // Jan 15 – May 15
+    summer: { start: [year, 4, 15],  end: [year, 7, 15] },  // May 15 – Aug 15
+    fall:   { start: [year, 7, 20],  end: [year, 11, 20] }, // Aug 20 – Dec 20
+    winter: { start: [year, 11, 10], end: [year + 1, 1, 5] }, // Dec 10 – Feb 5
+  };
+  const r = ranges[season];
+  if (!r) return 0;
+  const start = new Date(...r.start);
+  const end   = new Date(...r.end);
+  const now   = new Date();
+  if (now <= start) return 0;
+  if (now >= end)   return 100;
+  return Math.round(((now - start) / (end - start)) * 100);
+};
+
 const HEALTH_ORDER = { "At risk": 0, Behind: 1, Okay: 2, "On track": 3 };
 
 const getHealthRating = (pct, overdueCount, total, isDark = true) => {
@@ -964,28 +986,36 @@ const StatsScreen = () => {
     const map = {};
     tasks.forEach((t) => {
       const key = t.className ?? "No class";
-      if (!map[key]) map[key] = { total: 0, done: 0, overdue: 0 };
-      map[key].total++;
-      if (t.completed) map[key].done++;
-      else if (t.dueDate) {
+      if (!map[key]) map[key] = { done: 0, pending: 0, overdue: 0 };
+      if (t.completed) {
+        map[key].done++;
+      } else if (t.dueDate) {
         const due = toDate(t.dueDate);
         if (due) {
           const dueDay = new Date(due);
           dueDay.setHours(0, 0, 0, 0);
-          if (dueDay < todayStart) {
-            map[key].overdue++;
-          } else if (dueDay.getTime() === todayStart.getTime()) {
+          let isOverdue = dueDay < todayStart;
+          if (!isOverdue && dueDay.getTime() === todayStart.getTime()) {
             if (Array.isArray(t.dueTime) && t.dueTime.length === 2) {
               const dueDateTime = new Date(due);
               dueDateTime.setHours(t.dueTime[0], t.dueTime[1], 0, 0);
-              if (dueDateTime < today) map[key].overdue++;
+              if (dueDateTime < today) isOverdue = true;
             }
           }
+          if (isOverdue) map[key].overdue++;
+          else map[key].pending++;
+        } else {
+          map[key].pending++;
         }
+      } else {
+        map[key].pending++;
       }
     });
     return Object.entries(map)
-      .map(([name, { total, done, overdue }]) => {
+      .map(([name, { done, pending, overdue }]) => {
+        // denominator = only actionable tasks (completed + still upcoming)
+        // overdue-uncompleted are shown separately, not dragging down the ratio
+        const total = done + pending;
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
         const health = getHealthRating(pct, overdue, total, isDark);
         return { name, total, done, overdue, pct, health };
@@ -998,6 +1028,9 @@ const StatsScreen = () => {
       })
       .slice(0, 8);
   }, [tasks]);
+
+  const semesterPct = getSemesterProgress(profile?.semester);
+
   const onTrackCount = byClass.filter(
     (c) => c.health.label === "On track" || c.health.label === "Okay"
   ).length;
@@ -1005,12 +1038,12 @@ const StatsScreen = () => {
 
   // Tasks due in next 3 days
   const upcoming = useMemo(() => {
-    const in3 = new Date(today);
+    const in3 = new Date(todayStart);
     in3.setDate(in3.getDate() + 3);
     return tasks
       .filter((t) => {
         const d = toDate(t.dueDate);
-        return !t.completed && d && d >= today && d <= in3;
+        return !t.completed && d && d >= todayStart && d <= in3;
       })
       .sort((a, b) => (toDate(a.dueDate) ?? 0) - (toDate(b.dueDate) ?? 0))
       .slice(0, 5);
@@ -1201,9 +1234,9 @@ const StatsScreen = () => {
               <Feather name="trending-up" size={16} color={colors.accent} />
             </View>
             <Text style={[styles.statValue, { color: colors.accent }]}>
-              {completionRate}%
+              {totalPending}
             </Text>
-            <Text style={styles.statLabel}>Complete</Text>
+            <Text style={styles.statLabel}>Remaining</Text>
           </View>
         </View>
         </Animated.View>
@@ -1518,10 +1551,11 @@ const StatsScreen = () => {
                             <Text style={styles.className} numberOfLines={1}>
                               {name}
                             </Text>
-                            <Text style={styles.classMeta}>
-                              {done}/{total} done
-                              {overdue > 0 ? ` · ${overdue} overdue` : ""}
-                            </Text>
+                            {overdue > 0 && (
+                              <Text style={[styles.classMeta, { color: colors.isDark ? "#FF5C5C" : "#DC2626" }]}>
+                                {overdue} overdue
+                              </Text>
+                            )}
                           </View>
                           <View
                             style={[
@@ -1546,17 +1580,6 @@ const StatsScreen = () => {
                               {health.label}
                             </Text>
                           </View>
-                        </View>
-                        <View style={styles.barRow}>
-                          <View style={styles.barTrack}>
-                            <View
-                              style={[
-                                styles.barFill,
-                                { width: `${pct}%`, backgroundColor: accentColor },
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.barPct}>{pct}%</Text>
                         </View>
                       </View>
                     </View>
