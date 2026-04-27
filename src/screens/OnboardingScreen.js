@@ -885,16 +885,14 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
             {/* Steps */}
             {({
               "Canvas|Web": [
-                "Open Canvas in your mobile browser",
-                "Tap the Calendar icon in the sidebar",
-                'Scroll to the very bottom and tap "Calendar Feed" — a popup with the URL appears',
-                "Copy that URL and paste it above",
+                "Open Canvas and go to Calendar",
+                '"Calendar Feed" link in the bottom right sidebar — click it',
+                "Copy the URL (replace webcal:// with https:// if needed) and paste it above",
               ],
               "Canvas|Mobile App": [
-                "Open the Canvas Student app → tap ☰ Menu → Settings",
-                'Tap "Subscribe to Calendar Feed"',
-                'Long-press "Subscribe" or tap Share to copy the raw URL',
-                "If it only opens your calendar app, use the Web method instead",
+                "Open the Canvas Student app on your phone",
+                'Tap ☰ (top left) → Settings → "Subscribe to Calendar Feed"',
+                "Copy the URL and paste it above",
               ],
               "Brightspace|Web": [
                 "Open Brightspace in your mobile browser → go to Calendar",

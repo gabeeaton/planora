@@ -222,9 +222,19 @@ export const buildPatternContext = (patterns, userProfile = null) => {
   const lines = [];
   const { latenessProfile, productiveTimeOfDay, overallStats, staleTasks, urgentUntouched } = patterns;
 
-  // Only report lateness tendency with enough data to be meaningful
+  // Report lateness tendency only with enough data; cross-reference with self-reported style
   if (latenessProfile.totalSamples >= 6) {
-    lines.push(`User tendency: ${latenessProfile.label} (avg ${latenessProfile.avgDaysBefore} days before deadline, based on ${latenessProfile.totalSamples} tasks)`);
+    const selfStyle = userProfile?.learningStyle;
+    const selfLabel = selfStyle === "on-top" ? "early" : selfStyle === "procrastinator" ? "late" : null;
+    const observed  = latenessProfile.label;
+    if (selfLabel && selfLabel !== observed) {
+      lines.push(`Completion timing: observed as ${observed} (${latenessProfile.avgDaysBefore} days avg, ${latenessProfile.totalSamples} tasks), though student self-reports as "${selfStyle === "on-top" ? "stays on top of things" : selfStyle}"`);
+    } else {
+      lines.push(`Completion timing: ${observed} (avg ${latenessProfile.avgDaysBefore} days before deadline, ${latenessProfile.totalSamples} tasks)`);
+    }
+  } else if (userProfile?.learningStyle) {
+    const selfMap = { "on-top": "self-reports as staying on top of things", "procrastinator": "self-reports as a procrastinator", "structured": "self-reports needing structure to stay on track" };
+    lines.push(`Work style: ${selfMap[userProfile.learningStyle] ?? userProfile.learningStyle} (not yet enough history to confirm)`);
   }
 
   // Only report productive time once we have enough completions to see a real pattern

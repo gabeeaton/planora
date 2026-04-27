@@ -31,7 +31,7 @@ const LMS_STEPS = {
     steps: [
       "Open the Canvas Student app on your phone",
       "Tap ☰ (top left) → Settings → \"Subscribe to Calendar Feed\"",
-      "Long-press the URL and copy it",
+      "Copy the URL",
       "Paste the URL in the box above",
     ],
     tip: "On desktop: Canvas → Calendar → \"Calendar Feed\" link (bottom right sidebar) → copy the URL. Replace webcal:// with https:// if needed.",

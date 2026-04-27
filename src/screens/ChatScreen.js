@@ -489,7 +489,7 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={isEmpty ? undefined : (Platform.OS === "ios" ? "padding" : "height")}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={60}
       >
         {/* Empty state with starters */}

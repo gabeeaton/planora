@@ -24,11 +24,10 @@ import { getRecurrenceLabel } from "../services/recurringTasks";
 
 const makeStyles = (colors) => StyleSheet.create({
   backdrop:    { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
-  container:   { position: "absolute", bottom: 0, left: 0, right: 0, top: 120 },
   sheet: {
     backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 20, paddingBottom: 48, maxHeight: "100%",
+    paddingHorizontal: 20, paddingBottom: 32, maxHeight: "90%",
   },
   handle: {
     width: 40, height: 4, backgroundColor: colors.isDark ? colors.border : "#D8D8E0",
@@ -416,8 +415,8 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <View style={styles.header}>
@@ -774,6 +773,7 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
         </View>
       </KeyboardAvoidingView>
     </Modal>
+
   );
 };
 

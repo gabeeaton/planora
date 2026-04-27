@@ -2,7 +2,7 @@
 // src/screens/AuthScreen.js
 // ============================================================
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../hooks/useAuth";
 import { resetPassword } from "../services/firebase";
 import { VERCEL_API_URL } from "../config";
@@ -170,7 +172,7 @@ const ForgotPasswordScreen = ({ onBack, colors, styles, initialEmail }) => {
         <View style={styles.successRow}>
           <Feather name="check-circle" size={14} color={colors.low} />
           <Text style={styles.successText}>
-            If an account exists for {email}, you'll get a reset link shortly. Check your spam folder too.
+            A password reset link has been sent to {email}. If it doesn't arrive within a minute, check your spam or junk folder.
           </Text>
         </View>
       ) : (
@@ -237,6 +239,16 @@ const AuthScreen = ({ navigation }) => {
     setError(""); setEmailError(""); setPasswordError(""); setConfirmError("");
   };
 
+  // When this screen gains focus (including from deep link), always show login
+  // and pre-fill the email they registered with if available
+  useFocusEffect(useCallback(() => {
+    setMode("login");
+    clearErrors();
+    AsyncStorage.getItem("@planora_pending_email").then((saved) => {
+      if (saved) setEmail(saved);
+    }).catch(() => {});
+  }, []));
+
   const validate = () => {
     let valid = true; clearErrors();
     if (!email.trim())             { setEmailError("Email is required."); valid = false; }
@@ -254,8 +266,10 @@ const AuthScreen = ({ navigation }) => {
     try {
       if (mode === "login") {
         await login(email.trim(), password);
+        AsyncStorage.removeItem("@planora_pending_email").catch(() => {});
       } else {
         await register(email.trim(), password);
+        AsyncStorage.setItem("@planora_pending_email", email.trim()).catch(() => {});
         // Send branded verification email via Resend — non-blocking
         fetch(`${VERCEL_API_URL}/api/email`, {
           method: "POST",
@@ -476,8 +490,29 @@ const AuthScreen = ({ navigation }) => {
 
 // ── Email Verification Screen ─────────────────────────────────
 export const EmailVerificationScreen = ({ navigation, route }) => {
-  const { colors } = useTheme();
-  const email = route?.params?.email ?? "";
+  const { colors }        = useTheme();
+  const email             = route?.params?.email ?? "";
+  const [resent, setResent]   = useState(false);
+  const [resending, setResending] = useState(false);
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      await fetch(`${VERCEL_API_URL}/api/email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-secret": process.env.EXPO_PUBLIC_EMAIL_API_SECRET ?? "",
+        },
+        body: JSON.stringify({ type: "verify", email }),
+      });
+      setResent(true);
+    } catch {
+      Alert.alert("Error", "Could not resend. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -497,18 +532,30 @@ export const EmailVerificationScreen = ({ navigation, route }) => {
         <Text style={{ fontSize: 15, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: 32 }}>
           We sent a verification link to{"\n"}
           <Text style={{ color: colors.textPrimary, fontFamily: "Outfit-Bold" }}>{email}</Text>
-          {"\n\n"}Tap the link in the email to activate your account, then come back and sign in.
+          {"\n\n"}Tap the link to activate your account, then return here to sign in. If you don't see it, check your spam or junk folder.
         </Text>
         <TouchableOpacity
-          onPress={() => { tap(); navigation.navigate("Auth"); }}
+          onPress={() => { tap(); navigation.replace("Auth"); }}
           style={{
             backgroundColor: colors.accent,
             paddingVertical: 14, paddingHorizontal: 32,
             borderRadius: 12, width: "100%", alignItems: "center",
+            marginBottom: 12,
           }}
         >
           <Text style={{ color: "#fff", fontFamily: "Outfit-Bold", fontSize: 16 }}>Back to Sign In</Text>
         </TouchableOpacity>
+        {resent ? (
+          <Text style={{ fontSize: 13, color: colors.low, fontFamily: "Outfit-SemiBold", textAlign: "center" }}>
+            Email resent. Check your inbox and spam or junk folder.
+          </Text>
+        ) : (
+          <TouchableOpacity onPress={() => { tap(); handleResend(); }} disabled={resending}>
+            <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+              {resending ? "Resending..." : "Didn't get it? Resend email"}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );

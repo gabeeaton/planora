@@ -17,13 +17,20 @@ import { format, addDays } from "date-fns";
 // Mirrors server FREE_DAILY_LIMIT — used in error messages only
 const FREE_DAILY_LIMIT = 10;
 
+const parseDate = (d) => {
+  if (!d) return null;
+  if (d?.toDate) return d.toDate();
+  if (d?.seconds) return new Date(d.seconds * 1000);
+  return new Date(d);
+};
+
+const toIso = (d) => parseDate(d)?.toISOString().slice(0, 10) ?? null;
+
 const formatTaskList = (tasks) =>
   tasks
     .slice(0, APP_CONFIG.maxTasksForAI)
     .map((t, i) => {
-      const due = t.dueDate
-        ? `due ${new Date(t.dueDate).toLocaleDateString()}`
-        : "no due date";
+      const due = t.dueDate ? `due ${toIso(t.dueDate)}` : "no due date";
       const cls = t.className ? `[${t.className}]` : "";
       const priority = (t.aiPriority ?? t.priority) ? `priority:${t.aiPriority ?? t.priority}` : "";
       return `${i + 1}. [ID:${t.id}] ${cls} "${t.title}" — ${due} ${priority}`.trim();
@@ -183,7 +190,7 @@ const buildStudentContext = (tasks, userProfile, patterns, mode = "brief") => {
 
   const taskLabel = (t) => {
     const cls = t.className ? `[${t.className}] ` : "";
-    const due = t.dueDate ? ` due ${new Date(t.dueDate).toLocaleDateString()}` : "";
+    const due = t.dueDate ? ` due ${toIso(t.dueDate)}` : "";
     return `${cls}"${t.title}"${due}`;
   };
 
@@ -246,11 +253,14 @@ export const getTodayFocus = async (tasks, userProfile, patterns) => {
     ?.map((c) => `${c.name} (${c.creditHours} credits, grade: ${c.grade && c.grade !== "No grade yet" ? c.grade : "none yet"})`)
     .join(", ") ?? "Not specified";
 
+  const styleMap = { "on-top": "stays on top of things", "procrastinator": "tends to procrastinate", "structured": "needs structure and reminders" };
+  const workStyleLine = userProfile?.learningStyle ? `Work style: ${styleMap[userProfile.learningStyle] ?? userProfile.learningStyle}` : null;
+
   const prompt = `You are a focused academic coach. Pick the 2-3 most important tasks for a student to work on TODAY.
 
 Today: ${today()}
 Classes: ${classes}
-Preferred work time: ${userProfile?.preferredWorkTime ?? "not set"}
+Preferred work time: ${userProfile?.preferredWorkTime ?? "not set"}${workStyleLine ? `\n${workStyleLine}` : ""}
 
 Behavioral patterns:
 ${patternCtx}
@@ -329,9 +339,12 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
   const WHAT_DO_I_DO_SYSTEM =
     "You are a blunt academic coach. You do not hedge. You name the exact task, name the exact deadline, and tell the student what to do in the first 10 minutes. No generic encouragement. Reference the student's actual patterns and deadlines. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output.";
 
+  const wdidStyleMap = { "on-top": "stays on top of things", "procrastinator": "tends to procrastinate", "structured": "needs structure and reminders" };
+  const wdidWorkStyle = userProfile?.learningStyle ? `Work style: ${wdidStyleMap[userProfile.learningStyle] ?? userProfile.learningStyle}` : null;
+
   const prompt = `Today: ${today()}
 Student's classes: ${classes}
-Preferred work time: ${userProfile?.preferredWorkTime ?? "not set"}
+Preferred work time: ${userProfile?.preferredWorkTime ?? "not set"}${wdidWorkStyle ? `\n${wdidWorkStyle}` : ""}
 
 Behavioral patterns (learned from their history):
 ${patternCtx}
@@ -347,7 +360,7 @@ Rules for picking the task:
 - Pick ONE. No hedging, no alternatives.
 
 Rules for the response:
-- "recommendation": One sharp, direct sentence. Name the exact task. Sound like a coach, not a bot. E.g. "Start your HIST 201 paper outline tonight — it's due Friday and you always leave writing late."
+- "recommendation": One sharp, direct sentence. Name the exact task. Sound like a coach, not a bot. E.g. "Start your HIST 201 paper outline tonight — it's due Friday and this is the right moment to get ahead of it."
 - "reasoning": 2-4 sentences of actual coaching. Tell them HOW to start (open the doc, write the first bullet, do the first 10 problems — be specific). Reference a real pattern or deadline if relevant. Make them feel like someone is actually paying attention to their situation.
 
 Respond ONLY with this JSON, no markdown:
