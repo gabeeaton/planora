@@ -31,6 +31,7 @@ import ResetPasswordScreen   from "../screens/ResetPasswordScreen";
 import StudyPlanScreen       from "../screens/StudyPlanScreen";
 import { useTheme } from "../utils/ThemeContext";
 import TaskModal from "../components/TaskModal";
+import WalkthroughOverlay from "../components/WalkthroughOverlay";
 import { useTasks } from "../hooks/useTasks";
 import { invalidateTodayFocusCache } from "../services/openai";
 
@@ -199,11 +200,25 @@ const MainTabs = () => (
 
 const MainTabsMemo = React.memo(MainTabs);
 
+const WALKTHROUGH_KEY = "@planora_walkthrough_done_v1";
+
 const MainTabsWithModal = () => {
   const [visible, setVisible] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
   const { createTask, editTask } = useTasks();
   const navigation = useNavigation();
+
+  useEffect(() => {
+    AsyncStorage.getItem(WALKTHROUGH_KEY).then((done) => {
+      if (!done) setTimeout(() => setShowWalkthrough(true), 900);
+    });
+  }, []);
+
+  const handleWalkthroughDone = useCallback(async () => {
+    await AsyncStorage.setItem(WALKTHROUGH_KEY, "true");
+    setShowWalkthrough(false);
+  }, []);
 
   // Open StudyPlan when user taps a study-plan-reminder notification
   const lastNotifResponse = Notifications.useLastNotificationResponse();
@@ -235,6 +250,7 @@ const MainTabsWithModal = () => {
         onClose={() => setVisible(false)}
         onSave={handleSave}
       />
+      {showWalkthrough && <WalkthroughOverlay onDone={handleWalkthroughDone} />}
     </AddTaskContext.Provider>
   );
 };
