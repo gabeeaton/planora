@@ -192,15 +192,18 @@ const StudyPlanScreen = ({ navigation }) => {
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Load cached plan on mount — filter out sessions from past days
+  // Load cached plan on mount — show yesterday's sessions as missed for 24h, drop older ones
   useEffect(() => {
     AsyncStorage.getItem(PLAN_CACHE_KEY).then((raw) => {
       if (!raw) return;
       try {
         const { plan: cached } = JSON.parse(raw);
-        const todayStr = format(startOfToday(), "yyyy-MM-dd");
-        const remaining = cached.filter((s) => s.date >= todayStr);
-        if (remaining.length > 0) setPlan(remaining);
+        const todayStr    = format(startOfToday(), "yyyy-MM-dd");
+        const yesterdayStr = format(addDays(startOfToday(), -1), "yyyy-MM-dd");
+        const filtered = cached
+          .filter((s) => s.date >= yesterdayStr)
+          .map((s) => (s.date < todayStr ? { ...s, missed: true } : s));
+        if (filtered.length > 0) setPlan(filtered);
       } catch {}
     }).catch(() => {});
   }, []);
@@ -246,10 +249,12 @@ const StudyPlanScreen = ({ navigation }) => {
 
   const pendingTasks = tasks.filter((t) => !t.completed && t.dueDate);
 
+  const missedSessions = plan ? plan.filter((s) => s.missed) : [];
+
   const sessionsByDay = plan
     ? availability.map((d) => ({
         ...d,
-        sessions: plan.filter((s) => s.date === d.date),
+        sessions: plan.filter((s) => s.date === d.date && !s.missed),
         deadlines: pendingTasks.filter((t) => {
           let raw;
           if (t.dueDate?.toDate) raw = t.dueDate.toDate();
@@ -358,6 +363,36 @@ const StudyPlanScreen = ({ navigation }) => {
             <Text style={styles.planHint}>
               Prep sessions leading up to your deadlines. Times are up to you.
             </Text>
+
+            {missedSessions.length > 0 && (
+              <View style={[styles.daySection, { opacity: 0.5 }]}>
+                <View style={styles.daySectionHeader}>
+                  <Text style={styles.daySectionTitle}>Yesterday · Missed</Text>
+                </View>
+                {missedSessions.map((s, idx) => {
+                  return (
+                    <View key={idx} style={[styles.sessionCard, { borderColor: colors.border }]}>
+                      <View style={[styles.sessionAccent, { backgroundColor: colors.textMuted }]} />
+                      <View style={styles.sessionBody}>
+                        {s.className && (
+                          <View style={[styles.sessionClassTag, { backgroundColor: colors.bgInput, alignSelf: "flex-start", marginBottom: 5 }]}>
+                            <Text style={[styles.sessionClassText, { color: colors.textMuted }]}>{s.className}</Text>
+                          </View>
+                        )}
+                        <Text style={[styles.sessionTitle, { color: colors.textMuted }]}>{s.sessionTitle}</Text>
+                        {s.taskTitle && s.taskTitle !== s.sessionTitle && (
+                          <Text style={styles.sessionSourceTask}>For: {s.taskTitle}</Text>
+                        )}
+                      </View>
+                      <View style={[styles.durationBadge, { justifyContent: "center" }]}>
+                        <Feather name="x-circle" size={14} color={colors.textMuted} />
+                        <Text style={[styles.durationUnit, { marginTop: 2 }]}>missed</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             {sessionsByDay.map((day) => {
               const totalMins = day.sessions.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
