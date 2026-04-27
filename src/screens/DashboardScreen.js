@@ -36,7 +36,6 @@ import { useUserProfile } from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
 import TaskCard from "../components/TaskCard";
 import StatsBar from "../components/StatsBar";
-import WhatDoIDoButton from "../components/WhatDoIDoButton";
 import TodayFocusCard from "../components/TodayFocusCard";
 import NotificationPermissionPrompt, { NOTIF_PROMPT_KEY } from "../components/NotificationPermissionPrompt";
 import { DashboardSkeleton, TaskListSkeleton, CalendarSkeleton } from "../components/SkeletonLoader";
@@ -616,7 +615,6 @@ const DashboardScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState("All");
   const [tabContainerWidth, setTabContainerWidth] = useState(0);
   const tabIndicatorX = useRef(new Animated.Value(0)).current;
-  const [aiAnnotatedTasks, setAiAnnotatedTasks] = useState([]);
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
   const [now, setNow] = useState(new Date());
 
@@ -724,14 +722,8 @@ const DashboardScreen = ({ navigation }) => {
           grade === "C+");
       return lowGrade ? { ...t, _lowGrade: true } : t;
     });
-    if (aiAnnotatedTasks.length === 0) return gradeWeighted;
-    const aiMap = {};
-    aiAnnotatedTasks.forEach((t) => {
-      aiMap[t.id] = { aiPriority: t.aiPriority, aiReason: t.aiReason };
-    });
-    const annotated = gradeWeighted.map((t) => ({ ...t, ...(aiMap[t.id] || {}) }));
-    return completingIds.size > 0 ? annotated.filter((t) => !completingIds.has(t.id)) : annotated;
-  }, [tasks, aiAnnotatedTasks, profile?.classes, completingIds]);
+    return completingIds.size > 0 ? gradeWeighted.filter((t) => !completingIds.has(t.id)) : gradeWeighted;
+  }, [tasks, profile?.classes, completingIds]);
 
   const sortByDue = (arr) =>
     [...arr].sort((a, b) => {
@@ -1083,18 +1075,6 @@ const DashboardScreen = ({ navigation }) => {
             patterns={patterns}
             onTaskHighlight={setHighlightedTaskId}
           />
-        )}
-
-        {/* What should I do right now — Pro feature */}
-        {tasks.length > 0 && (
-          <WhatDoIDoButton
-              tasks={tasks}
-              userProfile={profile}
-              patterns={patterns}
-              onTaskHighlight={setHighlightedTaskId}
-              onUpgrade={() => navigation.navigate("Paywall")}
-              onPrioritiesUpdated={setAiAnnotatedTasks}
-            />
         )}
 
         {/* Behavioral insight strip */}

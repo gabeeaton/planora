@@ -23,7 +23,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
-import { sendChatMessage, invalidateTodayFocusCache } from "../services/openai";
+import { sendChatMessage, invalidateTodayFocusCache, getWhatDoIDo } from "../services/openai";
 import { loadChatHistory, saveChatHistory, clearChatHistory } from "../services/firebase";
 import { spacing, radius, typography } from "../utils/theme";
 import * as Haptics from "expo-haptics";
@@ -380,6 +380,25 @@ export default function ChatScreen() {
     }
   }, [typing, messages, tasks, profile, patterns, isPro]);
 
+  // ── "Where should I start?" quick action ──────────────────
+  const handleWhereToStart = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (!isPro) { navigation.navigate("Paywall"); return; }
+    const userMsg = { id: Date.now().toString(), role: "user", text: "Where should I start?", ts: Date.now() };
+    setMessages([userMsg]);
+    setTyping(true);
+    try {
+      const rec = await getWhatDoIDo(tasks, profile, patterns);
+      const replyText = rec.recommendation + (rec.reasoning ? `\n\n${rec.reasoning}` : "");
+      setMessages([userMsg, { id: (Date.now() + 1).toString(), role: "assistant", text: replyText, ts: Date.now() }]);
+    } catch (err) {
+      if (err?.limitReached) { navigation.navigate("Paywall"); setMessages([]); return; }
+      setMessages([userMsg, { id: (Date.now() + 1).toString(), role: "assistant", text: err.message ?? "Something went wrong.", ts: Date.now(), isError: true }]);
+    } finally {
+      setTyping(false);
+    }
+  }, [isPro, tasks, profile, patterns, navigation]);
+
   // ── Clear chat ─────────────────────────────────────────────
   const clearChat = () => {
     Alert.alert("Clear chat?", "This will delete your conversation history.", [
@@ -504,6 +523,22 @@ export default function ChatScreen() {
             <Text style={styles.emptySub}>
               Ask about your workload or let me take action on your tasks.
             </Text>
+            <TouchableOpacity
+              style={styles.whereToStartBtn}
+              onPress={handleWhereToStart}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.starterIconWrap, { backgroundColor: colors.accent + "22", borderColor: colors.accent }]}>
+                <Feather name="cpu" size={13} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.starterText, { color: colors.textPrimary, fontFamily: "Outfit-SemiBold" }]}>Where should I start?</Text>
+                <Text style={styles.starterSub}>Get a direct recommendation on what to work on now</Text>
+              </View>
+              {!isPro && <Feather name="zap" size={13} color={colors.accent} style={{ marginRight: 2 }} />}
+              <Feather name="chevron-right" size={14} color={colors.textMuted} />
+            </TouchableOpacity>
+
             <View style={styles.startersCard}>
               {[ASK_STARTERS[0], ASK_STARTERS[1], ACTION_STARTERS[0], ACTION_STARTERS[2]].map((s, i, arr) => (
                 <TouchableOpacity
@@ -629,6 +664,14 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   emptyTitle: { fontSize: 22, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, marginBottom: 6, textAlign: "center" },
   emptySub:   { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.lg },
+  whereToStartBtn: {
+    width: "100%", flexDirection: "row", alignItems: "center",
+    paddingVertical: 14, paddingHorizontal: spacing.md,
+    borderRadius: radius.md, marginBottom: 10,
+    borderWidth: 1, borderColor: colors.accent + "55",
+    backgroundColor: colors.isDark ? colors.accent + "12" : colors.accent + "0E",
+    gap: 10,
+  },
   startersCard: {
     width: "100%", borderRadius: radius.md, overflow: "hidden",
     borderWidth: 1, borderColor: colors.isDark ? colors.border : "#EBEBF5",
