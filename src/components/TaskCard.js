@@ -28,6 +28,14 @@ import ClassTag from "./ClassTag";
 import { getRecurrenceLabel } from "../services/recurringTasks";
 import { getEffectivePriority } from "../utils/priority";
 
+const gradeChipColor = (g, colors) => {
+  if (!g) return null;
+  if (g.startsWith("A"))           return { bg: colors.low + "20",    border: colors.low,    text: colors.low };
+  if (g === "B+" || g === "B")     return { bg: colors.accent + "18", border: colors.accent, text: colors.accent };
+  if (g === "B-" || g === "C+")   return { bg: colors.medium + "18", border: colors.medium, text: colors.medium };
+  return                                  { bg: colors.high + "14",   border: colors.high,   text: colors.high };
+};
+
 const makeStyles = (colors) =>
   StyleSheet.create({
     card: {
@@ -483,7 +491,19 @@ const TaskCard = ({
               >
                 {task.title}
               </Text>
-              {displayPriority && (
+
+              {/* Grade badge — completed tasks only */}
+              {task.completed && task.grade ? (() => {
+                const gc = gradeChipColor(task.grade, colors);
+                return (
+                  <View style={[styles.badge, { backgroundColor: gc.bg, borderColor: gc.border }]}>
+                    <Text style={[styles.badgeText, { color: gc.text }]}>{task.grade}</Text>
+                  </View>
+                );
+              })() : null}
+
+              {/* Priority badge — pending tasks only */}
+              {!task.completed && displayPriority && (
                 <TouchableOpacity
                   ref={onPriorityBadgeMeasure ? priorityBadgeRef : undefined}
                   onPress={() => {
@@ -502,19 +522,9 @@ const TaskCard = ({
                     });
                   } : undefined}
                 >
-                  <View
-                    style={[
-                      styles.badge,
-                      { backgroundColor: glowColor, borderColor: priorityColor },
-                    ]}
-                  >
+                  <View style={[styles.badge, { backgroundColor: glowColor, borderColor: priorityColor }]}>
                     {task.aiPriority && (
-                      <Feather
-                        name="zap"
-                        size={8}
-                        color={priorityColor}
-                        style={{ marginRight: 2 }}
-                      />
+                      <Feather name="zap" size={8} color={priorityColor} style={{ marginRight: 2 }} />
                     )}
                     <Text style={[styles.badgeText, { color: priorityColor }]}>
                       {displayPriority}
