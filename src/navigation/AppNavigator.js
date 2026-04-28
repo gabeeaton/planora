@@ -246,7 +246,10 @@ const MainTabsWithModal = () => {
     if (walkthroughTriggered.current || profile == null) return;
     walkthroughTriggered.current = true;
     if (FEATURE_FLAGS.FORCE_WALKTHROUGH || !profile.walkthroughComplete) {
-      setTimeout(() => setShowWalkthrough(true), 900);
+      setTimeout(() => {
+        navigation.navigate("Dashboard");
+        setShowWalkthrough(true);
+      }, 900);
     }
   }, [profile]);
 

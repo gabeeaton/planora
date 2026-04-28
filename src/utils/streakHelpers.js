@@ -59,7 +59,8 @@ export const incrementStreak = async (uid) => {
 };
 
 /**
- * Called on app mount. Resets streak if the user missed a day.
+ * Called on app mount. Resets streak if the user missed a day, then touches
+ * today's date so opening the app protects the streak even with no tasks.
  * Returns the current valid streak count.
  */
 export const checkAndResetStreak = async (uid) => {
@@ -71,9 +72,14 @@ export const checkAndResetStreak = async (uid) => {
   if (!isActive && count > 0) {
     await AsyncStorage.multiSet([
       [streakKey(uid),     "0"],
-      [streakDateKey(uid), ""],
+      [streakDateKey(uid), today],
     ]);
     return 0;
+  }
+
+  // Touch today so tomorrow's check sees the streak as active
+  if (lastDate !== today) {
+    await AsyncStorage.setItem(streakDateKey(uid), today);
   }
   return count;
 };

@@ -231,6 +231,8 @@ const TaskCard = ({
   onFocus,
   highlighted = false,
   index = 0,
+  onFocusBtnMeasure,
+  onPriorityBadgeMeasure,
 }) => {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
@@ -249,6 +251,8 @@ const TaskCard = ({
 
   // Swipe-to-complete
   const swipeX = useRef(new Animated.Value(0)).current;
+  const focusBtnRef      = useRef(null);
+  const priorityBadgeRef = useRef(null);
   const taskRef = useRef(task);
   taskRef.current = task;
   const onToggleRef = useRef(onToggle);
@@ -256,6 +260,7 @@ const TaskCard = ({
   const thresholdHapticFired = useRef(false);
   const onDeleteRef = useRef(onDelete);
   onDeleteRef.current = onDelete;
+
 
   const collapseAndCall = (callback) => {
     Animated.parallel([
@@ -480,6 +485,7 @@ const TaskCard = ({
               </Text>
               {displayPriority && (
                 <TouchableOpacity
+                  ref={onPriorityBadgeMeasure ? priorityBadgeRef : undefined}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
                     const label = displayPriority === "HIGH" ? "High — due very soon or high stakes" :
@@ -490,6 +496,11 @@ const TaskCard = ({
                   }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   activeOpacity={0.7}
+                  onLayout={onPriorityBadgeMeasure ? () => {
+                    priorityBadgeRef.current?.measureInWindow((wx, wy, ww, wh) => {
+                      if (ww > 0) onPriorityBadgeMeasure({ cx: wx + ww / 2, cy: wy + wh / 2, w: ww, h: wh, r: 6 }, priorityBadgeRef.current);
+                    });
+                  } : undefined}
                 >
                   <View
                     style={[
@@ -606,9 +617,15 @@ const TaskCard = ({
               <View style={styles.actions}>
                 {onFocus && !task.completed && (
                   <TouchableOpacity
+                    ref={onFocusBtnMeasure ? focusBtnRef : undefined}
                     onPress={() => { Haptics.selectionAsync().catch(() => {}); onFocus(task); }}
                     style={styles.focusBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onLayout={onFocusBtnMeasure ? () => {
+                      focusBtnRef.current?.measureInWindow((wx, wy, ww, wh) => {
+                        if (ww > 0) onFocusBtnMeasure({ cx: wx + ww / 2, cy: wy + wh / 2, w: ww, h: wh, r: 10 }, focusBtnRef.current);
+                      });
+                    } : undefined}
                   >
                     <Feather name="clock" size={14} color={colors.accent} />
                   </TouchableOpacity>

@@ -904,7 +904,7 @@ export const updateOverdueBadge = async (tasks) => {
   try {
     const now = new Date();
     const count = (tasks ?? []).filter(
-      (t) => !t.completed && t.dueDate && new Date(t.dueDate) < now
+      (t) => !t.completed && t.dueDate && _taskDueDate(t) < now
     ).length;
     await Notifications.setBadgeCountAsync(count);
   } catch {
@@ -942,7 +942,7 @@ export const scheduleOverdueNudges = async (tasks, bestTime, uid) => {
       if (task.completed || !task.dueDate) continue;
       if (alerted[task.id]) continue;
 
-      const due = task.dueDate?.toDate?.() ?? new Date(task.dueDate);
+      const due = _taskDueDate(task);
       if (due >= now) continue;
 
       const fire = new Date();

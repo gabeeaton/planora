@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import { View, Text, StyleSheet, Animated, TouchableOpacity, Alert } from "react-native";
+import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import { spacing, radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
@@ -67,33 +68,33 @@ const StatsBar = ({ todayCount, pendingCount, completedCount }) => {
         },
       ]}
     >
-      <View style={styles.stat}>
+      <TouchableOpacity style={styles.stat} activeOpacity={0.7} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); Alert.alert("Due Today", "Assignments or tasks with a due date of today."); }}>
         <View style={[styles.iconWrap, { backgroundColor: colors.medium + "18" }]}>
           <Feather name="sun" size={16} color={colors.medium} />
         </View>
         <StatNumber value={todayCount} color={todayCount > 0 ? colors.medium : colors.textPrimary} />
         <Text style={[styles.label, { color: colors.textSecondary }]}>Today</Text>
-      </View>
+      </TouchableOpacity>
 
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-      <View style={styles.stat}>
+      <TouchableOpacity style={styles.stat} activeOpacity={0.7} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); Alert.alert("Pending", "All tasks you haven't completed yet — today, upcoming, and overdue."); }}>
         <View style={[styles.iconWrap, { backgroundColor: colors.accent + "18" }]}>
           <Feather name="clock" size={16} color={colors.accent} />
         </View>
         <StatNumber value={pendingCount} color={pendingCount > 0 ? colors.accent : colors.textPrimary} />
         <Text style={[styles.label, { color: colors.textSecondary }]}>Pending</Text>
-      </View>
+      </TouchableOpacity>
 
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-      <View style={styles.stat}>
+      <TouchableOpacity style={styles.stat} activeOpacity={0.7} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); Alert.alert("Done", "Tasks you've completed. Keep the streak going!"); }}>
         <View style={[styles.iconWrap, { backgroundColor: colors.low + "18" }]}>
           <Feather name="check-circle" size={16} color={colors.low} />
         </View>
         <StatNumber value={completedCount} color={completedCount > 0 ? colors.low : colors.textPrimary} />
         <Text style={[styles.label, { color: colors.textSecondary }]}>Done</Text>
-      </View>
+      </TouchableOpacity>
     </Animated.View>
   );
 };

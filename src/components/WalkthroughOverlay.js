@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, useWindowDimensions,
+  Animated, useWindowDimensions, DeviceEventEmitter,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
@@ -20,10 +20,48 @@ const STEPS = [
     tooltipSide: "above",
   },
   {
+    key:   "statsBar",
+    icon:  "activity",
+    title: "Your day at a glance",
+    desc:  "See how many tasks are due today, how many are pending, and how many you've already completed.",
+    tooltipSide: "below",
+    pad: 4,
+  },
+  {
+    key:   "todayFocus",
+    icon:  "zap",
+    title: "AI picks your next task",
+    desc:  "Every time you open the app, AI scans your deadlines and tells you exactly what to work on first and why.",
+    tooltipSide: "below",
+  },
+  {
+    key:   "insightStrip",
+    icon:  "trending-up",
+    title: "Behavioral insights",
+    desc:  "Planora tracks your study habits and surfaces patterns — like when you tend to procrastinate or your most productive times.",
+    tooltipSide: "below",
+    pad: 5,
+    optional: true,
+  },
+  {
+    key:   "priorityBadge",
+    icon:  "zap",
+    title: "Priority labels",
+    desc:  "Tap any priority badge to see why AI ranked it High, Medium, or Low. Priority updates automatically as deadlines get closer.",
+    tooltipSide: "above",
+  },
+  {
+    key:   "focusBtn",
+    icon:  "clock",
+    title: "Focus Mode",
+    desc:  "Tap the clock on any task to enter a distraction-free timer — just you and the assignment until it's done.",
+    tooltipSide: "above",
+  },
+  {
     key:   "studyPlan",
     icon:  "edit-3",
     title: "AI Study Plan",
-    desc:  "Tap the pencil to let AI build your week around your deadlines — day by day.",
+    desc:  "Tap Plan to let AI build your week around your deadlines — day by day.",
     tooltipSide: "below",
   },
   {
@@ -74,12 +112,26 @@ export default function WalkthroughOverlay({ onDone }) {
   const current = STEPS[step];
   const t = targets[current.key];
 
+  // Skip optional steps that have no registered target (e.g. insightStrip for new users)
   useEffect(() => {
+    if (current.optional && !t) {
+      setStep((s) => (s < STEPS.length - 1 ? s + 1 : s));
+    }
+  }, [step, t]);
+
+  useEffect(() => {
+    if (current.optional && !t) return; // will be skipped
+    DeviceEventEmitter.emit("walkthroughStep", current.key);
     slideAnim.setValue(14);
-    Animated.parallel([
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 260, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, speed: 20, bounciness: 5, useNativeDriver: true }),
-    ]).start();
+    // Delay on steps that need Dashboard to scroll first (invisible under overlay)
+    const delay = (current.key === "focusBtn" || current.key === "priorityBadge") ? 450 : 0;
+    const timer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 260, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, speed: 20, bounciness: 5, useNativeDriver: true }),
+      ]).start();
+    }, delay);
+    return () => clearTimeout(timer);
   }, [step]);
 
   const advance = () => {
@@ -106,10 +158,11 @@ export default function WalkthroughOverlay({ onDone }) {
   }
 
   // Spotlight bounds
-  const sx = t.cx - t.w / 2 - PAD;
-  const sy = t.cy - t.h / 2 - PAD;
-  const sw = t.w + PAD * 2;
-  const sh = t.h + PAD * 2;
+  const pad = current.pad ?? PAD;
+  const sx = t.cx - t.w / 2 - pad;
+  const sy = t.cy - t.h / 2 - pad;
+  const sw = t.w + pad * 2;
+  const sh = t.h + pad * 2;
 
   // Tooltip position
   const CARD_MARGIN = 16;
@@ -135,7 +188,7 @@ export default function WalkthroughOverlay({ onDone }) {
         <View style={{
           position: "absolute",
           left: sx, top: sy, width: sw, height: sh,
-          borderRadius: (t.r ?? 12) + PAD,
+          borderRadius: (t.r ?? 12) + pad,
           borderWidth: 2.5,
           borderColor: colors.accent,
           shadowColor: colors.accent,

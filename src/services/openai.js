@@ -189,9 +189,10 @@ const buildStudentContext = (tasks, userProfile, patterns, mode = "brief") => {
   }
 
   const taskLabel = (t) => {
-    const cls = t.className ? `[${t.className}] ` : "";
-    const due = t.dueDate ? ` due ${toIso(t.dueDate)}` : "";
-    return `${cls}"${t.title}"${due}`;
+    const cls   = t.className ? `[${t.className}] ` : "";
+    const due   = t.dueDate ? ` due ${toIso(t.dueDate)}` : "";
+    const grade = t.grade ? ` | grade: ${t.grade}` : "";
+    return `${cls}"${t.title}"${due}${grade}`;
   };
 
   if (overdue.length > 0) lines.push(`OVERDUE: ${overdue.map(taskLabel).join(", ")}`);
@@ -200,6 +201,20 @@ const buildStudentContext = (tasks, userProfile, patterns, mode = "brief") => {
   } else {
     const pending = (tasks ?? []).filter((t) => !t.completed).slice(0, 5);
     if (pending.length > 0) lines.push(`Pending tasks: ${pending.map(taskLabel).join(", ")}`);
+  }
+
+  // Recent completed tasks with grades — gives AI context on past performance
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * dayMs);
+  const recentGraded = (tasks ?? [])
+    .filter((t) => t.completed && t.grade && t.completedAt && new Date(t.completedAt) > thirtyDaysAgo)
+    .slice(0, 6);
+  if (recentGraded.length > 0) {
+    lines.push(
+      `Recent grades: ${recentGraded.map((t) => {
+        const cls = t.className ? `[${t.className}] ` : "";
+        return `${cls}"${t.title}" → ${t.grade}`;
+      }).join(", ")}`
+    );
   }
 
   if (patterns) {

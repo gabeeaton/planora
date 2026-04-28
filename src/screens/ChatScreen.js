@@ -514,56 +514,54 @@ export default function ChatScreen() {
         {/* Empty state with starters */}
         {isEmpty ? (
           <View style={styles.emptyWrap}>
-            <View style={styles.emptyIcon}>
-              <Image source={require("../assets/logo.png")} style={{ width: 36, height: 36, borderRadius: 10 }} />
+            {/* Logo anchor */}
+            <View style={styles.emptyLogoWrap}>
+              <Image source={require("../assets/logo.png")} style={{ width: 32, height: 32, borderRadius: 9 }} />
             </View>
+
+            {/* Greeting */}
             <Text style={styles.emptyTitle}>
               {firstName ? `Hi ${firstName}.` : "What's on your mind?"}
             </Text>
             <Text style={styles.emptySub}>
-              Ask about your workload or let me take action on your tasks.
+              Ask about your workload or let me help with your tasks.
             </Text>
+
+            {/* Primary CTA */}
             <TouchableOpacity
               style={styles.whereToStartBtn}
               onPress={handleWhereToStart}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <View style={[styles.starterIconWrap, { backgroundColor: colors.accent + "22", borderColor: colors.accent }]}>
-                <Feather name="cpu" size={13} color={colors.accent} />
+              <View style={styles.whereToStartIcon}>
+                <Feather name="cpu" size={14} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.starterText, { color: colors.textPrimary, fontFamily: "Outfit-SemiBold" }]}>Where should I start?</Text>
-                <Text style={styles.starterSub}>Get a direct recommendation on what to work on now</Text>
+                <Text style={styles.whereToStartTitle}>Where should I start?</Text>
+                <Text style={styles.whereToStartSub}>AI picks your next task based on real deadlines</Text>
               </View>
-              {!isPro && <Feather name="zap" size={13} color={colors.accent} style={{ marginRight: 2 }} />}
-              <Feather name="chevron-right" size={14} color={colors.textMuted} />
+              {!isPro && <Feather name="zap" size={12} color="rgba(255,255,255,0.75)" />}
+              <Feather name="arrow-right" size={15} color="rgba(255,255,255,0.8)" />
             </TouchableOpacity>
 
+            {/* Suggestions */}
+            <Text style={styles.suggestLabel}>TRY ASKING</Text>
             <View style={styles.startersCard}>
-              {[ASK_STARTERS[0], ASK_STARTERS[1], ACTION_STARTERS[0], ACTION_STARTERS[2]].map((s, i, arr) => (
+              {[ASK_STARTERS[0], ASK_STARTERS[1], ACTION_STARTERS[0]].map((s, i, arr) => (
                 <TouchableOpacity
                   key={s.text}
                   style={[styles.starterBtn, i === arr.length - 1 && { borderBottomWidth: 0 }]}
                   onPress={() => send(s.text)}
-                  activeOpacity={0.6}
+                  activeOpacity={0.55}
                 >
-                  {s.icon && (
-                    <View style={styles.starterIconWrap}>
-                      <Feather name={s.icon} size={13} color={colors.accent} />
-                    </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.starterText}>{s.text}</Text>
-                    {s.sub && <Text style={styles.starterSub}>{s.sub}</Text>}
-                  </View>
-                  <Feather name="chevron-right" size={14} color={colors.textMuted} />
+                  <Text style={styles.starterText}>{s.text}</Text>
+                  <Feather name="arrow-up-right" size={13} color={colors.textMuted} />
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={styles.capLink} onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowCapabilities(true); }}>
-              <Text style={styles.capLinkText}>See everything I can do</Text>
-              <Feather name="chevron-right" size={13} color={colors.accent} />
-            </TouchableOpacity>
+            <Text style={styles.emptyCapHint}>
+              Also adds tasks, reschedules, logs grades, and more.
+            </Text>
           </View>
         ) : (
           <FlatList
@@ -637,81 +635,107 @@ const makeStyles = (colors) => StyleSheet.create({
 
   header: {
     flexDirection: "row", alignItems: "center",
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: colors.isDark ? "transparent" : "#EAEAF0",
-    gap: 10,
+    paddingHorizontal: spacing.md, paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.isDark ? colors.border : "#EAEAF0",
+    gap: 12,
+    backgroundColor: colors.isDark ? colors.bg : "#FFFFFF",
   },
   headerAvatar: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: colors.accentGlow, borderWidth: 1.5, borderColor: colors.accent,
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: colors.accentGlow,
     alignItems: "center", justifyContent: "center",
   },
   backBtn:      { padding: 4 },
   headerCenter: { flex: 1 },
-  headerTitle:  { fontSize: 15, fontFamily: "Outfit-Bold", color: colors.textPrimary },
-  headerSub:    { fontSize: 11, color: colors.textMuted, marginTop: 1 },
-  clearBtn:     { padding: 4 },
+  headerTitle:  { fontSize: 16, fontFamily: "Outfit-Bold", color: colors.textPrimary },
+  headerSub:    { fontSize: 11, color: colors.textMuted, fontFamily: "Outfit-Regular", marginTop: 1 },
+  clearBtn:     { padding: 6 },
 
   // Empty state
   emptyWrap: {
     flex: 1, alignItems: "center", justifyContent: "center",
-    paddingHorizontal: spacing.xl, paddingBottom: 40,
+    paddingHorizontal: 24, paddingBottom: 40,
   },
-  emptyIcon: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: colors.accentGlow, borderWidth: 2, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center", marginBottom: spacing.sm,
+  emptyLogoWrap: {
+    width: 56, height: 56, borderRadius: 18,
+    backgroundColor: colors.accentGlow,
+    alignItems: "center", justifyContent: "center",
+    marginBottom: 18,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
   },
-  emptyTitle: { fontSize: 22, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, marginBottom: 6, textAlign: "center" },
-  emptySub:   { ...typography.body, color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: spacing.lg },
+  emptyTitle: {
+    fontSize: 26, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary,
+    textAlign: "center", marginBottom: 8,
+  },
+  emptySub: {
+    fontSize: 14, fontFamily: "Outfit-Regular",
+    color: colors.textSecondary, textAlign: "center", lineHeight: 20,
+    marginBottom: 32, paddingHorizontal: 8,
+  },
   whereToStartBtn: {
     width: "100%", flexDirection: "row", alignItems: "center",
-    paddingVertical: 14, paddingHorizontal: spacing.md,
-    borderRadius: radius.md, marginBottom: 10,
-    borderWidth: 1, borderColor: colors.accent + "55",
-    backgroundColor: colors.isDark ? colors.accent + "12" : colors.accent + "0E",
-    gap: 10,
+    paddingVertical: 16, paddingHorizontal: 16,
+    borderRadius: 18, marginBottom: 28,
+    backgroundColor: colors.accent,
+    gap: 12,
+  },
+  whereToStartIcon: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
+  },
+  whereToStartTitle: {
+    fontSize: 15, fontFamily: "Outfit-Bold", color: "#fff", marginBottom: 2,
+  },
+  whereToStartSub: {
+    fontSize: 12, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.72)", lineHeight: 16,
+  },
+  suggestLabel: {
+    fontSize: 11, fontFamily: "Outfit-ExtraBold", color: colors.textMuted,
+    letterSpacing: 1, marginBottom: 10, alignSelf: "flex-start",
   },
   startersCard: {
-    width: "100%", borderRadius: radius.md, overflow: "hidden",
-    borderWidth: 1, borderColor: colors.isDark ? colors.border : "#EBEBF5",
+    width: "100%", borderRadius: 16, overflow: "hidden",
     backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
+    borderWidth: 1, borderColor: colors.isDark ? colors.border : "#EBEBF5",
     ...(colors.isDark ? {} : {
       shadowColor: "#6B6B8A", shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
+      shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
     }),
   },
   starterBtn: {
-    flexDirection: "row", alignItems: "center",
-    paddingVertical: 14, paddingHorizontal: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "#F0F0F5",
-    gap: 10,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingVertical: 15, paddingHorizontal: 16,
+    borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "#F3F3F8",
+    gap: 12,
   },
-  starterText: { fontSize: 14, color: colors.textSecondary, fontFamily: "Outfit-Medium" },
-  starterSub:  { fontSize: 11, color: colors.accent, fontFamily: "Outfit-SemiBold", marginTop: 2 },
+  starterText: { fontSize: 14, color: colors.textPrimary, fontFamily: "Outfit-Medium", flex: 1 },
+  starterSub:  { fontSize: 11, color: colors.textMuted, fontFamily: "Outfit-Regular", marginTop: 2 },
+  emptyCapHint: {
+    fontSize: 12, fontFamily: "Outfit-Regular", color: colors.textMuted,
+    textAlign: "center", marginTop: 12, lineHeight: 17,
+  },
   capLink: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    marginTop: spacing.sm, alignSelf: "center", padding: 4,
+    marginTop: spacing.md, alignSelf: "center", padding: 4,
   },
   capLinkText: { fontSize: 13, color: colors.accent, fontFamily: "Outfit-SemiBold" },
-  starterLabel: {
-    fontSize: 11, fontFamily: "Outfit-ExtraBold", color: colors.textMuted,
-    letterSpacing: 1, marginBottom: 6, paddingLeft: 2, alignSelf: "flex-start",
-  },
   starterIconWrap: {
-    width: 26, height: 26, borderRadius: 8,
-    backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent,
-    alignItems: "center", justifyContent: "center", marginRight: 2,
+    width: 28, height: 28, borderRadius: 9,
+    backgroundColor: colors.accentGlow,
+    alignItems: "center", justifyContent: "center",
   },
 
   // Capabilities modal
-  capOverlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end",
-  },
+  capOverlay:   { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
   capSheet: {
     backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingHorizontal: spacing.lg, paddingBottom: 32, paddingTop: 12,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: spacing.lg, paddingBottom: 36, paddingTop: 12,
     maxHeight: "80%",
   },
   capHandle: {
@@ -720,20 +744,20 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   capTitle: {
     fontSize: 18, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   capSection: {
     fontSize: 11, fontFamily: "Outfit-ExtraBold", color: colors.textMuted,
-    letterSpacing: 1, marginTop: spacing.md, marginBottom: 8,
+    letterSpacing: 1, marginTop: spacing.md, marginBottom: 6,
   },
   capRow: {
     flexDirection: "row", alignItems: "center", gap: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "#F0F0F5",
+    paddingVertical: 11,
+    borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border + "80" : "#F3F3F8",
   },
   capIconWrap: {
-    width: 32, height: 32, borderRadius: 9,
-    backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent,
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: colors.accentGlow,
     alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
   capItemText: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
@@ -745,43 +769,44 @@ const makeStyles = (colors) => StyleSheet.create({
   capCloseTxt: { fontSize: 15, fontFamily: "Outfit-Bold", color: colors.textPrimary },
 
   // Date separators
-  dateSepRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 12 },
-  dateSepLine: { flex: 1, height: 1, backgroundColor: colors.isDark ? colors.border : "#E5E5EA" },
+  dateSepRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 14 },
+  dateSepLine: { flex: 1, height: 1, backgroundColor: colors.isDark ? colors.border : "#EBEBF0" },
   dateSepText: { fontSize: 11, fontFamily: "Outfit-SemiBold", color: colors.textMuted, letterSpacing: 0.5 },
 
   // Messages
-  list: { padding: spacing.md, gap: 12, paddingBottom: spacing.md },
-  bubbleRow:     { flexDirection: "row", alignItems: "flex-end", gap: 8, marginBottom: 4 },
+  list: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.md, gap: 10 },
+  bubbleRow:     { flexDirection: "row", alignItems: "flex-end", gap: 8, marginBottom: 2 },
   bubbleRowUser: { flexDirection: "row-reverse" },
   avatar: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent,
+    width: 30, height: 30, borderRadius: 10,
+    backgroundColor: colors.accentGlow,
     alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
   bubble: {
-    maxWidth: "78%", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10,
+    maxWidth: "80%", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10,
   },
-  bubbleUser:      { backgroundColor: colors.accent, borderBottomRightRadius: 4 },
+  bubbleUser: {
+    backgroundColor: colors.accent,
+    borderBottomRightRadius: 5,
+  },
   bubbleAI: {
-    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
-    borderWidth: 1,
-    borderColor: colors.isDark ? colors.border : "#F0F0F5",
-    borderBottomLeftRadius: 4,
+    backgroundColor: colors.isDark ? colors.bgCard : "#F2F2F7",
+    borderBottomLeftRadius: 5,
   },
-  bubbleError:     { borderColor: colors.high, backgroundColor: colors.highGlow },
-  bubbleConfirm:   { borderColor: colors.accent, backgroundColor: colors.accentGlow },
+  bubbleError:       { backgroundColor: colors.highGlow, borderWidth: 1, borderColor: colors.high },
+  bubbleConfirm:     { backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent },
   bubbleTextConfirm: { color: colors.accent, fontFamily: "Outfit-SemiBold" },
-  bubbleText:      { fontSize: 15, lineHeight: 22 },
-  bubbleTextUser:  { color: "#fff" },
-  bubbleTextAI:    { color: colors.textPrimary },
-  bubbleTextError: { color: colors.high },
-  typingBubble:    { paddingVertical: 8, paddingHorizontal: 14 },
+  bubbleText:        { fontSize: 15, lineHeight: 22, fontFamily: "Outfit-Regular" },
+  bubbleTextUser:    { color: "#fff" },
+  bubbleTextAI:      { color: colors.textPrimary },
+  bubbleTextError:   { color: colors.high },
+  typingBubble:      { paddingVertical: 8, paddingHorizontal: 14 },
 
   limitBanner: {
     flexDirection: "row", alignItems: "center", gap: 6,
     paddingHorizontal: spacing.md, paddingVertical: 10,
     backgroundColor: colors.accentGlow,
-    borderTopWidth: 1, borderTopColor: colors.accent + "44",
+    borderTopWidth: 1, borderTopColor: colors.accent + "33",
   },
   limitBannerText: { fontSize: 13, color: colors.accent, flex: 1 },
   limitHint: {
@@ -789,26 +814,27 @@ const makeStyles = (colors) => StyleSheet.create({
     fontSize: 10, color: colors.textMuted, fontFamily: "Outfit-SemiBold",
   },
 
-  // Input bar
+  // Input bar — seamless, no gray background
   inputBar: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    paddingHorizontal: spacing.md, paddingVertical: 14,
-    borderTopWidth: 1, 
-    borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
-    backgroundColor: colors.isDark ? colors.bg : "#F2F2F7",
+    paddingHorizontal: spacing.md, paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.isDark ? colors.border : "#EBEBF0",
+    backgroundColor: colors.isDark ? colors.bg : "#FFFFFF",
   },
   input: {
-    flex: 1, backgroundColor: colors.bgCard, borderRadius: 22,
-    paddingHorizontal: 16, paddingVertical: 10, paddingTop: 10,
-    borderWidth: 1, borderColor: colors.border,
+    flex: 1, borderRadius: 22,
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderWidth: 1,
     color: colors.textPrimary, fontSize: 15, maxHeight: 120,
-    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
-    borderColor: colors.isDark ? colors.border : "#E5E5EA",
+    fontFamily: "Outfit-Regular",
+    backgroundColor: colors.isDark ? colors.bgCard : "#F2F2F7",
+    borderColor: colors.isDark ? colors.border : "transparent",
   },
   sendBtn: {
-    width: 42, height: 42, borderRadius: 21,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: colors.accent,
     alignItems: "center", justifyContent: "center",
   },
-  sendBtnDisabled: { backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border },
+  sendBtnDisabled: { backgroundColor: colors.isDark ? colors.bgCard : "#EBEBF0", borderWidth: 0 },
 });

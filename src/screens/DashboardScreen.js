@@ -37,6 +37,7 @@ import { useUserProfile } from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
 import TaskCard from "../components/TaskCard";
 import StatsBar from "../components/StatsBar";
+import GradePromptSheet from "../components/GradePromptSheet";
 import TodayFocusCard from "../components/TodayFocusCard";
 import NotificationPermissionPrompt, { NOTIF_PROMPT_KEY } from "../components/NotificationPermissionPrompt";
 import { DashboardSkeleton, TaskListSkeleton, CalendarSkeleton } from "../components/SkeletonLoader";
@@ -616,9 +617,17 @@ const DashboardScreen = ({ navigation }) => {
   const studyPlanBtnRef  = useRef(null);
   const calendarBtnRef   = useRef(null);
   const syllabusBtnRef   = useRef(null);
-  const measureBtn = (ref, name) => {
+  const statsBarRef         = useRef(null);
+  const todayFocusRef       = useRef(null);
+  const insightStripRef     = useRef(null);
+  const focusBtnRegistered      = useRef(false);
+  const firstPendingIdRef       = useRef(null);
+  const focusBtnRef             = useRef(null);
+  const priorityBadgeRef        = useRef(null);
+  const priorityBadgeRegistered = useRef(false);
+  const measureBtn = (ref, name, r = 18) => {
     ref.current?.measureInWindow((x, y, w, h) => {
-      setTarget(name, { cx: x + w / 2, cy: y + h / 2, w, h, r: 18 });
+      setTarget(name, { cx: x + w / 2, cy: y + h / 2, w, h, r });
     });
   };
 
@@ -636,6 +645,7 @@ const DashboardScreen = ({ navigation }) => {
   const [planTodayCount, setPlanTodayCount] = useState(null);
   const [todayPlanSessions, setTodayPlanSessions] = useState([]);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+  const [gradePromptTask, setGradePromptTask] = useState(null);
 
   useEffect(() => {
     if (tasks.length === 0) return;
@@ -725,6 +735,31 @@ const DashboardScreen = ({ navigation }) => {
     const sub = DeviceEventEmitter.addListener("studyPlanUpdated", loadTodayPlanSessions);
     return () => sub.remove();
   }, [loadTodayPlanSessions]);
+
+  useEffect(() => {
+    const scrollToFirstTask = (targetKey, remeasureRef, r) => {
+      const firstId = firstPendingIdRef.current;
+      if (!firstId || !scrollRef.current) return;
+      taskViewRefs.current[firstId]?.measureInWindow((_, taskAbsY) => {
+        scrollRef.current?.measureInWindow((__, svAbsY) => {
+          const targetY = scrollOffsetY.current + (taskAbsY - svAbsY) - 160;
+          scrollRef.current?.scrollTo({ y: Math.max(0, targetY), animated: false });
+          setTimeout(() => {
+            remeasureRef.current?.measureInWindow((wx, wy, ww, wh) => {
+              if (ww > 0) setTarget(targetKey, { cx: wx + ww / 2, cy: wy + wh / 2, w: ww, h: wh, r });
+            });
+          }, 80);
+        });
+      });
+    };
+
+    const sub = DeviceEventEmitter.addListener("walkthroughStep", (key) => {
+      if (key === "priorityBadge") scrollToFirstTask("priorityBadge", priorityBadgeRef, 6);
+      if (key === "focusBtn")      scrollToFirstTask("focusBtn",      focusBtnRef,      10);
+    });
+    return () => sub.remove();
+  }, []);
+
 
   const enrichedTasks = useMemo(() => {
     const gradeMap = {};
@@ -935,9 +970,13 @@ const DashboardScreen = ({ navigation }) => {
   const handleToggle = (task) => {
     if (!task) return;
     if (!task.completed) {
-      // Card animates its own height to 0 before calling here, so by the
-      // time setCompletingIds removes it from the tree the space is already gone.
       setCompletingIds((prev) => new Set([...prev, task.id]));
+      completeTask(task);
+      invalidateTodayFocusCache();
+      // Show grade prompt after card has fully animated out
+      if (!task.grade) {
+        setTimeout(() => setGradePromptTask(task), 150);
+      }
     } else {
       setCompletingIds((prev) => {
         if (!prev.has(task.id)) return prev;
@@ -945,9 +984,9 @@ const DashboardScreen = ({ navigation }) => {
         next.delete(task.id);
         return next;
       });
+      completeTask(task);
+      invalidateTodayFocusCache();
     }
-    completeTask(task);
-    invalidateTodayFocusCache();
   };
   const serializeTask = (task) => ({
     ...task,
@@ -995,8 +1034,10 @@ const DashboardScreen = ({ navigation }) => {
             {taskList.length}
           </Text>
         </View>
-        {sortByDue(taskList).map((task, idx) =>
-          task ? (
+        {sortByDue(taskList).map((task, idx) => {
+          const isFirst = !focusBtnRegistered.current;
+          if (isFirst) { focusBtnRegistered.current = true; firstPendingIdRef.current = task.id; }
+          return task ? (
             <View key={task.id} ref={(r) => { if (r) taskViewRefs.current[task.id] = r; }}>
               <TaskCard
                 task={task}
@@ -1006,10 +1047,12 @@ const DashboardScreen = ({ navigation }) => {
                 onFocus={handleFocusTask}
                 highlighted={task.id === highlightedTaskId}
                 index={idx}
+                onFocusBtnMeasure={isFirst ? (rect, ref) => { setTarget("focusBtn", rect); if (ref) focusBtnRef.current = ref; } : undefined}
+                onPriorityBadgeMeasure={isFirst ? (rect, ref) => { setTarget("priorityBadge", rect); if (ref) priorityBadgeRef.current = ref; } : undefined}
               />
             </View>
-          ) : null
-        )}
+          ) : null;
+        })}
       </View>
     );
   };
@@ -1061,8 +1104,8 @@ const DashboardScreen = ({ navigation }) => {
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             onLayout={() => measureBtn(calendarBtnRef, "calendar")}
           >
-            <Feather name="calendar" size={15} color={calendarMode ? colors.accent : colors.textSecondary} />
-            <Text style={[styles.importBtnLabel, { color: calendarMode ? colors.accent : colors.textSecondary }]}>Week</Text>
+            <Feather name="calendar" size={15} color={colors.accent} />
+            <Text style={[styles.importBtnLabel, { color: colors.accent }]}>Week</Text>
           </TouchableOpacity>
           <TouchableOpacity
             ref={syllabusBtnRef}
@@ -1071,8 +1114,8 @@ const DashboardScreen = ({ navigation }) => {
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             onLayout={() => measureBtn(syllabusBtnRef, "syllabusImport")}
           >
-            <Feather name="upload-cloud" size={15} color={colors.textSecondary} />
-            <Text style={[styles.importBtnLabel, { color: colors.textSecondary }]}>Sync</Text>
+            <Feather name="upload-cloud" size={15} color={colors.accent} />
+            <Text style={[styles.importBtnLabel, { color: colors.accent }]}>Sync</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1093,33 +1136,51 @@ const DashboardScreen = ({ navigation }) => {
         }
       >
         <View style={{ height: spacing.md }} />
-        <StatsBar
-          todayCount={todaysTasks.length}
-          pendingCount={pendingTasks.length}
-          completedCount={completedTasks.length}
-        />
+        <View
+          ref={statsBarRef}
+          collapsable={false}
+          onLayout={() => setTimeout(() => measureBtn(statsBarRef, "statsBar", 14), 150)}
+        >
+          <StatsBar
+            todayCount={todaysTasks.length}
+            pendingCount={pendingTasks.length}
+            completedCount={completedTasks.length}
+          />
+        </View>
 
         {/* Today's Focus — auto-loads, no button press needed */}
         {tasks.length > 0 && (
-          <TodayFocusCard
-            tasks={tasks}
-            userProfile={profile}
-            patterns={patterns}
-            onTaskHighlight={setHighlightedTaskId}
-            navigation={navigation}
-            isPro={isPro}
-            todaySessions={isPro ? todayPlanSessions : []}
-          />
+          <View
+            ref={todayFocusRef}
+            collapsable={false}
+            onLayout={() => setTimeout(() => measureBtn(todayFocusRef, "todayFocus", 16), 150)}
+          >
+            <TodayFocusCard
+              tasks={tasks}
+              userProfile={profile}
+              patterns={patterns}
+              onTaskHighlight={setHighlightedTaskId}
+              navigation={navigation}
+              isPro={isPro}
+              todaySessions={isPro ? todayPlanSessions : []}
+            />
+          </View>
         )}
 
         {/* Behavioral insight strip */}
         {behavioralInsight && (
-          <InsightStrip
-            key={behavioralInsight.text}
-            insight={behavioralInsight}
-            styles={styles}
-            colors={colors}
-          />
+          <View
+            ref={insightStripRef}
+            collapsable={false}
+            onLayout={() => setTimeout(() => measureBtn(insightStripRef, "insightStrip", 10), 150)}
+          >
+            <InsightStrip
+              key={behavioralInsight.text}
+              insight={behavioralInsight}
+              styles={styles}
+              colors={colors}
+            />
+          </View>
         )}
 
         {calendarLoading ? (
@@ -1216,6 +1277,7 @@ const DashboardScreen = ({ navigation }) => {
               </View>
             ) : activeTab === "All" ? (
               <>
+                {(focusBtnRegistered.current = false) || null}
                 {renderBucket("Overdue", buckets.overdue, colors.high)}
                 {renderBucket("Due Today", buckets.dueToday, colors.medium)}
                 {renderBucket("This Week", buckets.thisWeek, colors.accent)}
@@ -1312,6 +1374,16 @@ const DashboardScreen = ({ navigation }) => {
       <NotificationPermissionPrompt
         visible={showNotifPrompt}
         onDismiss={() => setShowNotifPrompt(false)}
+      />
+      <GradePromptSheet
+        task={gradePromptTask}
+        onSelect={(grade) => {
+          if (gradePromptTask) {
+            editTask(gradePromptTask.id, { grade }).catch(() => {});
+          }
+          setGradePromptTask(null);
+        }}
+        onSkip={() => setGradePromptTask(null)}
       />
     </View>
   );
