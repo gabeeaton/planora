@@ -98,9 +98,13 @@ export const TasksProvider = ({ children }) => {
       try {
         const raw = await AsyncStorage.getItem(RECALC_KEY);
         const last = raw ? parseInt(raw, 10) : 0;
-        if (Date.now() - last < 12 * 60 * 60 * 1000) return; // at most once per 12 hours
+        if (Date.now() - last < 6 * 60 * 60 * 1000) return; // at most once per 6 hours
         await AsyncStorage.setItem(RECALC_KEY, String(Date.now()));
-        const updated = await suggestPriorities(staleTasks, patterns, profile);
+        // Cap at 15 tasks per call — prioritize those without any AI rank yet
+        const unranked = staleTasks.filter((t) => !t.aiPriority).slice(0, 8);
+        const ranked   = staleTasks.filter((t) =>  t.aiPriority).slice(0, 7);
+        const batch    = [...unranked, ...ranked];
+        const updated = await suggestPriorities(batch, patterns, profile);
         await Promise.all(
           updated
             .filter((t) => {

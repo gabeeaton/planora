@@ -24,16 +24,22 @@ export const getEffectivePriority = (task) => {
   return "LOW";
 };
 
-// True if the stored AI priority is likely stale — the due date has crossed
-// a tier boundary since it was assigned, warranting a background re-rank.
+// True if the stored priority is stale enough to warrant a background AI re-rank.
 export const isPriorityStale = (task) => {
-  const stored = task.aiPriority;
-  if (!stored || !task.dueDate || task.completed) return false;
+  if (task.completed || !task.dueDate) return false;
   const due = safeDate(task.dueDate);
   if (!due) return false;
   const daysUntil = differenceInCalendarDays(due, startOfToday());
-  if (daysUntil < 0 && stored !== "HIGH") return true;  // overdue, not HIGH
-  if (daysUntil <= 1 && stored === "LOW") return true;   // due today/tomorrow, stored LOW
-  if (daysUntil <= 7 && stored === "LOW") return true;   // due this week, stored LOW
+  const stored = task.aiPriority;
+
+  // No AI priority yet and due within 14 days — queue for first AI rank
+  if (!stored) return daysUntil <= 14;
+
+  // Overdue or due today/tomorrow but not HIGH
+  if (daysUntil <= 1 && stored !== "HIGH") return true;
+
+  // Due within 5 days but only LOW — missed the MEDIUM→HIGH window
+  if (daysUntil <= 5 && stored === "LOW") return true;
+
   return false;
 };
