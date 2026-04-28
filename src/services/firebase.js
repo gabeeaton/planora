@@ -155,6 +155,15 @@ export const addTask = (userId, taskData) =>
     return updateDoc(doc(db, "tasks", taskId), data);
   };
 
+// Write multiple task updates atomically — listener fires once instead of N times
+export const batchUpdateTasks = async (updates) => {
+  const batch = writeBatch(db);
+  updates.forEach(({ taskId, data }) => {
+    batch.update(doc(db, "tasks", taskId), { ...data, lastTouchedAt: Timestamp.now() });
+  });
+  await batch.commit();
+};
+
 export const toggleTask = async (taskId, currentStatus) => {
   await updateDoc(doc(db, "tasks", taskId), {
     completed: !currentStatus,

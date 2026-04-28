@@ -254,7 +254,7 @@ const TaskCard = ({
 
   // Height collapse — runs on JS thread simultaneously with the native fade
   const [measuredHeight, setMeasuredHeight] = useState(null);
-  const heightAnim = useRef(new Animated.Value(0)).current;
+  const heightAnim = useRef(new Animated.Value(200)).current; // large default — never collapses before onLayout
   const marginAnim = useRef(new Animated.Value(spacing.sm)).current;
 
   // Swipe-to-complete
@@ -455,9 +455,6 @@ const TaskCard = ({
           highlighted && styles.cardHighlighted,
         ]}
       >
-        {task.aiPriority && (
-          <View style={[styles.glowOverlay, { backgroundColor: glowColor }]} />
-        )}
         {highlighted && <View style={styles.highlightOverlay} />}
         <Animated.View
           style={[styles.completionFlash, { opacity: flashOpacity }]}
@@ -563,13 +560,6 @@ const TaskCard = ({
               <Text style={styles.description} numberOfLines={2}>
                 {task.description}
               </Text>
-            ) : null}
-
-            {task.aiReason ? (
-              <View style={styles.aiReasonRow}>
-                <Feather name="cpu" size={10} color={colors.accent} />
-                <Text style={styles.aiReason}>{task.aiReason}</Text>
-              </View>
             ) : null}
 
             {/* Footer */}

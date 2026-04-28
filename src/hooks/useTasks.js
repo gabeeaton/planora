@@ -12,6 +12,7 @@ import {
   subscribeTasks,
   addTask,
   updateTask,
+  batchUpdateTasks,
   toggleTask,
   deleteTask,
   recordTaskCompletion,
@@ -105,14 +106,16 @@ export const TasksProvider = ({ children }) => {
         const ranked   = staleTasks.filter((t) =>  t.aiPriority).slice(0, 7);
         const batch    = [...unranked, ...ranked];
         const updated = await suggestPriorities(batch, patterns, profile);
-        await Promise.all(
-          updated
-            .filter((t) => {
-              const orig = staleTasks.find((s) => s.id === t.id);
-              return orig && t.aiPriority !== orig.aiPriority;
-            })
-            .map((t) => updateTask(t.id, { aiPriority: t.aiPriority, aiReason: t.aiReason }))
-        );
+        const changed = updated.filter((t) => {
+          const orig = staleTasks.find((s) => s.id === t.id);
+          return orig && t.aiPriority !== orig.aiPriority;
+        });
+        if (changed.length > 0) {
+          // Single batch write → Firestore listener fires once, no overlapping re-renders
+          await batchUpdateTasks(
+            changed.map((t) => ({ taskId: t.id, data: { aiPriority: t.aiPriority, aiReason: t.aiReason } }))
+          );
+        }
       } catch {
         // silent — background optimization
       }

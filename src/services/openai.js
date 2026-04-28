@@ -697,7 +697,7 @@ export const suggestPriorities = async (tasks, patterns, userProfile = null) => 
   const taskList = formatTaskList(tasks);
   const shown = Math.min(APP_CONFIG.maxTasksForAI, tasks.length);
 
-  const prompt = `You are a productivity assistant. Assign each task a priority based on urgency, due dates, and student behavioral patterns.
+  const prompt = `You are a productivity assistant. Assign each task a priority based on urgency, assignment type, and student context.
 
 Today: ${today()}
 ${patternCtx ? `\nUser patterns:\n${patternCtx}` : ""}
@@ -706,10 +706,28 @@ Tasks:
 ${taskList}
 Note: showing ${shown} of ${tasks.length} total pending tasks, sorted by urgency. You may be seeing a partial list.
 
-Rules:
-- HIGH: Due today → always HIGH, no exceptions. Due tomorrow → HIGH unless genuinely trivial. Student historically struggles with this class → HIGH.
-- MEDIUM: Due within 7 days, or moderate-stakes assignment
-- LOW: No deadline, or clearly low-stakes
+Priority rules — apply ALL that match, take the highest result:
+
+HIGH:
+- Due today or tomorrow, any assignment type
+- Exam, midterm, final, or comprehensive quiz due within 7 days (needs prep time)
+- Major paper, thesis, or research project due within 5 days
+- Student has a struggling/low grade in this class AND due within 10 days
+- Overdue
+
+MEDIUM:
+- Due within 7 days (homework, problem set, lab, standard assignment)
+- Exam or final due within 14 days (start studying now)
+- Paper or project due within 10 days
+- No due date but meaningful deliverable (essay draft, project milestone)
+
+LOW:
+- Reading, participation post, discussion reply, or attendance — due within 7 days
+- Any assignment due 14+ days away that is NOT an exam or major project
+- No due date and genuinely minor (optional extra credit, casual reflection)
+
+Type guide: "exam", "midterm", "final", "test" = high-stakes. "paper", "essay", "thesis", "project", "report" = moderate-high. "homework", "problem set", "lab", "quiz" = moderate. "reading", "participation", "discussion", "post", "reflection", "attendance" = lower-stakes.
+
 - If your reason exceeds 12 words, cut it to the single most important phrase. Never give more than one reason per task.
 
 CRITICAL: Output ONLY a raw JSON array. Start with [ end with ]. No markdown, no text.
