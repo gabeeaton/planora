@@ -12,7 +12,7 @@
 //   />
 // ============================================================
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, Animated,
 } from "react-native";
@@ -106,9 +106,12 @@ const makeStyles = (colors) => StyleSheet.create({
 });
 
 const NotificationPermissionPrompt = ({ visible, onDismiss }) => {
-  const { colors } = useTheme();
-  const styles = makeStyles(colors);
+  const { colors }   = useTheme();
+  const styles       = makeStyles(colors);
   const [loading, setLoading] = useState(false);
+  const allowScale   = useRef(new Animated.Value(1)).current;
+  const onAllowIn  = () => Animated.spring(allowScale, { toValue: 0.97, useNativeDriver: true, speed: 80, bounciness: 0 }).start();
+  const onAllowOut = () => Animated.spring(allowScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start();
 
   const handleAllow = async () => {
     setLoading(true);
@@ -163,17 +166,21 @@ const NotificationPermissionPrompt = ({ visible, onDismiss }) => {
 
           <View style={styles.divider} />
 
-          <TouchableOpacity
-            style={[styles.allowBtn, loading && { opacity: 0.7 }]}
-            onPress={handleAllow}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            <Feather name="bell" size={18} color="#fff" />
-            <Text style={styles.allowBtnText}>
-              {loading ? "Setting up..." : "Turn on reminders"}
-            </Text>
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: allowScale }] }}>
+            <TouchableOpacity
+              style={[styles.allowBtn, loading && { opacity: 0.7 }]}
+              onPress={handleAllow}
+              onPressIn={onAllowIn}
+              onPressOut={onAllowOut}
+              disabled={loading}
+              activeOpacity={1}
+            >
+              <Feather name="bell" size={18} color="#fff" />
+              <Text style={styles.allowBtnText}>
+                {loading ? "Setting up..." : "Turn on reminders"}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
 
           <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
             <Text style={styles.skipBtnText}>Not right now</Text>

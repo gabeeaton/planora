@@ -111,7 +111,7 @@ const makeStyles = (colors, insets) =>
       shadowOpacity: colors.isDark ? 0 : 0.06, shadowRadius: 4, elevation: 2,
     },
     importBtnLabel: {
-      fontSize: 9, fontFamily: "Outfit-SemiBold", letterSpacing: 0.2,
+      fontSize: 11, fontFamily: "Outfit-SemiBold", letterSpacing: 0.2,
     },
     clearBtn: {
       flexDirection: "row",
@@ -1249,19 +1249,20 @@ const DashboardScreen = ({ navigation }) => {
                 <Text style={styles.emptySubtitle}>
                   Add your first task, or import your entire semester from a Canvas calendar.
                 </Text>
-                <View style={styles.emptyActionsRow}>
-                  <TouchableOpacity style={styles.emptyBtn} onPress={() => { Haptics.selectionAsync().catch(() => {}); openAddTask(); }}>
-                    <Feather name="plus" size={15} color="#fff" />
-                    <Text style={styles.emptyBtnText}>Add Task</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.emptyBtnOutline}
-                    onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
-                  >
-                    <Feather name="upload" size={15} color={colors.accent} />
-                    <Text style={styles.emptyBtnOutlineText}>Import</Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  style={[styles.emptyBtn, { width: "100%", justifyContent: "center" }]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); openAddTask(); }}
+                >
+                  <Feather name="plus" size={15} color="#fff" />
+                  <Text style={styles.emptyBtnText}>Add your first task</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: spacing.sm }}
+                  onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
+                >
+                  <Feather name="upload-cloud" size={13} color={colors.textMuted} />
+                  <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: "Outfit-Medium" }}>Or import from Canvas / ICS</Text>
+                </TouchableOpacity>
               </View>
             ) : activeTab === "All" &&
               displayedTasks.filter((t) => !t.completed).length === 0 &&

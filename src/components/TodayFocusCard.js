@@ -55,6 +55,7 @@ const cleanText = (str) => {
 const FocusTaskRow = ({ task, idx, isLast, onPress, styles, colors, PRIORITY_COLORS }) => {
   const opacity    = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(6)).current;
+  const rowScale   = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.sequence([
@@ -66,16 +67,21 @@ const FocusTaskRow = ({ task, idx, isLast, onPress, styles, colors, PRIORITY_COL
     ]).start();
   }, []);
 
+  const onRowIn  = () => { if (onPress) Animated.spring(rowScale, { toValue: 0.98, useNativeDriver: true, speed: 80, bounciness: 0 }).start(); };
+  const onRowOut = () => { if (onPress) Animated.spring(rowScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start(); };
+
   const priority  = task.aiPriority ?? task.priority;
   const chipColor = PRIORITY_COLORS[priority];
   const title     = cleanText(task.title) || task.title;
 
   return (
-    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+    <Animated.View style={{ opacity, transform: [{ translateY }, { scale: rowScale }] }}>
       <TouchableOpacity
         style={[styles.taskRow, isLast && styles.taskRowLast]}
         onPress={() => onPress?.(task.id)}
-        activeOpacity={onPress ? 0.6 : 1}
+        onPressIn={onRowIn}
+        onPressOut={onRowOut}
+        activeOpacity={1}
       >
         <View style={[styles.taskDot, chipColor && { backgroundColor: chipColor }]} />
         <View style={{ flex: 1 }}>

@@ -2,11 +2,11 @@
 // src/screens/AuthScreen.js
 // ============================================================
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  ScrollView, Alert, Linking, Image,
+  ScrollView, Alert, Linking, Image, Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -232,8 +232,21 @@ const AuthScreen = ({ navigation }) => {
   const [confirmError, setConfirmError]         = useState("");
   const [focusedField, setFocusedField]         = useState(null);
 
-  const passwordRef = useRef(null);
-  const confirmRef  = useRef(null);
+  const passwordRef  = useRef(null);
+  const confirmRef   = useRef(null);
+  const submitScale  = useRef(new Animated.Value(1)).current;
+  const formOpacity  = useRef(new Animated.Value(0)).current;
+  const formSlide    = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(formOpacity, { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.spring(formSlide,   { toValue: 0, speed: 20, bounciness: 4, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const onSubmitIn  = () => Animated.spring(submitScale, { toValue: 0.97, useNativeDriver: true, speed: 80, bounciness: 0 }).start();
+  const onSubmitOut = () => Animated.spring(submitScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start();
 
   const clearErrors = () => {
     setError(""); setEmailError(""); setPasswordError(""); setConfirmError("");
@@ -322,7 +335,11 @@ const AuthScreen = ({ navigation }) => {
       <View style={styles.orb1} pointerEvents="none" />
       <View style={styles.orb2} pointerEvents="none" />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kav}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Animated.ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          style={{ opacity: formOpacity, transform: [{ translateY: formSlide }] }}
+        >
 
           {/* Brand */}
           <View style={styles.brand}>
@@ -441,16 +458,21 @@ const AuthScreen = ({ navigation }) => {
           ) : null}
 
           {/* Submit */}
-          <TouchableOpacity
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); handleSubmit(); }}
-            style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.submitText}>{mode === "login" ? "Sign In" : "Sign Up"}</Text>
-            }
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: submitScale }] }}>
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); handleSubmit(); }}
+              onPressIn={onSubmitIn}
+              onPressOut={onSubmitOut}
+              style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+              disabled={loading}
+              activeOpacity={1}
+            >
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.submitText}>{mode === "login" ? "Sign In" : "Sign Up"}</Text>
+              }
+            </TouchableOpacity>
+          </Animated.View>
 
           {/* Forgot password */}
           {mode === "login" && (
@@ -482,7 +504,7 @@ const AuthScreen = ({ navigation }) => {
             </Text>
           )}
 
-        </ScrollView>
+        </Animated.ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

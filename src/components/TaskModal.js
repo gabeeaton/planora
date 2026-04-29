@@ -3,10 +3,10 @@
 // Fixed: full theme system (no hardcoded colors), recurrence UI added
 // ============================================================
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Modal, KeyboardAvoidingView, Platform, ScrollView, Linking, Alert,
+  Modal, KeyboardAvoidingView, Platform, ScrollView, Linking, Alert, Animated,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Feather } from "@expo/vector-icons";
@@ -167,11 +167,11 @@ const makeStyles = (colors) => StyleSheet.create({
 });
 
 const PRIORITIES = ["HIGH", "MEDIUM", "LOW"];
-const PRIORITY_META = {
-  HIGH:   { icon: "alert-circle", color: "#FF5C5C", label: "High" },
-  MEDIUM: { icon: "minus-circle", color: "#FFB347", label: "Medium" },
-  LOW:    { icon: "check-circle", color: "#5CFF8F", label: "Low" },
-};
+const priorityMeta = (colors) => ({
+  HIGH:   { icon: "alert-circle", color: colors.high,   label: "High"   },
+  MEDIUM: { icon: "minus-circle", color: colors.medium, label: "Medium" },
+  LOW:    { icon: "check-circle", color: colors.low,    label: "Low"    },
+});
 
 
 const RECURRENCE_OPTIONS = [
@@ -230,8 +230,9 @@ const CREDIT_OPTS  = ["1", "2", "3", "4", "5+"];
 const generateId   = () => Math.random().toString(36).slice(2, 10);
 
 const TaskModal = ({ visible, task, onClose, onSave }) => {
-  const { colors } = useTheme();
-  const styles  = makeStyles(colors);
+  const { colors }   = useTheme();
+  const styles       = makeStyles(colors);
+  const PRIORITY_META = priorityMeta(colors);
   const handleClose = onClose;
   const { profile, updateProfile } = useUserProfile();
   const { tasks } = useTasks();
@@ -263,6 +264,9 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
   const [error, setError]                   = useState("");
   const [showNotes, setShowNotes]           = useState(false);
   const [showMore, setShowMore]             = useState(false);
+  const saveScale = useRef(new Animated.Value(1)).current;
+  const onSaveIn  = () => Animated.spring(saveScale, { toValue: 0.97, useNativeDriver: true, speed: 80, bounciness: 0 }).start();
+  const onSaveOut = () => Animated.spring(saveScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start();
 
   // ── Save-class prompt state (step 2) ─────────────────────
   const [modalStep, setModalStep]           = useState("form"); // "form" | "save-class"
@@ -757,16 +761,21 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
               </View>
             ) : null}
 
-            <TouchableOpacity
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); handleSave(); }}
-              style={[styles.saveBtn, { backgroundColor: colors.accent }, saving && { opacity: 0.6 }]}
-              disabled={saving}
-            >
-              <Feather name={saving ? "loader" : task ? "save" : "plus"} size={18} color="#fff" />
-              <Text style={styles.saveBtnText}>
-                {saving ? "Saving..." : task ? "Save Changes" : "Create Task"}
-              </Text>
-            </TouchableOpacity>
+            <Animated.View style={{ transform: [{ scale: saveScale }] }}>
+              <TouchableOpacity
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); handleSave(); }}
+                onPressIn={onSaveIn}
+                onPressOut={onSaveOut}
+                style={[styles.saveBtn, { backgroundColor: colors.accent }, saving && { opacity: 0.6 }]}
+                disabled={saving}
+                activeOpacity={1}
+              >
+                <Feather name={saving ? "loader" : task ? "save" : "plus"} size={18} color="#fff" />
+                <Text style={styles.saveBtnText}>
+                  {saving ? "Saving..." : task ? "Save Changes" : "Create Task"}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
             </>
             )}
           </ScrollView>
