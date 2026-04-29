@@ -160,19 +160,54 @@ export default function PaywallScreen({ navigation }) {
   const [loading, setLoading]           = useState(false);
   const [packages, setPackages]         = useState({});
 
-  const fadeAnim  = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(24)).current;
-  const ctaScale  = useRef(new Animated.Value(1)).current;
+  const fadeAnim      = useRef(new Animated.Value(0)).current;
+  const slideAnim     = useRef(new Animated.Value(24)).current;
+  const ctaScale      = useRef(new Animated.Value(1)).current;
+  const priceOpacity  = useRef(new Animated.Value(1)).current;
+  const segmentScales = useRef(PLANS.map(() => new Animated.Value(1))).current;
+  const featureAnims  = useRef(FEATURES.map(() => ({
+    opacity:    new Animated.Value(0),
+    translateY: new Animated.Value(16),
+  }))).current;
 
   useEffect(() => {
     getOfferings().then(setPackages).catch(() => {});
     Animated.parallel([
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(fadeAnim,  { toValue: 1, duration: 280, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, speed: 18, bounciness: 4, useNativeDriver: true }),
-    ]).start();
+    ]).start(() => {
+      // Stagger feature rows in after sheet settles
+      Animated.parallel(
+        featureAnims.map((anim, i) =>
+          Animated.sequence([
+            Animated.delay(i * 55),
+            Animated.parallel([
+              Animated.timing(anim.opacity,    { toValue: 1, duration: 200, useNativeDriver: true }),
+              Animated.spring(anim.translateY, { toValue: 0, speed: 22, bounciness: 4, useNativeDriver: true }),
+            ]),
+          ])
+        )
+      ).start();
+    });
   }, []);
 
   const activePlan = PLANS.find((p) => p.key === selectedPlan);
+
+  const handleSelectPlan = (key) => {
+    if (key === selectedPlan) return;
+    const idx = PLANS.findIndex((p) => p.key === key);
+    Haptics.selectionAsync().catch(() => {});
+    // Spring pop on tapped segment
+    Animated.sequence([
+      Animated.spring(segmentScales[idx], { toValue: 0.94, useNativeDriver: true, speed: 80, bounciness: 0 }),
+      Animated.spring(segmentScales[idx], { toValue: 1,    useNativeDriver: true, speed: 24, bounciness: 8 }),
+    ]).start();
+    // Price crossfade
+    Animated.timing(priceOpacity, { toValue: 0, duration: 100, useNativeDriver: true }).start(() => {
+      setSelectedPlan(key);
+      Animated.timing(priceOpacity, { toValue: 1, duration: 160, useNativeDriver: true }).start();
+    });
+  };
 
   const handleUpgrade = async () => {
     const pkg = packages[selectedPlan];
@@ -247,7 +282,14 @@ export default function PaywallScreen({ navigation }) {
         {/* ── Features ── */}
         <View style={styles.featuresWrap}>
           {FEATURES.map((f, i) => (
-            <View key={f.title} style={[styles.featureRow, i === FEATURES.length - 1 && styles.featureRowLast]}>
+            <Animated.View
+              key={f.title}
+              style={[
+                styles.featureRow,
+                i === FEATURES.length - 1 && styles.featureRowLast,
+                { opacity: featureAnims[i].opacity, transform: [{ translateY: featureAnims[i].translateY }] },
+              ]}
+            >
               <View style={styles.featureCheck}>
                 <Feather name="check" size={13} color={colors.accent} />
               </View>
@@ -255,40 +297,41 @@ export default function PaywallScreen({ navigation }) {
                 <Text style={styles.featureTitle}>{f.title}</Text>
                 <Text style={styles.featureDesc}>{f.desc}</Text>
               </View>
-            </View>
+            </Animated.View>
           ))}
         </View>
 
         {/* ── Plan toggle ── */}
         <View style={styles.planToggleWrap}>
           <View style={styles.planToggle}>
-            {PLANS.map((plan) => {
+            {PLANS.map((plan, idx) => {
               const active = selectedPlan === plan.key;
               return (
-                <TouchableOpacity
-                  key={plan.key}
-                  style={[styles.planSegment, active && styles.planSegmentActive]}
-                  onPress={() => { Haptics.selectionAsync().catch(() => {}); setSelectedPlan(plan.key); }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.planSegmentLabel, active && styles.planSegmentLabelActive]}>
-                    {plan.label}
-                  </Text>
-                  {plan.badge && (
-                    <Text style={[styles.planSegmentBadge, active && styles.planSegmentBadgeActive]}>
-                      {plan.badge}
+                <Animated.View key={plan.key} style={{ flex: 1, transform: [{ scale: segmentScales[idx] }] }}>
+                  <TouchableOpacity
+                    style={[styles.planSegment, active && styles.planSegmentActive, { width: "100%" }]}
+                    onPress={() => handleSelectPlan(plan.key)}
+                    activeOpacity={1}
+                  >
+                    <Text style={[styles.planSegmentLabel, active && styles.planSegmentLabelActive]}>
+                      {plan.label}
                     </Text>
-                  )}
-                </TouchableOpacity>
+                    {plan.badge && (
+                      <Text style={[styles.planSegmentBadge, active && styles.planSegmentBadgeActive]}>
+                        {plan.badge}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
               );
             })}
           </View>
 
-          <View style={styles.planPriceRow}>
+          <Animated.View style={[styles.planPriceRow, { opacity: priceOpacity }]}>
             <Text style={styles.planPrice}>{activePlan?.displayPrice}</Text>
             <Text style={styles.planPer}>{activePlan?.per}</Text>
-          </View>
-          <Text style={styles.planBilled}>{activePlan?.billed}</Text>
+          </Animated.View>
+          <Animated.Text style={[styles.planBilled, { opacity: priceOpacity }]}>{activePlan?.billed}</Animated.Text>
         </View>
 
         {/* ── CTA ── */}

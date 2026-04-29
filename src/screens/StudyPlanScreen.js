@@ -228,6 +228,7 @@ const StudyPlanScreen = ({ navigation }) => {
   }, [user?.uid]);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const progressAnimation = useRef(null);
+  const generateScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (loading) {
@@ -390,13 +391,18 @@ const StudyPlanScreen = ({ navigation }) => {
                 <Text style={styles.loadingSubLabel}>Analyzing your tasks and deadlines</Text>
               </View>
             ) : (
-              <TouchableOpacity
-                style={[styles.generateBtn, { backgroundColor: colors.accent }]}
-                onPress={handleGenerate}
-              >
-                <Feather name="edit-3" size={18} color="#fff" />
-                <Text style={styles.generateBtnText}>Build My Plan</Text>
-              </TouchableOpacity>
+              <Animated.View style={{ transform: [{ scale: generateScale }] }}>
+                <TouchableOpacity
+                  style={[styles.generateBtn, { backgroundColor: colors.accent }]}
+                  onPress={handleGenerate}
+                  onPressIn={() => Animated.spring(generateScale, { toValue: 0.96, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
+                  onPressOut={() => Animated.spring(generateScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start()}
+                  activeOpacity={1}
+                >
+                  <Feather name="edit-3" size={18} color="#fff" />
+                  <Text style={styles.generateBtnText}>Build My Plan</Text>
+                </TouchableOpacity>
+              </Animated.View>
             )}
           </>
         ) : (

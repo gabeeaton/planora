@@ -2,13 +2,6 @@
 // src/screens/FocusModeScreen.js
 // Full-screen Pomodoro. Tap the play button on any task card to enter.
 // navigation.navigate("FocusMode", { task })
-//
-// FIXES:
-//  - useSafeAreaInsets for topBar so X is below Dynamic Island
-//  - task dates deserialized from ISO strings (navigation serialization)
-//  - stale closure bug on brk in interval fixed with ref
-//  - completion overlay has safe area padding + escape hatch
-//  - keep-awake while timer is running
 // ============================================================
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -18,6 +11,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useKeepAwake } from "expo-keep-awake";
+import * as Haptics from "expo-haptics";
 import { spacing, radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useTasks } from "../hooks/useTasks";
@@ -27,7 +21,6 @@ const BREAK_S =  5 * 60;
 const fmt = (s) =>
   `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-// Rehydrate a task that came through navigation params (dates are ISO strings)
 const deserializeTask = (raw) => {
   if (!raw) return null;
   return {
@@ -44,7 +37,6 @@ export default function FocusModeScreen({ route, navigation }) {
   const insets      = useSafeAreaInsets();
   const { completeTask } = useTasks();
 
-  // Rehydrate dates — navigation params are JSON-serialized
   const task = deserializeTask(route.params?.task ?? null);
 
   const [secs, setSecs]     = useState(WORK);
@@ -54,18 +46,29 @@ export default function FocusModeScreen({ route, navigation }) {
   const [done, setDone]     = useState(false);
   const [marked, setMarked] = useState(false);
 
-  // Keep screen awake the entire time Focus Mode is open
   useKeepAwake();
 
+  // Timer pulse
   const pulse     = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(null);
   const iv        = useRef(null);
   const mounted   = useRef(true);
-  // Use a ref for brk so the interval closure always sees current value
-  const brkRef = useRef(brk);
+  const brkRef    = useRef(brk);
   useEffect(() => { brkRef.current = brk; }, [brk]);
 
-  // Stop animation and interval on unmount
+  // Button scale springs
+  const playScale  = useRef(new Animated.Value(1)).current;
+  const checkScale = useRef(new Animated.Value(1)).current;
+  const resetScale = useRef(new Animated.Value(1)).current;
+
+  // Completion overlay
+  const overFade   = useRef(new Animated.Value(0)).current;
+  const overSlide  = useRef(new Animated.Value(40)).current;
+  const iconBounce = useRef(new Animated.Value(0.5)).current;
+
+  // Pomodoro dot bounces
+  const dotAnims = useRef([0, 1, 2, 3].map(() => new Animated.Value(1))).current;
+
   useEffect(() => {
     return () => {
       mounted.current = false;
@@ -74,10 +77,9 @@ export default function FocusModeScreen({ route, navigation }) {
     };
   }, []);
 
-  // Timer + pulse animation
+  // Timer + pulse
   useEffect(() => {
     if (on) {
-      // Pulse ring while running
       pulseAnim.current = Animated.loop(
         Animated.sequence([
           Animated.timing(pulse, { toValue: 1.04, duration: 1500, useNativeDriver: true }),
@@ -113,6 +115,42 @@ export default function FocusModeScreen({ route, navigation }) {
     return () => clearInterval(iv.current);
   }, [on]);
 
+  // Animate completion overlay in + haptic
+  useEffect(() => {
+    if (!done) return;
+    overFade.setValue(0);
+    overSlide.setValue(40);
+    iconBounce.setValue(0.4);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    Animated.parallel([
+      Animated.timing(overFade,  { toValue: 1, duration: 240, useNativeDriver: true }),
+      Animated.spring(overSlide, { toValue: 0, speed: 20, bounciness: 5, useNativeDriver: true }),
+    ]).start(() => {
+      Animated.spring(iconBounce, { toValue: 1, speed: 12, bounciness: 14, useNativeDriver: true }).start();
+    });
+  }, [done]);
+
+  // Dot bounce when a pomodoro completes
+  useEffect(() => {
+    const idx = n - 1;
+    if (idx < 0 || idx > 3) return;
+    dotAnims[idx].setValue(0.3);
+    Animated.spring(dotAnims[idx], { toValue: 1, speed: 12, bounciness: 14, useNativeDriver: true }).start();
+  }, [n]);
+
+  // Button press handlers
+  const onPlayIn  = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Animated.spring(playScale, { toValue: 0.92, useNativeDriver: true, speed: 80, bounciness: 0 }).start();
+  };
+  const onPlayOut = () => Animated.spring(playScale,  { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 4 }).start();
+
+  const onCheckIn  = () => Animated.spring(checkScale, { toValue: 0.90, useNativeDriver: true, speed: 80, bounciness: 0 }).start();
+  const onCheckOut = () => Animated.spring(checkScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start();
+
+  const onResetIn  = () => Animated.spring(resetScale, { toValue: 0.90, useNativeDriver: true, speed: 80, bounciness: 0 }).start();
+  const onResetOut = () => Animated.spring(resetScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start();
+
   const markDone = async () => {
     if (marked) return;
     setMarked(true);
@@ -144,7 +182,6 @@ export default function FocusModeScreen({ route, navigation }) {
 
   const ac = brk ? colors.low : colors.accent;
 
-  // topBar sits below the Dynamic Island / status bar using insets
   const topBarStyle = {
     paddingTop: insets.top + 12,
     paddingBottom: 12,
@@ -161,7 +198,6 @@ export default function FocusModeScreen({ route, navigation }) {
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: spacing.xl,
-      // Push content below topBar height (inset + 12 + ~36 icon + 12)
       paddingTop: insets.top + 70,
       paddingBottom: insets.bottom + spacing.lg,
     },
@@ -194,12 +230,14 @@ export default function FocusModeScreen({ route, navigation }) {
       alignItems: "center", justifyContent: "center",
       borderWidth: 1, borderColor: colors.border,
     },
-    spacer:  { width: 36 },
+    spacer: { width: 36 },
 
-    // Completion overlay — scrollable so it works on small phones too
     over: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: colors.bg,
+    },
+    overInner: {
+      flex: 1,
     },
     overScroll: {
       flexGrow: 1,
@@ -210,8 +248,8 @@ export default function FocusModeScreen({ route, navigation }) {
       paddingBottom: insets.bottom + spacing.xl,
     },
     overIcon: {
-      width: 88, height: 88, borderRadius: 44,
-      backgroundColor: colors.lowGlow,
+      width: 96, height: 96, borderRadius: 48,
+      backgroundColor: colors.lowGlow ?? colors.accentGlow,
       borderWidth: 2, borderColor: colors.low,
       alignItems: "center", justifyContent: "center",
       marginBottom: spacing.lg,
@@ -226,7 +264,6 @@ export default function FocusModeScreen({ route, navigation }) {
     bigBtnT:  { color: "#fff", fontFamily: "Outfit-Bold", fontSize: 16 },
     skipBtn:  { paddingVertical: 8 },
     skipT:    { fontSize: 13, color: colors.textMuted },
-    // Escape hatch in top-left of overlay
     overClose: {
       position: "absolute",
       top: insets.top + 12,
@@ -235,12 +272,12 @@ export default function FocusModeScreen({ route, navigation }) {
       backgroundColor: colors.bgCard,
       alignItems: "center", justifyContent: "center",
       borderWidth: 1, borderColor: colors.border,
+      zIndex: 10,
     },
   });
 
   return (
     <SafeAreaView style={s.safe} edges={["left", "right", "bottom"]}>
-      {/* Top bar — manually positioned below Dynamic Island via insets */}
       <View style={topBarStyle}>
         <TouchableOpacity onPress={leave} style={s.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Feather name="x" size={20} color={colors.textMuted} />
@@ -252,7 +289,6 @@ export default function FocusModeScreen({ route, navigation }) {
         <View style={s.spacer} />
       </View>
 
-      {/* Main timer area */}
       <View style={s.center}>
         <Animated.View style={[s.ring, { borderColor: ac + "55", transform: [{ scale: pulse }] }]}>
           <View style={s.inner}>
@@ -284,78 +320,94 @@ export default function FocusModeScreen({ route, navigation }) {
         )}
 
         <View style={s.btnRow}>
-          <TouchableOpacity
-            style={s.sideBtn}
-            onPress={reset}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name="rotate-ccw" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: resetScale }] }}>
+            <TouchableOpacity
+              style={s.sideBtn}
+              onPress={reset}
+              onPressIn={onResetIn}
+              onPressOut={onResetOut}
+              activeOpacity={1}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather name="rotate-ccw" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          </Animated.View>
 
-          <TouchableOpacity
-            style={[s.mainBtn, !on && s.mainOff]}
-            onPress={() => setOn((x) => !x)}
-          >
-            <Feather name={on ? "pause" : "play"} size={28} color={on ? "#fff" : colors.accent} />
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: playScale }] }}>
+            <TouchableOpacity
+              style={[s.mainBtn, !on && s.mainOff]}
+              onPress={() => setOn((x) => !x)}
+              onPressIn={onPlayIn}
+              onPressOut={onPlayOut}
+              activeOpacity={1}
+            >
+              <Feather name={on ? "pause" : "play"} size={28} color={on ? "#fff" : colors.accent} />
+            </TouchableOpacity>
+          </Animated.View>
 
-          <TouchableOpacity
-            style={s.sideBtn}
-            onPress={task && !brk ? markDone : leave}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather
-              name={task && !brk ? "check" : "log-out"}
-              size={20}
-              color={task && !brk ? colors.low : colors.textMuted}
-            />
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: checkScale }] }}>
+            <TouchableOpacity
+              style={s.sideBtn}
+              onPress={task && !brk ? markDone : leave}
+              onPressIn={onCheckIn}
+              onPressOut={onCheckOut}
+              activeOpacity={1}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather
+                name={task && !brk ? "check" : "log-out"}
+                size={20}
+                color={task && !brk ? colors.low : colors.textMuted}
+              />
+            </TouchableOpacity>
+          </Animated.View>
         </View>
 
-        {/* Pomodoro session dots */}
         <View style={s.dots}>
           {[0, 1, 2, 3].map((i) => (
-            <View key={i} style={[s.dot, i < n && s.dotOn]} />
+            <Animated.View
+              key={i}
+              style={[s.dot, i < n && s.dotOn, { transform: [{ scale: dotAnims[i] }] }]}
+            />
           ))}
         </View>
       </View>
 
-      {/* Session complete overlay */}
+      {/* Session complete overlay — animates in with fade + slide up */}
       {done && (
-        <View style={s.over}>
-          {/* Always-accessible close button in overlay */}
+        <Animated.View style={[s.over, { opacity: overFade }]}>
           <TouchableOpacity style={s.overClose} onPress={leave}>
             <Feather name="x" size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
-          <ScrollView contentContainerStyle={s.overScroll} showsVerticalScrollIndicator={false}>
-            <View style={s.overIcon}>
-              <Feather name="check-circle" size={40} color={colors.low} />
-            </View>
-            <Text style={s.overH}>Session complete!</Text>
-            <Text style={s.overSub}>
-              {n} Pomodoro{n !== 1 ? "s" : ""} done.{"\n"}Time to take a break.
-            </Text>
+          <Animated.View style={[s.overInner, { transform: [{ translateY: overSlide }] }]}>
+            <ScrollView contentContainerStyle={s.overScroll} showsVerticalScrollIndicator={false}>
+              <Animated.View style={[s.overIcon, { transform: [{ scale: iconBounce }] }]}>
+                <Feather name="check-circle" size={44} color={colors.low} />
+              </Animated.View>
+              <Text style={s.overH}>Session complete!</Text>
+              <Text style={s.overSub}>
+                {n} Pomodoro{n !== 1 ? "s" : ""} done.{"\n"}Time to take a break.
+              </Text>
 
-            {/* One clear action — mark done and leave */}
-            {task ? (
-              <TouchableOpacity style={s.bigBtn} onPress={markDone}>
-                <Feather name="check" size={18} color="#fff" />
-                <Text style={s.bigBtnT}>Mark Done & Finish</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={s.bigBtn} onPress={() => navigation.goBack()}>
-                <Feather name="check" size={18} color="#fff" />
-                <Text style={s.bigBtnT}>Finish Session</Text>
-              </TouchableOpacity>
-            )}
+              {task ? (
+                <TouchableOpacity style={s.bigBtn} onPress={markDone}>
+                  <Feather name="check" size={18} color="#fff" />
+                  <Text style={s.bigBtnT}>Mark Done & Finish</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={s.bigBtn} onPress={() => navigation.goBack()}>
+                  <Feather name="check" size={18} color="#fff" />
+                  <Text style={s.bigBtnT}>Finish Session</Text>
+                </TouchableOpacity>
+              )}
 
-            {/* Secondary: keep going */}
-            <TouchableOpacity style={s.skipBtn} onPress={startAnother}>
-              <Text style={s.skipT}>Keep going — start another session</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
+              <TouchableOpacity style={s.skipBtn} onPress={startAnother}>
+                <Text style={s.skipT}>Keep going — start another session</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+        </Animated.View>
       )}
     </SafeAreaView>
   );
