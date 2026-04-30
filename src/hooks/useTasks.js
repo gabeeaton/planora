@@ -70,10 +70,12 @@ export const TasksProvider = ({ children }) => {
     bestTimeRef.current = patterns?.productiveTimeOfDay?.bestTime ?? null;
   }, [patterns?.productiveTimeOfDay?.bestTime]);
 
+  const streakChecked = useRef(false);
   useEffect(() => {
-    if (!user?.uid) return;
-    checkAndResetStreak(user.uid).then(setStreak).catch(() => {});
-  }, [user?.uid]);
+    if (!user?.uid || loading || streakChecked.current) return;
+    streakChecked.current = true;
+    checkAndResetStreak(user.uid, tasks).then(setStreak).catch(() => {});
+  }, [user?.uid, loading]);
 
   useEffect(() => {
     if (tasks.length > 0 || history.length > 0) {
@@ -245,7 +247,7 @@ export const TasksProvider = ({ children }) => {
     try {
       await toggleTask(task.id, task.completed);
       if (!task.completed) {
-        incrementStreak(user?.uid).then(setStreak).catch(() => {});
+        incrementStreak(user?.uid, tasksRef.current).then(setStreak).catch(() => {});
         if (task.recurrence) await spawnNextRecurringTask({ ...task, userId: user.uid });
         await recordTaskCompletion({ ...task, userId: user.uid });
         const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: true } : t);

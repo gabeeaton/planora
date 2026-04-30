@@ -37,6 +37,8 @@ import { saveUserProfile } from "../services/firebase";
 import * as Haptics from "expo-haptics";
 import { VERCEL_API_URL } from "../config";
 import { requestNotificationPermissions } from "../services/notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getIsSubscribed } from "../services/purchases";
 // syllabusParser removed — ICS-only import
 import {
   parseIcsText,
@@ -1193,6 +1195,15 @@ const OnboardingScreen = ({ navigation }) => {
         navigation.goBack();
       } else {
         navigation.replace("Main");
+        // Show paywall once after new-user onboarding, but only if not already subscribed
+        const [offered, alreadyPro] = await Promise.all([
+          AsyncStorage.getItem("@planora_trial_offered").catch(() => null),
+          getIsSubscribed().catch(() => false),
+        ]);
+        if (!offered && !alreadyPro) {
+          await AsyncStorage.setItem("@planora_trial_offered", "true").catch(() => {});
+          setTimeout(() => navigation.navigate("Paywall"), 500);
+        }
       }
     } catch {
       Alert.alert("Error", "Failed to save profile. Please try again.");

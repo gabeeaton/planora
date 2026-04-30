@@ -65,10 +65,19 @@ export const getOfferings = async () => {
 
 // Purchase a package — throws on failure/cancellation
 export const purchasePackage = async (pkg) => {
-  const { customerInfo } = await Purchases.purchasePackage(pkg);
-  const isActive = customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
+  const { customerInfo: info } = await Purchases.purchasePackage(pkg);
+
+  // Check immediately
+  if (info.entitlements.active[ENTITLEMENT_ID] !== undefined) return info;
+
+  // Sandbox can be slow to reflect entitlements — wait 1.5s and re-fetch once
+  await new Promise((r) => setTimeout(r, 1500));
+  const fresh = await Purchases.getCustomerInfo();
+  const isActive =
+    fresh.entitlements.active[ENTITLEMENT_ID] !== undefined ||
+    fresh.activeSubscriptions.length > 0;
   if (!isActive) throw new Error("Purchase completed but entitlement not activated.");
-  return customerInfo;
+  return fresh;
 };
 
 // Restore previous purchases

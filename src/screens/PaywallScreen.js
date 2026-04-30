@@ -12,10 +12,10 @@ import { invalidateTodayFocusCache } from "../services/openai";
 import * as Haptics from "expo-haptics";
 
 const FEATURES = [
-  { icon: "edit-3",         title: "AI Study Planner",       desc: "Builds your week around your deadlines and free time — day by day." },
-  { icon: "cpu",            title: "Where Should I Start?",  desc: "One tap to know exactly what to tackle right now." },
-  { icon: "message-circle", title: "Unlimited AI Coach",     desc: "Knows your tasks, classes, and grades. No daily limits." },
-  { icon: "bell",           title: "Avoidance Alerts",       desc: "Get nudged before a task slips into last-minute panic." },
+  { icon: "cpu",            title: "Know Exactly What to Do", desc: "One tap. Your AI ranks your entire task list and tells you what to tackle right now — no more decision paralysis." },
+  { icon: "message-circle", title: "Academic Coach, Unlimited", desc: "Ask anything about your workload, grades, or next move. Your coach knows every class and deadline. No daily cap." },
+  { icon: "bell",           title: "Smart Nudges",             desc: "Reminders timed to your schedule and habits — before tasks snowball into last-minute panic." },
+  { icon: "edit-3",         title: "AI-Built Study Plan",      desc: "Your AI maps out a realistic week around your real deadlines, not a blank calendar you'll ignore." },
 ];
 
 const PLANS = [
@@ -53,7 +53,18 @@ const makeStyles = (colors, insets) => StyleSheet.create({
   },
 
   // ── Hero ──────────────────────────────────────────────────────
-  hero: { alignItems: "center", paddingTop: 8, paddingBottom: 28 },
+  hero: { alignItems: "center", paddingTop: 8, paddingBottom: 24 },
+  heroIconWrap: {
+    width: 64, height: 64, borderRadius: 20,
+    backgroundColor: colors.accentGlow,
+    borderWidth: 1.5, borderColor: colors.accent + "40",
+    alignItems: "center", justifyContent: "center",
+    marginBottom: 20,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+  },
   trialBadge: {
     flexDirection: "row", alignItems: "center", gap: 6,
     backgroundColor: colors.accentGlow,
@@ -63,14 +74,31 @@ const makeStyles = (colors, insets) => StyleSheet.create({
   },
   trialBadgeText: { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.accent },
   heroTitle: {
-    fontSize: 38, fontFamily: "Outfit-ExtraBold",
+    fontSize: 34, fontFamily: "Outfit-ExtraBold",
     color: colors.textPrimary, textAlign: "center",
-    letterSpacing: -1, lineHeight: 44, marginBottom: 10,
+    letterSpacing: -0.8, lineHeight: 40, marginBottom: 10,
   },
   heroAccent: { color: colors.accent },
   heroSub: {
     fontSize: 15, color: colors.textSecondary,
     textAlign: "center", lineHeight: 22,
+  },
+
+  // ── Guarantee pills ───────────────────────────────────────────
+  guaranteeRow: {
+    flexDirection: "row", justifyContent: "center",
+    gap: 8, flexWrap: "wrap", marginBottom: 16,
+  },
+  guaranteePill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: radius.full,
+    backgroundColor: colors.isDark ? colors.bgCard : "#F2F2F7",
+    borderWidth: 1,
+    borderColor: colors.isDark ? colors.border : "#E2E2EA",
+  },
+  guaranteePillText: {
+    fontSize: 11, fontFamily: "Outfit-SemiBold", color: colors.textSecondary,
   },
 
   // ── Features ─────────────────────────────────────────────────
@@ -83,9 +111,8 @@ const makeStyles = (colors, insets) => StyleSheet.create({
   },
   featureRowLast: { borderBottomWidth: 0 },
   featureCheck: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 34, height: 34, borderRadius: 11,
     backgroundColor: colors.accentGlow,
-    borderWidth: 1.5, borderColor: colors.accent,
     alignItems: "center", justifyContent: "center",
     flexShrink: 0, marginTop: 1,
   },
@@ -220,13 +247,25 @@ export default function PaywallScreen({ navigation }) {
       await purchasePackage(pkg);
       invalidateTodayFocusCache();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      Alert.alert("You're in!", "Scholar is now unlocked. Build your first plan.", [
+      Alert.alert("You're in!", "Scholar is now unlocked. Build your first study plan.", [
         { text: "Let's go!", onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
-      if (!err.userCancelled) {
-        Alert.alert("Purchase failed", err.message ?? "Something went wrong. Please try again.");
-      }
+      if (err.userCancelled) return;
+      const msg = (() => {
+        const raw = (err.message ?? "").toLowerCase();
+        if (raw.includes("entitlement not activated"))
+          return "Your payment went through but activation is still processing. Tap \"Restore purchases\" in a moment to unlock Scholar.";
+        if (raw.includes("network") || raw.includes("internet") || raw.includes("connection"))
+          return "No internet connection. Check your network and try again.";
+        if (raw.includes("payment") || raw.includes("card") || raw.includes("billing"))
+          return "Payment couldn't be processed. Check your payment method in Apple ID Settings.";
+        if (raw.includes("not available") || raw.includes("unavailable"))
+          return "This plan isn't available right now. Try again in a moment.";
+        return "Something went wrong. Please try again.";
+      })();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      Alert.alert("Purchase failed", msg);
     } finally {
       setLoading(false);
     }
@@ -267,15 +306,18 @@ export default function PaywallScreen({ navigation }) {
       >
         {/* ── Hero ── */}
         <View style={styles.hero}>
+          <View style={styles.heroIconWrap}>
+            <Feather name="zap" size={30} color={colors.accent} />
+          </View>
           <View style={styles.trialBadge}>
             <Feather name="gift" size={13} color={colors.accent} />
             <Text style={styles.trialBadgeText}>7-Day Free Trial</Text>
           </View>
           <Text style={styles.heroTitle}>
-            {"Study smarter.\nStay ahead."}
+            {"Stop guessing what\nto work on next."}
           </Text>
           <Text style={styles.heroSub}>
-            No credit card required to start.{"\n"}Cancel anytime.
+            Your AI coach knows your deadlines, classes, and grades.{"\n"}Free for 7 days. No card required.
           </Text>
         </View>
 
@@ -291,7 +333,7 @@ export default function PaywallScreen({ navigation }) {
               ]}
             >
               <View style={styles.featureCheck}>
-                <Feather name="check" size={13} color={colors.accent} />
+                <Feather name={f.icon} size={15} color={colors.accent} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.featureTitle}>{f.title}</Text>
@@ -334,6 +376,20 @@ export default function PaywallScreen({ navigation }) {
           <Animated.Text style={[styles.planBilled, { opacity: priceOpacity }]}>{activePlan?.billed}</Animated.Text>
         </View>
 
+        {/* ── Guarantee pills ── */}
+        <View style={styles.guaranteeRow}>
+          {[
+            { icon: "shield",    label: "No card required" },
+            { icon: "clock",     label: "7 days free" },
+            { icon: "x-circle",  label: "Cancel anytime" },
+          ].map((g) => (
+            <View key={g.label} style={styles.guaranteePill}>
+              <Feather name={g.icon} size={11} color={colors.textMuted} />
+              <Text style={styles.guaranteePillText}>{g.label}</Text>
+            </View>
+          ))}
+        </View>
+
         {/* ── CTA ── */}
         <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
           <TouchableOpacity
@@ -362,8 +418,8 @@ export default function PaywallScreen({ navigation }) {
         </TouchableOpacity>
 
         <Text style={styles.legal}>
-          After your 7-day free trial, {activePlan?.billed?.toLowerCase()}.
-          {" "}Subscription renews automatically unless cancelled at least 24 hours before the end of the period. Manage in your Apple ID settings.{" "}
+          Free trial lasts 7 days. After that, {activePlan?.billed?.toLowerCase()}.
+          {" "}Subscription renews automatically unless cancelled at least 24 hours before the end of the period. Manage in Apple ID Settings.{" "}
           <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/terms")}>Terms</Text>
           {" "}·{" "}
           <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/privacy")}>Privacy</Text>

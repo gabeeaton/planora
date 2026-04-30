@@ -37,7 +37,7 @@ export const APP_CONFIG = {
 //   FORCE_ONBOARDING   = true → onboarding runs every launch (never skipped)
 //   FORCE_WALKTHROUGH  = true → walkthrough overlay runs every launch
 export const FEATURE_FLAGS = {
-  BETA_PRO_UNLOCKED:  true,
+  BETA_PRO_UNLOCKED:  false,
   FORCE_ONBOARDING:   false, // flip to true to test onboarding repeatedly
   FORCE_WALKTHROUGH:  false, // flip to true to test walkthrough repeatedly
 };

@@ -11,8 +11,8 @@ const DEMO_MODE = false;
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  FlatList, KeyboardAvoidingView, Platform, ActivityIndicator,
-  Alert, Animated, Modal, ScrollView, Image,
+  FlatList, KeyboardAvoidingView, Platform,
+  Alert, Animated, Modal, ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -136,7 +136,7 @@ const MessageBubble = React.memo(({ item, styles, colors }) => {
     <Animated.View style={[styles.bubbleRow, isUser && styles.bubbleRowUser, { opacity, transform: [{ translateY }] }]}>
       {!isUser && (
         <View style={styles.avatar}>
-          <Image source={require("../assets/logo.png")} style={{ width: 18, height: 18, borderRadius: 5 }} />
+          <Feather name="zap" size={14} color={colors.accent} />
         </View>
       )}
       <View style={[
@@ -457,7 +457,7 @@ export default function ChatScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerAvatar}>
-          <Image source={require("../assets/logo.png")} style={{ width: 24, height: 24, borderRadius: 6 }} />
+          <Feather name="zap" size={20} color={colors.accent} />
         </View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Academic Coach</Text>
@@ -516,7 +516,7 @@ export default function ChatScreen() {
           <View style={styles.emptyWrap}>
             {/* Logo anchor */}
             <View style={styles.emptyLogoWrap}>
-              <Image source={require("../assets/logo.png")} style={{ width: 32, height: 32, borderRadius: 9 }} />
+              <Feather name="zap" size={28} color={colors.accent} />
             </View>
 
             {/* Greeting */}
