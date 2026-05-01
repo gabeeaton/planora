@@ -217,6 +217,17 @@ export const recordTaskCompletion = async (task) => {
   }
 };
 
+// Remove history record(s) for a task — called when user unchecks a completion
+export const removeTaskHistory = async (taskId) => {
+  try {
+    const q = query(collection(db, "taskHistory"), where("taskId", "==", taskId));
+    const snap = await getDocs(q);
+    await Promise.all(snap.docs.map((d) => deleteDoc(doc(db, "taskHistory", d.id))));
+  } catch (err) {
+    console.warn("Failed to remove task history:", err);
+  }
+};
+
 export const loadTaskHistory = async (userId, limitCount = 100) => {
   try {
     const q = query(

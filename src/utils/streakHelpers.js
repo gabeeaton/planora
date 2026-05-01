@@ -61,18 +61,17 @@ export const incrementStreak = async (uid, tasks = []) => {
   const yesterday = getYesterdayString();
   const { count, lastDate } = await loadStreak(uid);
 
-  // Already counted today — idempotent, safe to call multiple times
-  if (lastDate === today) return count;
+  // Skip only if there's a real streak already counted today.
+  // Allows count=0 to increment even if a stale date was written.
+  if (lastDate === today && count > 0) return count;
 
   let newCount;
   if (lastDate === yesterday) {
-    // Normal: consecutive day
     newCount = count + 1;
   } else if (count > 0 && !_hadTasksDuringGap(tasks, lastDate, today)) {
-    // Gap exists but no tasks were due during it — don't break the streak
+    // Gap but no tasks were due — don't penalise
     newCount = count + 1;
   } else {
-    // Genuine miss: tasks were due but not completed
     newCount = 1;
   }
 
@@ -84,9 +83,10 @@ export const incrementStreak = async (uid, tasks = []) => {
 };
 
 /**
- * Called on app mount. Resets streak if the user missed a day, then touches
- * today's date so opening the app protects the streak even with no tasks.
- * Returns the current valid streak count.
+ * Called on app mount. Resets the streak COUNT to 0 if the user genuinely
+ * missed a day (had tasks due but didn't complete them). Never writes the
+ * date — only incrementStreak owns the date, so it can safely use
+ * `lastDate === today` as the idempotency guard.
  */
 export const checkAndResetStreak = async (uid, tasks = []) => {
   const { count, lastDate } = await loadStreak(uid);
@@ -94,24 +94,13 @@ export const checkAndResetStreak = async (uid, tasks = []) => {
   const yesterday = getYesterdayString();
   const isActive  = lastDate === today || lastDate === yesterday;
 
-  if (!isActive && count > 0) {
-    // Before resetting, check if the gap had any tasks due.
-    // If not, the user had nothing to complete — don't penalise them.
-    if (!_hadTasksDuringGap(tasks, lastDate, today)) {
-      await AsyncStorage.setItem(streakDateKey(uid), today);
-      return count;
-    }
-    await AsyncStorage.multiSet([
-      [streakKey(uid),     "0"],
-      [streakDateKey(uid), today],
-    ]);
+  if (!isActive && count > 0 && _hadTasksDuringGap(tasks, lastDate, today)) {
+    // Genuine miss — reset count only, leave date alone so incrementStreak
+    // can still fire today
+    await AsyncStorage.setItem(streakKey(uid), "0");
     return 0;
   }
 
-  // Touch today so tomorrow's check sees the streak as active
-  if (lastDate !== today) {
-    await AsyncStorage.setItem(streakDateKey(uid), today);
-  }
   return count;
 };
 

@@ -12,7 +12,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   FlatList, KeyboardAvoidingView, Platform,
-  Alert, Animated, Modal, ScrollView,
+  Alert, Animated, Modal, ScrollView, Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -381,9 +381,17 @@ export default function ChatScreen() {
   }, [typing, messages, tasks, profile, patterns, isPro]);
 
   // ── "Where should I start?" quick action ──────────────────
+  // Free for everyone — counts against daily limit like any chat message.
   const handleWhereToStart = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    if (!isPro) { navigation.navigate("Paywall"); return; }
+    if (!isPro) {
+      const current = parseInt(
+        (await AsyncStorage.getItem(COUNT_KEY(user.uid)).catch(() => "0")) ?? "0", 10
+      );
+      if (current >= FREE_DAILY_LIMIT) { navigation.navigate("Paywall"); return; }
+      await AsyncStorage.setItem(COUNT_KEY(user.uid), String(current + 1)).catch(() => {});
+      setDailyCount(current + 1);
+    }
     const userMsg = { id: Date.now().toString(), role: "user", text: "Where should I start?", ts: Date.now() };
     setMessages([userMsg]);
     setTyping(true);
@@ -397,7 +405,7 @@ export default function ChatScreen() {
     } finally {
       setTyping(false);
     }
-  }, [isPro, tasks, profile, patterns, navigation]);
+  }, [isPro, user, tasks, profile, patterns, navigation]);
 
   // ── Clear chat ─────────────────────────────────────────────
   const clearChat = () => {
@@ -457,7 +465,7 @@ export default function ChatScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerAvatar}>
-          <Feather name="zap" size={20} color={colors.accent} />
+          <Image source={require("../assets/logo.png")} style={{ width: 26, height: 26, borderRadius: 7 }} />
         </View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Academic Coach</Text>
@@ -516,7 +524,7 @@ export default function ChatScreen() {
           <View style={styles.emptyWrap}>
             {/* Logo anchor */}
             <View style={styles.emptyLogoWrap}>
-              <Feather name="zap" size={28} color={colors.accent} />
+              <Image source={require("../assets/logo.png")} style={{ width: 34, height: 34, borderRadius: 10 }} />
             </View>
 
             {/* Greeting */}
@@ -540,7 +548,6 @@ export default function ChatScreen() {
                 <Text style={styles.whereToStartTitle}>Where should I start?</Text>
                 <Text style={styles.whereToStartSub}>AI picks your next task based on real deadlines</Text>
               </View>
-              {!isPro && <Feather name="zap" size={12} color="rgba(255,255,255,0.75)" />}
               <Feather name="arrow-right" size={15} color="rgba(255,255,255,0.8)" />
             </TouchableOpacity>
 

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Text, TextInput } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTasks } from "./src/hooks/useTasks";
+import CompletionShareSheet from "./src/components/CompletionShareSheet";
 
 Text.defaultProps = Text.defaultProps || {};
 Text.defaultProps.style = { fontFamily: "Outfit-Regular" };
@@ -8,6 +10,7 @@ Text.defaultProps.style = { fontFamily: "Outfit-Regular" };
 TextInput.defaultProps = TextInput.defaultProps || {};
 TextInput.defaultProps.style = { fontFamily: "Outfit-Regular" };
 import * as Sentry from "@sentry/react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "./src/hooks/useAuth";
 import { UserProfileProvider } from "./src/hooks/useUserProfile";
 import { TasksProvider } from "./src/hooks/useTasks";
@@ -54,6 +57,19 @@ const useInitialTheme = () => {
   return { ready, savedTheme, savedMode };
 };
 
+// Renders inside TasksProvider so it can read recentlyCompleted from context
+function ShareSheetOverlay() {
+  const { recentlyCompleted, clearRecentlyCompleted, streak } = useTasks();
+  if (!recentlyCompleted) return null;
+  return (
+    <CompletionShareSheet
+      task={recentlyCompleted}
+      streak={recentlyCompleted._streakAtCompletion ?? streak}
+      onDismiss={clearRecentlyCompleted}
+    />
+  );
+}
+
 function App() {
   const { ready, savedTheme, savedMode } = useInitialTheme();
   const [fontsLoaded] = useFonts({
@@ -66,16 +82,19 @@ function App() {
   if (!ready || !fontsLoaded) return null;
 
   return (
+    <SafeAreaProvider>
     <ThemeProvider initialTheme={savedTheme} initialMode={savedMode}>
       <AuthProvider>
         <UserProfileProvider>
           <TasksProvider>
             <StatusBar style="auto" />
             <AppNavigator />
+            <ShareSheetOverlay />
           </TasksProvider>
         </UserProfileProvider>
       </AuthProvider>
     </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 

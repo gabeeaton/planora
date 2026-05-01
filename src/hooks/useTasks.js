@@ -16,6 +16,7 @@ import {
   toggleTask,
   deleteTask,
   recordTaskCompletion,
+  removeTaskHistory,
   loadTaskHistory,
   clearCompletedTasks,
   auth,
@@ -49,6 +50,9 @@ import {
 } from "../utils/streakHelpers";
 
 const TasksContext = createContext(null);
+const SHARE_KEY  = (uid) => `@planora_last_share_${uid}`;
+const REVIEW_KEY = (uid) => `@planora_review_asked_${uid}`;
+const TOTAL_COMPLETIONS_KEY = (uid) => `@planora_total_completions_${uid}`;
 
 export const TasksProvider = ({ children }) => {
   const { user } = useAuth();
@@ -59,6 +63,7 @@ export const TasksProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [patterns, setPatterns] = useState(null);
   const [streak, setStreak] = useState(0);
+  const [recentlyCompleted, setRecentlyCompleted] = useState(null); // task shown in share sheet
 
   const tasksRef = useRef([]);
   const lastEditTimeRef = useRef(0);
@@ -247,15 +252,47 @@ export const TasksProvider = ({ children }) => {
     try {
       await toggleTask(task.id, task.completed);
       if (!task.completed) {
-        incrementStreak(user?.uid, tasksRef.current).then(setStreak).catch(() => {});
-        if (task.recurrence) await spawnNextRecurringTask({ ...task, userId: user.uid });
-        await recordTaskCompletion({ ...task, userId: user.uid });
+        // ── Completing ────────────────────────────────────────
+        incrementStreak(user?.uid, tasksRef.current)
+          .then((newStreak) => {
+            setStreak(newStreak);
+            const MILESTONES = new Set([1, 3, 7, 14, 30, 60, 100]);
+            if (MILESTONES.has(newStreak)) {
+              setRecentlyCompleted({ ...task, _streakAtCompletion: newStreak });
+            }
+          })
+          .catch(() => {}); // never touch streak state on error
+        if (task.recurrence) spawnNextRecurringTask({ ...task, userId: user.uid }).catch(() => {});
+        recordTaskCompletion({ ...task, userId: user.uid }).catch(() => {});
+        // In-app review — fire once after 5th total completion
+        (async () => {
+          try {
+            const asked = await AsyncStorage.getItem(REVIEW_KEY(user?.uid));
+            if (asked) return;
+            const raw = await AsyncStorage.getItem(TOTAL_COMPLETIONS_KEY(user?.uid));
+            const count = (raw ? parseInt(raw, 10) : 0) + 1;
+            await AsyncStorage.setItem(TOTAL_COMPLETIONS_KEY(user?.uid), String(count));
+            if (count === 5) {
+              await AsyncStorage.setItem(REVIEW_KEY(user?.uid), "1");
+              setTimeout(async () => {
+                try {
+                  // Lazy require — no-ops in Expo Go, works in production build
+                  const StoreReview = require("expo-store-review");
+                  if (await StoreReview.hasAction()) await StoreReview.requestReview();
+                } catch {}
+              }, 1500);
+            }
+          } catch {}
+        })();
         const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: true } : t);
         scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
         loadTaskHistory(user.uid, 100).then((fresh) => { setHistory(fresh); cacheTaskHistory(fresh); }).catch(() => {});
       } else {
+        // ── Undoing completion ────────────────────────────────
+        removeTaskHistory(task.id).catch(() => {}); // clean up pattern data
         const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: false } : t);
         scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+        loadTaskHistory(user.uid, 100).then((fresh) => { setHistory(fresh); cacheTaskHistory(fresh); }).catch(() => {});
       }
     } catch (err) {
       setError(err.message || "Failed to update task.");
@@ -296,7 +333,9 @@ export const TasksProvider = ({ children }) => {
     return due.getDate() === today.getDate() && due.getMonth() === today.getMonth() && due.getFullYear() === today.getFullYear();
   });
 
-  const value = { tasks, pendingTasks, completedTasks, todaysTasks, loading, error, patterns, streak, createTask, createManyTasks, editTask, completeTask, removeTask, clearCompleted };
+  const clearRecentlyCompleted = useCallback(() => setRecentlyCompleted(null), []);
+
+  const value = { tasks, pendingTasks, completedTasks, todaysTasks, loading, error, patterns, streak, recentlyCompleted, clearRecentlyCompleted, createTask, createManyTasks, editTask, completeTask, removeTask, clearCompleted };
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
 };
