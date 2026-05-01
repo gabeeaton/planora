@@ -203,16 +203,18 @@ const buildStudentContext = (tasks, userProfile, patterns, mode = "brief") => {
     if (pending.length > 0) lines.push(`Pending tasks: ${pending.map(taskLabel).join(", ")}`);
   }
 
-  // Recent completed tasks with grades — gives AI context on past performance
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * dayMs);
-  const recentGraded = (tasks ?? [])
-    .filter((t) => t.completed && t.grade && t.completedAt && new Date(t.completedAt) > thirtyDaysAgo)
-    .slice(0, 6);
-  if (recentGraded.length > 0) {
+  // Recently completed tasks (last 14 days, with or without grades)
+  // Lets the AI acknowledge finished work and avoid suggesting it again
+  const fourteenDaysAgo = new Date(now.getTime() - 14 * dayMs);
+  const recentCompleted = (tasks ?? [])
+    .filter((t) => t.completed && t.completedAt && new Date(t.completedAt) > fourteenDaysAgo)
+    .slice(0, 8);
+  if (recentCompleted.length > 0) {
     lines.push(
-      `Recent grades: ${recentGraded.map((t) => {
-        const cls = t.className ? `[${t.className}] ` : "";
-        return `${cls}"${t.title}" → ${t.grade}`;
+      `Recently completed: ${recentCompleted.map((t) => {
+        const cls   = t.className ? `[${t.className}] ` : "";
+        const grade = t.grade ? ` → ${t.grade}` : "";
+        return `${cls}"${t.title}"${grade}`;
       }).join(", ")}`
     );
   }
