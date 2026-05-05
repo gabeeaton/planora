@@ -350,12 +350,21 @@ const AppNavigator = () => {
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
             <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ presentation: "modal" }} />
           </>
-        ) : shouldOnboard ? (
+        ) : shouldOnboard && !FEATURE_FLAGS.FORCE_ONBOARDING && !FEATURE_FLAGS.DEMO_MODE ? (
+          // Genuine first-time user: isolated stack — can't escape onboarding
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
+          // Authenticated + (onboarding complete OR dev force flags):
+          // Full stack, Onboarding listed first so FORCE_ONBOARDING lands there
+          // while navigate("Main") / navigate("Paywall") still resolve correctly.
           <>
+            {(FEATURE_FLAGS.FORCE_ONBOARDING || FEATURE_FLAGS.DEMO_MODE) && (
+              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            )}
             <Stack.Screen name="Main"           component={MainTabsWithModal} />
-            <Stack.Screen name="Onboarding"     component={OnboardingScreen} />
+            {!FEATURE_FLAGS.FORCE_ONBOARDING && !FEATURE_FLAGS.DEMO_MODE && (
+              <Stack.Screen name="Onboarding"   component={OnboardingScreen} />
+            )}
             <Stack.Screen name="ResetPassword"  component={ResetPasswordScreen} options={{ presentation: "modal" }} />
             <Stack.Screen name="ICSReview"      component={ICSReviewScreen} />
             <Stack.Screen
