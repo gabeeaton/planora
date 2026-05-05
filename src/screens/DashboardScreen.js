@@ -6,8 +6,8 @@
 //   - Focus mode hint removed (redundant — long press hint on TaskCard)
 // ============================================================
 
-// ── Demo mode (set true for screenshots/TikTok, false for production) ──
-const DEMO_MODE = false;
+import { FEATURE_FLAGS } from "../config";
+const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
 import React, { useState, useMemo, useEffect, useRef, useCallback, useContext } from "react";
 import {

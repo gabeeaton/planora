@@ -5,8 +5,8 @@
 // Scholar users: Firestore-backed history (cross-device, persistent), unlimited
 // ============================================================
 
-// ── Demo mode (set true for screenshots/TikTok, false for production) ──
-const DEMO_MODE = false;
+import { FEATURE_FLAGS } from "../config";
+const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {

@@ -2,8 +2,8 @@
 // src/screens/StatsScreen.js
 // ============================================================
 
-// ── Demo mode (set true for screenshots/TikTok, false for production) ──
-const DEMO_MODE = false;
+import { FEATURE_FLAGS } from "../config";
+const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
 import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useFocusEffect } from "@react-navigation/native";

@@ -35,7 +35,8 @@ import { spacing, radius, shadows, typography } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
 import * as Haptics from "expo-haptics";
-import { VERCEL_API_URL } from "../config";
+import { VERCEL_API_URL, FEATURE_FLAGS } from "../config";
+const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 import { requestNotificationPermissions } from "../services/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getIsSubscribed } from "../services/purchases";
@@ -1037,6 +1038,22 @@ const OnboardingScreen = ({ navigation }) => {
   const [workTime, setWorkTime] = useState(null);
   const [hardestClass, setHardestClass] = useState(null);
 
+  // Pre-fill with demo data — lets you tap through onboarding without typing
+  useEffect(() => {
+    if (!DEMO_MODE || isEditing) return;
+    setName("Alex Johnson");
+    setSchoolSystem("semester");
+    setSemester("Spring 2026");
+    setYear("sophomore");
+    setClasses([
+      { id: generateId(), name: "CHEM 201",  creditHours: "4", grade: "B+" },
+      { id: generateId(), name: "HIST 110",  creditHours: "3", grade: "A-" },
+      { id: generateId(), name: "MATH 240",  creditHours: "3", grade: "B"  },
+      { id: generateId(), name: "PSYC 101",  creditHours: "3", grade: "A"  },
+    ]);
+    setWorkTime("afternoon");
+    setLearningStyle("procrastinator");
+  }, []);
 
   // Pre-fill when editing
   useEffect(() => {

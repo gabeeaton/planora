@@ -11,7 +11,10 @@ import { useAuth } from "../hooks/useAuth";
 import { getOfferings, purchasePackage, restorePurchases } from "../services/purchases";
 import { setProStatus } from "../services/firebase";
 import { invalidateTodayFocusCache } from "../services/openai";
+import { FEATURE_FLAGS } from "../config";
 import * as Haptics from "expo-haptics";
+
+const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
 const FEATURES = [
   { icon: "cpu",            label: "AI Priority Coach" },
@@ -61,6 +64,13 @@ export default function PaywallScreen({ navigation }) {
   };
 
   const handleUpgrade = async () => {
+    if (DEMO_MODE) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Alert.alert("You're in! 🎉", "Scholar is now unlocked.", [
+        { text: "Let's go!", onPress: () => navigation.goBack() },
+      ]);
+      return;
+    }
     const pkg = packages[selectedPlan];
     if (!pkg) {
       Alert.alert("Not available", "This plan isn't available right now. Please try again.");

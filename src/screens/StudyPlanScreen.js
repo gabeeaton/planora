@@ -13,11 +13,28 @@ import { useTasks } from "../hooks/useTasks";
 import { useSubscription } from "../hooks/useSubscription";
 import { scheduleStudyPlanReminders, cancelStudyPlanReminders } from "../services/notifications";
 import { generateStudyPlan } from "../services/openai";
+import { FEATURE_FLAGS } from "../config";
 import { spacing, radius } from "../utils/theme";
 import { addDays, format, startOfToday, isSameDay } from "date-fns";
 import * as Haptics from "expo-haptics";
 
+const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
+
 const tap = () => Haptics.selectionAsync().catch(() => {});
+
+// Canned study plan — used when DEMO_MODE = true
+const makeDemoPlan = () => {
+  const d = (offset) => format(addDays(startOfToday(), offset), "yyyy-MM-dd");
+  return [
+    { _key: "dm0", date: d(0), className: "CHEM 201",  sessionTitle: "Review oxidation reactions",       durationMinutes: 60, tip: "Focus on reaction mechanisms — they're the most common exam questions.", completed: true,  completedAt: Date.now() - 3600000, missed: false },
+    { _key: "dm1", date: d(1), className: "PSYC 101",  sessionTitle: "Read chapters 8–9",                durationMinutes: 45, tip: "Skim headings first, then read actively. Write one sentence per section.", completed: false, missed: false },
+    { _key: "dm2", date: d(1), className: "MATH 240",  sessionTitle: "Practice problem sets 5–6",        durationMinutes: 90, tip: "Try problems without notes first, then check your work.", completed: false, missed: false },
+    { _key: "dm3", date: d(2), className: "HIST 110",  sessionTitle: "Outline essay argument",           durationMinutes: 30, tip: "Write your thesis and three main points before drafting anything.", completed: false, missed: false },
+    { _key: "dm4", date: d(2), className: "CHEM 201",  sessionTitle: "Past exam questions — timed",      durationMinutes: 75, tip: "⚠️ Tight deadline — this is the most important session this week.", completed: false, missed: false },
+    { _key: "dm5", date: d(3), className: "MATH 240",  sessionTitle: "Review integration techniques",    durationMinutes: 60, tip: "Work through your notes one more time, then quiz yourself.", completed: false, missed: false },
+    { _key: "dm6", date: d(4), className: "HIST 110",  sessionTitle: "Write and polish essay draft",     durationMinutes: 90, tip: "Start from your outline — the structure is already there.", completed: false, missed: false },
+  ];
+};
 
 const CLASS_COLORS = [
   "#6C63FF", "#FF6B6B", "#4ECDC4", "#FFB347", "#5CFF8F",
@@ -185,7 +202,8 @@ const StudyPlanScreen = ({ navigation }) => {
   const { user } = useAuth();
   const { profile } = useUserProfile();
   const { tasks, patterns } = useTasks();
-  const { isPro } = useSubscription();
+  const { isPro: realIsPro } = useSubscription();
+  const isPro = DEMO_MODE ? true : realIsPro;
 
   const today = startOfToday();
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -200,11 +218,12 @@ const StudyPlanScreen = ({ navigation }) => {
   });
 
   const [availability, setAvailability] = useState(weekDays);
-  const [plan, setPlan] = useState(null);
+  const [plan, setPlan] = useState(DEMO_MODE ? makeDemoPlan() : null);
   const [loading, setLoading] = useState(false);
 
   // Load cached plan on mount — show yesterday's sessions as missed for 24h, drop older ones
   useEffect(() => {
+    if (DEMO_MODE) return;
     AsyncStorage.getItem(PLAN_CACHE_KEY).then((raw) => {
       if (!raw) return;
       try {
@@ -272,6 +291,10 @@ const StudyPlanScreen = ({ navigation }) => {
     const completedSessions = (plan ?? []).filter((s) => s.completed);
     setLoading(true);
     setPlan(null);
+    if (DEMO_MODE) {
+      setTimeout(() => { setLoading(false); setPlan(makeDemoPlan()); }, 1200);
+      return;
+    }
     try {
       const result = await generateStudyPlan(tasks, profile, patterns, availability, completedSessions);
       const ts = Date.now();
