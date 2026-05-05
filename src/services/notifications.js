@@ -29,15 +29,27 @@ Notifications.setNotificationHandler({
 
 // ── Android channel setup (idempotent — safe to call multiple times) ─
 
-const _schedulingLocks = new Set();
+const _schedulingLocks   = new Set();
+const _schedulingPending = new Map(); // latest queued fn per key
 
+// Run fn exclusively per key. If a call arrives while one is running,
+// it is queued (replacing any previously queued call). When the current
+// run finishes, the queued call executes — so the latest always wins.
 const _withLock = async (key, fn) => {
-  if (_schedulingLocks.has(key)) return;
+  if (_schedulingLocks.has(key)) {
+    _schedulingPending.set(key, fn);
+    return;
+  }
   _schedulingLocks.add(key);
   try {
     await fn();
   } finally {
     _schedulingLocks.delete(key);
+    const pending = _schedulingPending.get(key);
+    if (pending) {
+      _schedulingPending.delete(key);
+      _withLock(key, pending); // tail-call — does not await, fire and forget
+    }
   }
 };
 
