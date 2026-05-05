@@ -1040,7 +1040,7 @@ const OnboardingScreen = ({ navigation }) => {
 
   // Pre-fill with demo data — lets you tap through onboarding without typing
   useEffect(() => {
-    if (!DEMO_MODE || isEditing) return;
+    if (!DEMO_MODE) return;
     setName("Alex Johnson");
     setSchoolSystem("semester");
     setSemester("Spring 2026");
@@ -1057,21 +1057,20 @@ const OnboardingScreen = ({ navigation }) => {
 
   // Pre-fill when editing
   useEffect(() => {
-    if (profile) {
-      setName(profile.name ?? "");
-      setSchoolSystem(profile.schoolSystem ?? "semester");
-      setSemester(profile.semester ?? null);
-      setClasses(
-        profile.classes?.length
-          ? profile.classes.map((c) => ({
-              ...c,
-              creditHours: String(c.creditHours ?? 3),
-            }))
-          : [{ id: generateId(), name: "", creditHours: "3", grade: "No grade yet" }]
-      );
-      setWorkTime(profile.preferredWorkTime ?? null);
-      setHardestClass(profile.hardestClass ?? null);
-    }
+    if (DEMO_MODE || !profile) return;
+    setName(profile.name ?? "");
+    setSchoolSystem(profile.schoolSystem ?? "semester");
+    setSemester(profile.semester ?? null);
+    setClasses(
+      profile.classes?.length
+        ? profile.classes.map((c) => ({
+            ...c,
+            creditHours: String(c.creditHours ?? 3),
+          }))
+        : [{ id: generateId(), name: "", creditHours: "3", grade: "No grade yet" }]
+    );
+    setWorkTime(profile.preferredWorkTime ?? null);
+    setHardestClass(profile.hardestClass ?? null);
   }, []);
 
   const handleUrlSaved = useCallback(async (url) => {
