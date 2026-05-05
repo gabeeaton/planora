@@ -1053,6 +1053,23 @@ const OnboardingScreen = ({ navigation }) => {
     ]);
     setWorkTime("afternoon");
     setLearningStyle("procrastinator");
+    // Pre-populate import success screen with realistic canned tasks
+    const now = Date.now();
+    const day = 86400000;
+    const demoImported = [
+      { title: "Lab Report — Oxidation Reactions",  className: "CHEM 201", dueDate: new Date(now + 3 * day),  priority: "HIGH"   },
+      { title: "Midterm Exam",                       className: "CHEM 201", dueDate: new Date(now + 7 * day),  priority: "HIGH"   },
+      { title: "Essay: Causes of WWI",               className: "HIST 110", dueDate: new Date(now + 5 * day),  priority: "HIGH"   },
+      { title: "Weekly Reading Chapters 8–9",        className: "PSYC 101", dueDate: new Date(now + 2 * day),  priority: "MEDIUM" },
+      { title: "Problem Set 5",                      className: "MATH 240", dueDate: new Date(now + 4 * day),  priority: "MEDIUM" },
+      { title: "Problem Set 6",                      className: "MATH 240", dueDate: new Date(now + 9 * day),  priority: "MEDIUM" },
+      { title: "Research Paper Outline",             className: "HIST 110", dueDate: new Date(now + 11 * day), priority: "MEDIUM" },
+      { title: "Lab Practical",                      className: "CHEM 201", dueDate: new Date(now + 14 * day), priority: "MEDIUM" },
+      { title: "Chapter 10–11 Quiz",                 className: "PSYC 101", dueDate: new Date(now + 6 * day),  priority: "LOW"    },
+      { title: "Integration Techniques Worksheet",   className: "MATH 240", dueDate: new Date(now + 8 * day),  priority: "LOW"    },
+    ];
+    setImportedTasks(demoImported);
+    setImportedCount(demoImported.length);
   }, []);
 
   // Pre-fill when editing
