@@ -1211,9 +1211,11 @@ const OnboardingScreen = ({ navigation }) => {
         };
       }
 
-      await saveUserProfile(user.uid, data);
+      if (!DEMO_MODE) {
+        await saveUserProfile(user.uid, data);
+      }
 
-      if (!isEditing && user?.email) {
+      if (!isEditing && !DEMO_MODE && user?.email) {
         fetch(`${VERCEL_API_URL}/api/email`, {
           method: "POST",
           headers: {

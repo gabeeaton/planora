@@ -15,7 +15,7 @@ import {
   Alert, Animated, Modal, ScrollView, Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../utils/ThemeContext";
@@ -34,16 +34,26 @@ const FREE_DAILY_LIMIT = 10;
 const todayKey        = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 const COUNT_KEY       = (uid) => `@planora_chat_count_${uid}_${todayKey()}`;
 
+// ── Intro message tail (varies each open) ─────────────────────
+const INTRO_TAILS = [
+  "What's stressing you out?",
+  "What do you need right now?",
+  "What are we tackling today?",
+  "What's on your mind?",
+  "Where do you want to start?",
+];
+const pickIntroTail = () => INTRO_TAILS[Math.floor(Math.random() * INTRO_TAILS.length)];
+
 // ── Suggested starter prompts ─────────────────────────────────
 const ASK_STARTERS = [
   { text: "Am I going to be okay this week?" },
-  { text: "I'm overwhelmed — help me prioritize." },
-  { text: "Which class needs the most attention?" },
+  { text: "I've been procrastinating — be honest with me." },
+  { text: "Which class should I actually worry about?" },
 ];
 
 const ACTION_STARTERS = [
-  { text: "Break down a task into subtasks",  sub: "Adds them to your task list",    icon: "git-branch" },
-  { text: "Reschedule a task to a new date",  sub: "Moves it in your list",          icon: "calendar"   },
+  { text: "Break this down into subtasks",    sub: "Adds them to your task list",    icon: "git-branch" },
+  { text: "Move a task to a different date",  sub: "Reschedules it in your list",    icon: "calendar"   },
   { text: "Mark a task as done",              sub: "Completes it instantly",          icon: "check-circle"},
   { text: "Log a grade on an assignment",     sub: "Saves it to the task",           icon: "award"      },
 ];
@@ -135,9 +145,7 @@ const MessageBubble = React.memo(({ item, styles, colors }) => {
   return (
     <Animated.View style={[styles.bubbleRow, isUser && styles.bubbleRowUser, { opacity, transform: [{ translateY }] }]}>
       {!isUser && (
-        <View style={styles.avatar}>
-          <Feather name="zap" size={14} color={colors.accent} />
-        </View>
+        <Image source={require("../assets/logo.png")} style={styles.avatar} />
       )}
       <View style={[
         styles.bubble,
@@ -161,6 +169,7 @@ const MessageBubble = React.memo(({ item, styles, colors }) => {
 export default function ChatScreen() {
   const { colors }                   = useTheme();
   const navigation                   = useNavigation();
+  const route                        = useRoute();
   const { user }                     = useAuth();
   const { tasks, patterns, createTask, createManyTasks, editTask, completeTask } = useTasks();
   const { profile }                  = useUserProfile();
@@ -187,6 +196,23 @@ export default function ChatScreen() {
 
   const listRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Auto-focus input when opened as modal — delay lets the slide-in animation settle
+  useEffect(() => {
+    if (!navigation.canGoBack()) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 380);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Auto-send suggestion tapped from the quick-asks bar
+  const initialTextSent = useRef(false);
+  useEffect(() => {
+    const initialText = route.params?.initialText;
+    if (!initialText || !historyLoaded || initialTextSent.current) return;
+    initialTextSent.current = true;
+    const t = setTimeout(() => send(initialText), 420);
+    return () => clearTimeout(t);
+  }, [historyLoaded, route.params?.initialText]);
 
   // ── Load history ───────────────────────────────────────────
   // Scholar: Firestore (cross-device). Free: AsyncStorage (device-local).
@@ -428,9 +454,39 @@ export default function ChatScreen() {
     }
   }, [messages.length, typing]);
 
-  // ── Inject date separators into message list ─────────────
+  // ── Intro message for empty chat ──────────────────────────
+  const firstName = profile?.name?.split(" ")[0] ?? null;
+
+  const introText = React.useMemo(() => {
+    if (!historyLoaded || messages.length > 0 || DEMO_MODE) return null;
+    const classes = (profile?.classes ?? [])
+      .slice(0, 3)
+      .map((c) => c.name || c.className || c)
+      .filter(Boolean);
+    if (firstName && classes.length > 0) {
+      const overflow = (profile?.classes?.length ?? 0) - classes.length;
+      const list =
+        classes.length === 1
+          ? classes[0]
+          : classes.slice(0, -1).join(", ") +
+            (overflow > 0
+              ? `, and ${overflow + 1} more`
+              : ` and ${classes[classes.length - 1]}`);
+      return `Hey ${firstName} 👋 I've got ${list} loaded up. ${pickIntroTail()}`;
+    }
+    if (firstName)
+      return `Hey ${firstName} 👋 I know your schedule and deadlines. ${pickIntroTail()}`;
+    return `Hey 👋 I know your classes and deadlines — ${pickIntroTail().toLowerCase()}`;
+  }, [historyLoaded, messages.length, profile, firstName]);
+
+  // ── Inject date separators (or intro) into message list ───
   const displayData = React.useMemo(() => {
     const result = [];
+    if (historyLoaded && messages.length === 0 && !DEMO_MODE && introText) {
+      result.push({ id: "intro", role: "assistant", text: introText, ts: Date.now() });
+      result.push({ id: "starters", type: "starters" });
+      return result;
+    }
     let lastLabel = null;
     messages.forEach((msg) => {
       const label = getDateLabel(msg.ts);
@@ -441,9 +497,9 @@ export default function ChatScreen() {
       result.push(msg);
     });
     return result;
-  }, [messages]);
+  }, [messages, historyLoaded, introText]);
 
-  // ── Render message bubble or date separator ────────────────
+  // ── Render message bubble, date separator, or starter chips ─
   const renderMessage = useCallback(({ item }) => {
     if (item.type === "separator") {
       return (
@@ -454,11 +510,26 @@ export default function ChatScreen() {
         </View>
       );
     }
+    if (item.type === "starters") {
+      return (
+        <View style={styles.suggestionRow}>
+          {["Where should I start?", ...ASK_STARTERS.map((s) => s.text)].map((text) => (
+            <TouchableOpacity
+              key={text}
+              style={styles.suggestionChip}
+              onPress={() =>
+                text === "Where should I start?" ? handleWhereToStart() : send(text)
+              }
+              activeOpacity={0.7}
+            >
+              <Text style={styles.suggestionChipText}>{text}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      );
+    }
     return <MessageBubble item={item} styles={styles} colors={colors} />;
-  }, [styles, colors]);
-
-  const isEmpty = messages.length === 0 && !typing;
-  const firstName = profile?.name?.split(" ")[0] ?? null;
+  }, [styles, colors, send, handleWhereToStart]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -468,8 +539,8 @@ export default function ChatScreen() {
           <Image source={require("../assets/logo.png")} style={{ width: 26, height: 26, borderRadius: 7 }} />
         </View>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Academic Coach</Text>
-          <Text style={styles.headerSub}>Powered by your real schedule</Text>
+          <Text style={styles.headerTitle}>Your sidekick</Text>
+          <Text style={styles.headerSub}>Knows your classes, grades & deadlines</Text>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           {messages.length > 0 && (
@@ -480,6 +551,11 @@ export default function ChatScreen() {
           <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowCapabilities(true); }} style={styles.clearBtn}>
             <Feather name="info" size={18} color={colors.textMuted} />
           </TouchableOpacity>
+          {navigation.canGoBack() && (
+            <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); navigation.goBack(); }} style={styles.clearBtn}>
+              <Feather name="x" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -519,80 +595,25 @@ export default function ChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={60}
       >
-        {/* Empty state with starters */}
-        {isEmpty ? (
-          <View style={styles.emptyWrap}>
-            {/* Logo anchor */}
-            <View style={styles.emptyLogoWrap}>
-              <Image source={require("../assets/logo.png")} style={{ width: 34, height: 34, borderRadius: 10 }} />
+        <FlatList
+          ref={listRef}
+          data={displayData}
+          keyExtractor={(m) => m.id}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          ListFooterComponent={typing ? (
+            <View style={styles.bubbleRow}>
+              <Image source={require("../assets/logo.png")} style={styles.avatar} />
+              <View style={[styles.bubble, styles.bubbleAI, styles.typingBubble]}>
+                <TypingDots color={colors.accent} />
+              </View>
             </View>
-
-            {/* Greeting */}
-            <Text style={styles.emptyTitle}>
-              {firstName ? `Hi ${firstName}.` : "What's on your mind?"}
-            </Text>
-            <Text style={styles.emptySub}>
-              Ask about your workload or let me help with your tasks.
-            </Text>
-
-            {/* Primary CTA */}
-            <TouchableOpacity
-              style={styles.whereToStartBtn}
-              onPress={handleWhereToStart}
-              activeOpacity={0.85}
-            >
-              <View style={styles.whereToStartIcon}>
-                <Feather name="cpu" size={14} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.whereToStartTitle}>Where should I start?</Text>
-                <Text style={styles.whereToStartSub}>AI picks your next task based on real deadlines</Text>
-              </View>
-              <Feather name="arrow-right" size={15} color="rgba(255,255,255,0.8)" />
-            </TouchableOpacity>
-
-            {/* Suggestions */}
-            <Text style={styles.suggestLabel}>TRY ASKING</Text>
-            <View style={styles.startersCard}>
-              {[ASK_STARTERS[0], ASK_STARTERS[1], ACTION_STARTERS[0]].map((s, i, arr) => (
-                <TouchableOpacity
-                  key={s.text}
-                  style={[styles.starterBtn, i === arr.length - 1 && { borderBottomWidth: 0 }]}
-                  onPress={() => send(s.text)}
-                  activeOpacity={0.55}
-                >
-                  <Text style={styles.starterText}>{s.text}</Text>
-                  <Feather name="arrow-up-right" size={13} color={colors.textMuted} />
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={styles.emptyCapHint}>
-              Also adds tasks, reschedules, logs grades, and more.
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            ref={listRef}
-            data={displayData}
-            keyExtractor={(m) => m.id}
-            renderItem={renderMessage}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-            keyboardDismissMode="interactive"
-            keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-            ListFooterComponent={typing ? (
-              <View style={styles.bubbleRow}>
-                <View style={styles.avatar}>
-                  <Feather name="zap" size={14} color={colors.accent} />
-                </View>
-                <View style={[styles.bubble, styles.bubbleAI, styles.typingBubble]}>
-                  <TypingDots color={colors.accent} />
-                </View>
-              </View>
-            ) : null}
-          />
-        )}
+          ) : null}
+        />
 
         {/* Free user limit banner */}
         {!isPro && dailyCount >= FREE_DAILY_LIMIT && (
@@ -612,7 +633,7 @@ export default function ChatScreen() {
           <TextInput
             ref={inputRef}
             style={styles.input}
-            placeholder="Ask your coach..."
+            placeholder="What's on your mind?"
             placeholderTextColor={colors.textMuted}
             value={input}
             onChangeText={setInput}
@@ -731,6 +752,30 @@ const makeStyles = (colors) => StyleSheet.create({
     marginTop: spacing.md, alignSelf: "center", padding: 4,
   },
   capLinkText: { fontSize: 13, color: colors.accent, fontFamily: "Outfit-SemiBold" },
+
+  // Inline suggestion chips (shown below intro bubble)
+  suggestionRow: {
+    paddingLeft: 38,
+    paddingTop: 6,
+    paddingBottom: 4,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  suggestionChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.accentGlow,
+    borderWidth: 1,
+    borderColor: colors.accent + "25",
+  },
+  suggestionChipText: {
+    fontSize: 13,
+    fontFamily: "Outfit-Medium",
+    color: colors.accent,
+  },
+
   starterIconWrap: {
     width: 28, height: 28, borderRadius: 9,
     backgroundColor: colors.accentGlow,
@@ -785,9 +830,7 @@ const makeStyles = (colors) => StyleSheet.create({
   bubbleRow:     { flexDirection: "row", alignItems: "flex-end", gap: 8, marginBottom: 2 },
   bubbleRowUser: { flexDirection: "row-reverse" },
   avatar: {
-    width: 30, height: 30, borderRadius: 10,
-    backgroundColor: colors.accentGlow,
-    alignItems: "center", justifyContent: "center", flexShrink: 0,
+    width: 30, height: 30, borderRadius: 10, flexShrink: 0,
   },
   bubble: {
     maxWidth: "80%", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10,

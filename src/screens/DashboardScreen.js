@@ -37,15 +37,15 @@ import { useUserProfile } from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
 import TaskCard from "../components/TaskCard";
 import StatsBar from "../components/StatsBar";
-import GradePromptSheet from "../components/GradePromptSheet";
 import TodayFocusCard from "../components/TodayFocusCard";
 import NotificationPermissionPrompt, { NOTIF_PROMPT_KEY } from "../components/NotificationPermissionPrompt";
 import { DashboardSkeleton, TaskListSkeleton, CalendarSkeleton } from "../components/SkeletonLoader";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../services/notifications";
 import * as Notifications from "expo-notifications";
-import { typography, spacing, radius, shadows } from "../utils/theme";
+import { typography, spacing, radius, shadows, getClassColor } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
+import CompletionBurst from "../components/CompletionBurst";
 import { AddTaskContext } from "../navigation/AppNavigator";
 import { useSetWalkthroughTarget } from "../utils/WalkthroughContext";
 import { Share } from "react-native";
@@ -87,8 +87,8 @@ const makeStyles = (colors, insets) =>
       fontFamily: "Outfit-ExtraBold", fontSize: 22,
       color: colors.textPrimary, letterSpacing: -0.3,
     },
-    dateRow:   { flexDirection: "row", alignItems: "center", marginTop: 2, gap: 8, paddingTop: 2 },
-    date: { fontSize: 13, color: colors.textMuted },
+    dateRow:   { flexDirection: "row", alignItems: "center", marginTop: 3, gap: 8 },
+    date: { fontSize: 12, color: colors.textMuted },
     streakPill: {
       flexDirection: "row", alignItems: "center", gap: 4,
       backgroundColor: colors.isDark ? colors.mediumGlow : "rgba(217,119,6,0.1)",
@@ -98,8 +98,17 @@ const makeStyles = (colors, insets) =>
       borderColor: colors.isDark ? colors.medium + "40" : "rgba(217,119,6,0.35)",
     },
     streakText: {
-      fontSize: 11, fontFamily: "Outfit-Bold",
+      fontSize: 13, fontFamily: "Outfit-ExtraBold",
       color: colors.isDark ? colors.medium : "#CC6600",
+    },
+    subGreetingBanner: {
+      marginHorizontal: spacing.lg,
+      marginTop: 10,
+      marginBottom: 2,
+    },
+    subGreetingText: {
+      fontSize: 13, fontFamily: "Outfit-Medium",
+      color: colors.textSecondary,
     },
     importBtn: {
       alignItems: "center", justifyContent: "center", gap: 2,
@@ -645,7 +654,6 @@ const DashboardScreen = ({ navigation }) => {
   const [planTodayCount, setPlanTodayCount] = useState(null);
   const [todayPlanSessions, setTodayPlanSessions] = useState([]);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
-  const [gradePromptTask, setGradePromptTask] = useState(null);
 
   useEffect(() => {
     if (tasks.length === 0) return;
@@ -661,6 +669,7 @@ const DashboardScreen = ({ navigation }) => {
   }, [tasks.length]);
 
   const scrollRef      = useRef(null);
+  const burstRef       = useRef(null);
   const scrollOffsetY  = useRef(0);
   const taskViewRefs   = useRef({});
 
@@ -973,10 +982,8 @@ const DashboardScreen = ({ navigation }) => {
       setCompletingIds((prev) => new Set([...prev, task.id]));
       completeTask(task);
       invalidateTodayFocusCache();
-      // Show grade prompt after card has fully animated out
-      if (!task.grade) {
-        setTimeout(() => setGradePromptTask(task), 150);
-      }
+      burstRef.current?.trigger(getClassColor(task.className, colors.isDark));
+
     } else {
       setCompletingIds((prev) => {
         if (!prev.has(task.id)) return prev;
@@ -1017,6 +1024,18 @@ const DashboardScreen = ({ navigation }) => {
     if (h < 12) return "Good morning";
     if (h < 18) return "Good afternoon";
     return "Good evening";
+  };
+
+  const subGreeting = () => {
+    const due = todaysTasks.length;
+    const h   = now.getHours();
+    if (due === 0 && pendingTasks.length === 0) return "Nothing due — enjoy the break 🌿";
+    if (due === 0) return "No deadlines today. Make progress on what's next.";
+    if (due === 1) return "One thing needs your attention today.";
+    if (due <= 3)  return `${due} things due today — you've got this.`;
+    if (h < 12)    return `${due} things due today. Early start = less stress.`;
+    if (h < 17)    return `${due} things due today. Still time to get ahead.`;
+    return `${due} things due today. Let's finish strong.`;
   };
 
   const firstName = profile?.name?.split(" ")[0] ?? null;
@@ -1063,15 +1082,14 @@ const DashboardScreen = ({ navigation }) => {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.greeting}>
-            {greeting()}
-            {firstName ? `, ${firstName}` : ""}
+            {greeting()}{firstName ? `, ${firstName}` : ""}
           </Text>
           <View style={styles.dateRow}>
             <Text style={styles.date}>{format(now, "EEEE, MMMM d")}</Text>
             {streak > 0 && (
               <View style={styles.streakPill}>
                 <Text>🔥</Text>
-                <Text style={styles.streakText}>{streak} day{streak !== 1 ? "s" : ""}</Text>
+                <Text style={styles.streakText}>{streak}</Text>
               </View>
             )}
           </View>
@@ -1135,7 +1153,10 @@ const DashboardScreen = ({ navigation }) => {
           />
         }
       >
-        <View style={{ height: spacing.md }} />
+        <View style={styles.subGreetingBanner}>
+          <Text style={styles.subGreetingText}>{subGreeting()}</Text>
+        </View>
+        <View style={{ height: spacing.sm }} />
         <View
           ref={statsBarRef}
           collapsable={false}
@@ -1245,9 +1266,9 @@ const DashboardScreen = ({ navigation }) => {
                 <View style={styles.emptyIcon}>
                   <Feather name="zap" size={32} color={colors.accent} />
                 </View>
-                <Text style={styles.emptyTitle}>You're all set up!</Text>
+                <Text style={styles.emptyTitle}>Let's get started 🚀</Text>
                 <Text style={styles.emptySubtitle}>
-                  Add your first task, or import your entire semester from a Canvas calendar.
+                  Add your first task or import your whole semester in one tap.
                 </Text>
                 <TouchableOpacity
                   style={[styles.emptyBtn, { width: "100%", justifyContent: "center" }]}
@@ -1271,9 +1292,9 @@ const DashboardScreen = ({ navigation }) => {
                 <View style={styles.allDoneIcon}>
                   <Feather name="check-circle" size={32} color={colors.low} />
                 </View>
-                <Text style={styles.allDoneTitle}>All done! 🎉</Text>
+                <Text style={styles.allDoneTitle}>Inbox zero 🎉</Text>
                 <Text style={styles.allDoneSubtitle}>
-                  Nothing pending. Add something new or ask your coach for help.
+                  You crushed it. Add something new or ask your coach what's next.
                 </Text>
               </View>
             ) : activeTab === "All" ? (
@@ -1282,8 +1303,8 @@ const DashboardScreen = ({ navigation }) => {
                 {renderBucket("Overdue", buckets.overdue, colors.high)}
                 {renderBucket("Due Today", buckets.dueToday, colors.medium)}
                 {renderBucket("This Week", buckets.thisWeek, colors.accent)}
-                {renderBucket("Later", buckets.later, colors.textMuted)}
-                {renderBucket("Someday", buckets.noDate, colors.textMuted)}
+                {renderBucket("Coming Up", buckets.later, colors.textMuted)}
+                {renderBucket("No Date", buckets.noDate, colors.textMuted)}
                 {buckets.completed.length > 0 && (
                   <View style={{ marginTop: spacing.sm }}>
                     <View style={styles.bucketHeader}>
@@ -1329,19 +1350,19 @@ const DashboardScreen = ({ navigation }) => {
                 </View>
                 <Text style={styles.emptyTitle}>
                   {activeTab === "Done"
-                    ? "Nothing completed yet"
+                    ? "Nothing yet"
                     : activeTab === "Today"
-                    ? "Nothing due today"
+                    ? "Free day 🌿"
                     : "All clear!"}
                 </Text>
                 <Text style={styles.emptySubtitle}>
                   {activeTab === "Done"
-                    ? "Check off tasks and they'll appear here."
+                    ? "Complete a task and it'll show up here."
                     : activeTab === "Today"
                     ? nextUpTask
-                      ? `Next up: "${nextUpTask.title}" — due ${format(safeDate(nextUpTask.dueDate), "MMM d")}`
-                      : "You're ahead of schedule."
-                    : "No pending tasks. Tap + to add one."}
+                      ? `Up next: "${nextUpTask.title}" — due ${format(safeDate(nextUpTask.dueDate), "MMM d")}`
+                      : "Nothing on the calendar. Enjoy it."
+                    : "Nothing pending. Tap + to add something."}
                 </Text>
               </View>
             ) : (
@@ -1376,16 +1397,8 @@ const DashboardScreen = ({ navigation }) => {
         visible={showNotifPrompt}
         onDismiss={() => setShowNotifPrompt(false)}
       />
-      <GradePromptSheet
-        task={gradePromptTask}
-        onSelect={(grade) => {
-          if (gradePromptTask) {
-            editTask(gradePromptTask.id, { grade }).catch(() => {});
-          }
-          setGradePromptTask(null);
-        }}
-        onSkip={() => setGradePromptTask(null)}
-      />
+      <CompletionBurst ref={burstRef} />
+
     </View>
   );
 };

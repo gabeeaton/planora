@@ -256,7 +256,7 @@ export const TasksProvider = ({ children }) => {
         incrementStreak(user?.uid, tasksRef.current)
           .then((newStreak) => {
             setStreak(newStreak);
-            const MILESTONES = new Set([1, 3, 7, 14, 30, 60, 100]);
+            const MILESTONES = new Set([3, 7, 14, 30, 60, 100]);
             if (MILESTONES.has(newStreak)) {
               setRecentlyCompleted({ ...task, _streakAtCompletion: newStreak });
             }

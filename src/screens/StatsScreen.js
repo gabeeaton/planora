@@ -158,7 +158,7 @@ const makeStyles = (colors) =>
     scrollContent: {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.lg,
-      paddingBottom: 48,
+      paddingBottom: 120,
     },
 
     sectionHeader: {

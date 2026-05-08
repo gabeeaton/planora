@@ -44,7 +44,7 @@ Notifications.setNotificationHandler({
 // ── Styles ────────────────────────────────────────────────────
 const makeStyles = (colors) => StyleSheet.create({
   safe:   { flex: 1 },
-  scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 120 },
 
   header: {
     alignItems: "center",

@@ -4,9 +4,9 @@
 
 **Who built it:** Gabe Eaton, 22-year-old college student, solo founder. No business background. Building and learning at the same time.
 
-**Primary goal:** $10k MRR. Financial freedom. Fall 2025 App Store launch (iOS first, Android after).
+**Primary goal:** $10k MRR. Financial freedom. iOS App Store launch imminent (Android after).
 
-**Current status:** Pre-revenue. Closed beta on TestFlight. `BETA_PRO_UNLOCKED: true` means all beta users have Scholar for free — no real conversion data yet. No analytics installed yet.
+**Current status:** Pre-revenue. In active development with `DEMO_MODE: true` and `FORCE_ONBOARDING: true` for testing. `BETA_PRO_UNLOCKED: false`. No analytics installed yet.
 
 ---
 
@@ -62,10 +62,11 @@ Students open Planora when they're overwhelmed and don't know where to start. Th
 - Based on avoidance scores computed from task age vs. deadline proximity
 
 **Grade Tracking**
-- Student logs grades per assignment per class
+- Student logs grades per assignment per class via task edit (no auto-prompt on completion)
 - GPA calculated — term GPA + cumulative GPA
 - Completion patterns per class tracked
 - Grade context fed to AI so coach knows if student is struggling in a specific subject
+- Recently completed tasks (last 14 days, with or without grades) included in AI chat context
 - *(GPA card on Stats screen is currently commented out — code is written and ready, needs to be re-enabled before launch)*
 
 **Notifications (smarter than every competitor)**
@@ -122,7 +123,7 @@ Free tier has no hard task cap (Canvas import can bring 40+ tasks immediately �
 ## The Business
 
 ### Stage
-Pre-revenue. Zero paying users. Beta on TestFlight with `BETA_PRO_UNLOCKED: true`. No analytics SDK installed. Fall 2025 is the target public launch.
+Pre-revenue. Zero paying users. `BETA_PRO_UNLOCKED: false`. No analytics SDK installed. App Store launch is the immediate next milestone.
 
 ### Primary goal
 $10k MRR. Path: ~2,000 paying users at $4.99/mo or ~1,000 annual subscribers. Requires 20,000–40,000 active users at 5–10% conversion. This is a 12–18 month target from launch.
@@ -147,7 +148,7 @@ One viral TikTok from a creator with 100k+ followers can compress this timeline 
 ### What's not working yet
 - Free tier is too complete — students get significant value without paying
 - No analytics — zero visibility into where users drop off or what's working
-- No viral loop — nothing in the product encourages sharing
+- No viral loop — completion share card exists but share sheet only triggers at streak 3+ (removed streak-1 trigger intentionally)
 - Paywall only fires reactively when hitting a gate, not at peak desire moments
 - Stats screen shows counts but doesn't tell a narrative story
 - GPA card is built but commented out — major value prop feature that's invisible to users
@@ -157,7 +158,7 @@ One viral TikTok from a creator with 100k+ followers can compress this timeline 
 ## Go-To-Market: Fall 2025
 
 ### Target launch date
-August 20 – September 1, 2025 — orientation week at US universities. Highest new-user intent of the year for student apps.
+August 20 – September 1, 2026 — orientation week at US universities. Highest new-user intent of the year for student apps.
 
 ### Marketing channels (priority order)
 
@@ -188,7 +189,7 @@ Contribute genuinely to r/college (3.5M members), r/GetStudying (500k), r/produc
 ### Semester calendar
 | Window | Action |
 |---|---|
-| Aug 15 – Sep 1 | Launch: campus reps active, TikTok push, App Store update live |
+| Aug 15 – Sep 1, 2026 | Launch: campus reps active, TikTok push, App Store update live |
 | Oct 15 – Nov 1 | Midterms: in-app upsell push, "Finals are coming" messaging |
 | Nov 15 – Dec 5 | Finals: highest conversion window. Stress = motivation to pay |
 | Jan 1 – Jan 15 | New semester spike. "New semester, new GPA" campaign |
@@ -247,13 +248,13 @@ Analytics (PostHog or Mixpanel) must be installed before launch. Currently zero 
 
 ## Product Roadmap
 
-### P0 — Before fall launch
+### P0 — Before launch
 1. Install analytics (PostHog free tier)
-2. Flip `BETA_PRO_UNLOCKED` to `false`, issue promo codes to beta testers
+2. Flip `DEMO_MODE` and `FORCE_ONBOARDING` to `false` before App Store submission
 3. Re-enable GPA card in StatsScreen (commented out at line ~1349, code is complete)
 4. Update App Store metadata (title, keywords, screenshots)
 5. Add student testimonial quote to paywall
-6. Build completion share card (react-native-view-shot + expo-sharing) — only free viral loop
+6. Completion share card already built — verify it works end-to-end
 
 ### P1 — First 2 months post-launch
 7. Show productive time of day explicitly on dashboard (already computed, never displayed to user)
@@ -311,24 +312,32 @@ EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY=  # Android (when Android launches)
 
 Feature flags in `src/config.js`:
 ```js
-BETA_PRO_UNLOCKED: true   // flip to false before App Store launch
+BETA_PRO_UNLOCKED: false  // flip to true to give everyone Scholar (TestFlight soft launch)
 FORCE_ONBOARDING:  false  // run onboarding every launch (dev testing)
 FORCE_WALKTHROUGH: false  // run walkthrough every launch (dev testing)
+DEMO_MODE:         false  // canned data, skip real API/notification/email calls (App Store screenshots)
+```
+
+Add to `.env` to suppress Sentry source map upload errors during local builds:
+```
+SENTRY_DISABLE_AUTO_UPLOAD=true
 ```
 
 ---
 
 ## Pre-Launch Checklist
 
-- [ ] Flip `BETA_PRO_UNLOCKED` to `false`
+- [ ] Flip `DEMO_MODE` → `false` and `FORCE_ONBOARDING` → `false` in `src/config.js`
+- [ ] Flip `BETA_PRO_UNLOCKED` → `false` (already false — verify before submission)
 - [ ] Install PostHog or Mixpanel analytics
 - [ ] Re-enable GPA card in StatsScreen (commented out, line ~1349)
 - [ ] App Store title → "Planora – AI Student Planner"
 - [ ] App Store keywords → `student,planner,homework,canvas,assignment,tracker,gpa,college,study,ai,grade`
-- [ ] App Store screenshots leading with outcome, not features
+- [ ] App Store screenshots leading with outcome, not features (use DEMO_MODE for screenshots)
 - [ ] Add student testimonial to paywall screen
-- [ ] Build completion share card
+- [ ] Verify completion share card works end-to-end (triggers at streak 3+)
 - [ ] Recruit 3–5 campus reps for orientation week
 - [ ] DM 15 student TikTok/Instagram creators (5k–80k followers)
 - [ ] Notification icon verified as white silhouette (Android requirement)
 - [ ] google-services.json added for Android push notifications
+- [ ] Add `SENTRY_DISABLE_AUTO_UPLOAD=true` to `.env` (or configure Sentry org/project)

@@ -5,9 +5,9 @@
 // ============================================================
 
 import React, { useEffect, useRef, useState, useCallback, useContext, useMemo } from "react";
-import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text, Animated } from "react-native";
+import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text, Animated, Dimensions, Image } from "react-native";
 import * as Haptics from "expo-haptics";
-import { NavigationContainer, useNavigation } from "@react-navigation/native";
+import { NavigationContainer, useNavigation, useNavigationState } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -215,6 +215,91 @@ const tabStyles = StyleSheet.create({
   },
 });
 
+const QUICK_ASKS = [
+  "Am I going to be okay this week?",
+  "Which class should I worry about?",
+  "I've been procrastinating — be honest.",
+  "Where should I start?",
+];
+
+const aiBarStyles = StyleSheet.create({
+  bar: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    height: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  inputArea: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    height: "100%",
+  },
+  barLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+  },
+  placeholder: {
+    fontSize: 14,
+    fontFamily: "Outfit-Regular",
+    flex: 1,
+  },
+  zapBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  suggestCard: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  suggestHeader: {
+    fontSize: 10,
+    fontFamily: "Outfit-ExtraBold",
+    letterSpacing: 0.8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+  suggestItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    gap: 8,
+  },
+  suggestText: {
+    fontSize: 14,
+    fontFamily: "Outfit-Medium",
+    flex: 1,
+  },
+});
+
 // ── Main tab navigator ────────────────────────────────────────
 
 const MainTabs = () => (
@@ -236,6 +321,8 @@ const MainTabsWithModal = () => {
   const [visible, setVisible] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestAnim = useRef(new Animated.Value(0)).current;
   const { createTask, editTask } = useTasks();
   const { user } = useAuth();
   const { profile } = useUserProfile();
@@ -281,6 +368,32 @@ const MainTabsWithModal = () => {
 
   const contextValue = useMemo(() => ({ openAddTask }), [openAddTask]);
 
+  const insets   = useSafeAreaInsets();
+  const tabIndex = useNavigationState((s) => s?.routes?.[s.index]?.state?.index ?? 0);
+  const onChatTab = tabIndex === 2; // Chat is index 2: Dashboard(0), Stats(1), Chat(2), Profile(3)
+  const { colors } = useTheme();
+
+  const barBottom  = Math.max(insets.bottom, 8) + 62 + 8;
+  const cardBottom = barBottom + 50 + 8;
+
+  const openSuggestions = useCallback(() => {
+    setShowSuggestions(true);
+    Haptics.selectionAsync().catch(() => {});
+    Animated.spring(suggestAnim, { toValue: 1, speed: 22, bounciness: 5, useNativeDriver: true }).start();
+  }, [suggestAnim]);
+
+  const closeSuggestions = useCallback(() => {
+    Animated.timing(suggestAnim, { toValue: 0, duration: 160, useNativeDriver: true }).start(
+      () => setShowSuggestions(false)
+    );
+  }, [suggestAnim]);
+
+  const handleSuggestion = useCallback((text) => {
+    closeSuggestions();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    navigation.navigate("ChatModal", { initialText: text });
+  }, [closeSuggestions, navigation]);
+
   return (
     <WalkthroughProvider>
       <AddTaskContext.Provider value={contextValue}>
@@ -292,6 +405,91 @@ const MainTabsWithModal = () => {
           onSave={handleSave}
         />
         {showWalkthrough && <WalkthroughOverlay onDone={handleWalkthroughDone} />}
+
+        {/* Floating AI bar — hidden on Chat tab */}
+        {!onChatTab && (
+          <>
+            {/* Backdrop to dismiss suggestions */}
+              {showSuggestions && (
+                <TouchableOpacity
+                  style={StyleSheet.absoluteFillObject}
+                  activeOpacity={1}
+                  onPress={closeSuggestions}
+                />
+              )}
+
+              {/* Suggestions card */}
+              {showSuggestions && (
+                <Animated.View
+                  style={[
+                    aiBarStyles.suggestCard,
+                    {
+                      bottom: cardBottom,
+                      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+                      borderColor: colors.isDark ? colors.border : "#E8E8F2",
+                      opacity: suggestAnim,
+                      transform: [{ translateY: suggestAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+                    },
+                  ]}
+                >
+                  <Text style={[aiBarStyles.suggestHeader, { color: colors.textMuted }]}>QUICK ASKS</Text>
+                  {QUICK_ASKS.map((q, i) => (
+                    <TouchableOpacity
+                      key={q}
+                      style={[
+                        aiBarStyles.suggestItem,
+                        { borderBottomColor: colors.isDark ? colors.border : "#F0F0F8" },
+                        i === QUICK_ASKS.length - 1 && { borderBottomWidth: 0 },
+                      ]}
+                      onPress={() => handleSuggestion(q)}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={[aiBarStyles.suggestText, { color: colors.textPrimary }]}>{q}</Text>
+                      <Feather name="arrow-up-right" size={13} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  ))}
+                </Animated.View>
+              )}
+
+              {/* AI bar */}
+              <View
+                style={[
+                  aiBarStyles.bar,
+                  {
+                    bottom: barBottom,
+                    backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+                    borderColor: colors.isDark ? colors.border : "#E8E8F2",
+                    shadowColor: colors.isDark ? "#000" : "#6B6B8A",
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  style={aiBarStyles.inputArea}
+                  onPress={() => {
+                    closeSuggestions();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                    navigation.navigate("ChatModal");
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Image
+                    source={require("../assets/logo.png")}
+                    style={aiBarStyles.barLogo}
+                  />
+                  <Text style={[aiBarStyles.placeholder, { color: colors.textMuted }]}>
+                    Ask your sidekick...
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[aiBarStyles.zapBtn, { backgroundColor: colors.accentGlow }]}
+                  onPress={showSuggestions ? closeSuggestions : openSuggestions}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="help-circle" size={16} color={colors.accent} />
+                </TouchableOpacity>
+              </View>
+          </>
+        )}
       </AddTaskContext.Provider>
     </WalkthroughProvider>
   );
@@ -371,6 +569,11 @@ const AppNavigator = () => {
               name="FocusMode"
               component={FocusModeScreen}
               options={{ presentation: "fullScreenModal", headerShown: false }}
+            />
+            <Stack.Screen
+              name="ChatModal"
+              component={ChatScreen}
+              options={{ presentation: "modal", headerShown: false }}
             />
             <Stack.Screen
               name="Paywall"

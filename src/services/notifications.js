@@ -16,6 +16,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { FEATURE_FLAGS } from "../config";
 
 // ── Global handler — show banners while app is foregrounded ──
 Notifications.setNotificationHandler({
@@ -320,7 +321,7 @@ const _build2hContent = (tasks) => {
  * Always cancels existing batch notifications first — safe to call any time.
  */
 export const scheduleBatchReminders = async (tasks, bestTime, uid) => {
-  if (!uid) return;
+  if (!uid || FEATURE_FLAGS.DEMO_MODE) return;
   await _withLock(`batch-${uid}`, async () => {
     const granted = await checkNotificationPermissions();
     if (!granted) return;
@@ -436,7 +437,7 @@ const STUDY_PLAN_HOUR = 8; // 8:00 AM
  * @param {string} uid   Firebase user ID
  */
 export const scheduleStudyPlanReminders = async (plan, uid) => {
-  if (!uid || !plan?.length) return;
+  if (!uid || !plan?.length || FEATURE_FLAGS.DEMO_MODE) return;
   await _withLock(`study-plan-${uid}`, async () => {
     const granted = await checkNotificationPermissions();
     if (!granted) return;
@@ -574,7 +575,7 @@ const PRODUCTIVE_TIME_HOURS = {
  * @param {string} uid       Firebase user ID (keeps keys user-specific)
  */
 export const scheduleStreakReminder = async (streak, bestTime, uid) => {
-  if (!uid) return;
+  if (!uid || FEATURE_FLAGS.DEMO_MODE) return;
   if (!streak || streak <= 0) {
     await cancelStreakReminder(uid);
     return;
@@ -667,7 +668,7 @@ export const checkAndScheduleAvoidanceAlerts = async (
   bestTime = null,
   uid = null
 ) => {
-  if (!avoidanceScores?.length) return;
+  if (!avoidanceScores?.length || FEATURE_FLAGS.DEMO_MODE) return;
 
   const granted = await checkNotificationPermissions();
   if (!granted) return;
@@ -763,7 +764,7 @@ const weeklySummaryKey = (uid) => `@planora_weekly_summary_id_${uid}`;
  * @param {string} uid      Firebase user ID
  */
 export const scheduleWeeklySummary = async (tasks, history, uid) => {
-  if (!uid) return;
+  if (!uid || FEATURE_FLAGS.DEMO_MODE) return;
   await _withLock(`weekly-${uid}`, async () => {
     const granted = await checkNotificationPermissions();
     if (!granted) return;
@@ -848,7 +849,7 @@ const digestNotifKey = (uid) => `@planora_digest_notif_id_${uid}`;
  * @param {string} uid       Firebase user ID
  */
 export const scheduleDailyDigest = async (tasks, bestTime, uid) => {
-  if (!uid) return;
+  if (!uid || FEATURE_FLAGS.DEMO_MODE) return;
   await _withLock(`digest-${uid}`, async () => {
     const granted = await checkNotificationPermissions();
     if (!granted) return;
@@ -935,7 +936,7 @@ const overdueManifestKey = (uid) => `@planora_overdue_manifest_${uid}`;
  * Deduplicates — each task fires at most once per overdue event.
  */
 export const scheduleOverdueNudges = async (tasks, bestTime, uid) => {
-  if (!uid) return;
+  if (!uid || FEATURE_FLAGS.DEMO_MODE) return;
   await _withLock(`overdue-${uid}`, async () => {
     const granted = await checkNotificationPermissions();
     if (!granted) return;

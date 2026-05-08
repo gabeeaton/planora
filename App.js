@@ -11,6 +11,7 @@ TextInput.defaultProps = TextInput.defaultProps || {};
 TextInput.defaultProps.style = { fontFamily: "Outfit-Regular" };
 import * as Sentry from "@sentry/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "./src/hooks/useAuth";
 import { UserProfileProvider } from "./src/hooks/useUserProfile";
 import { TasksProvider } from "./src/hooks/useTasks";
@@ -82,6 +83,7 @@ function App() {
   if (!ready || !fontsLoaded) return null;
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
     <ThemeProvider initialTheme={savedTheme} initialMode={savedMode}>
       <AuthProvider>
@@ -95,6 +97,7 @@ function App() {
       </AuthProvider>
     </ThemeProvider>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

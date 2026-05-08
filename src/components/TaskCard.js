@@ -21,6 +21,7 @@ import {
   radius,
   priorityColors,
   priorityGlow,
+  getClassColor,
 } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { format } from "date-fns";
@@ -40,7 +41,7 @@ const makeStyles = (colors) =>
   StyleSheet.create({
     card: {
       backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
-      borderRadius: 14,
+      borderRadius: 20,
       padding: spacing.md,
       borderLeftWidth: 3,
       borderLeftColor: colors.border,
@@ -65,7 +66,7 @@ const makeStyles = (colors) =>
       left: 0,
       right: 0,
       bottom: 0,
-      borderRadius: 14,
+      borderRadius: 20,
     },
     completionFlash: {
       position: "absolute",
@@ -74,7 +75,7 @@ const makeStyles = (colors) =>
       right: 0,
       bottom: 0,
       backgroundColor: colors.lowGlow,
-      borderRadius: 14,
+      borderRadius: 20,
       pointerEvents: "none",
     },
     highlightOverlay: {
@@ -84,7 +85,7 @@ const makeStyles = (colors) =>
       right: 0,
       bottom: 0,
       backgroundColor: colors.accentGlow,
-      borderRadius: 14,
+      borderRadius: 20,
     },
     row: { flexDirection: "row", alignItems: "flex-start" },
     checkbox: {
@@ -206,7 +207,7 @@ const makeStyles = (colors) =>
     swipeReveal: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: colors.low,
-      borderRadius: 14,
+      borderRadius: 20,
       flexDirection: "row",
       alignItems: "center",
       paddingLeft: 20,
@@ -220,7 +221,7 @@ const makeStyles = (colors) =>
     deleteReveal: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: "#EF4444",
-      borderRadius: 14,
+      borderRadius: 20,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "flex-end",
@@ -367,6 +368,7 @@ const TaskCard = ({
   const priorityColor = displayPriority
     ? priorityColors(colors.isDark)[displayPriority]
     : colors.textMuted;
+  const classColor = getClassColor(task.className, colors.isDark);
   const glowColor = displayPriority
     ? priorityGlow(colors.isDark)[displayPriority]
     : "transparent";
@@ -448,9 +450,9 @@ const TaskCard = ({
         style={[
           styles.card,
           task.completed && styles.cardCompleted,
-          displayPriority && {
-            borderLeftColor: priorityColor,
-            borderLeftWidth: 5,
+          {
+            borderLeftColor: task.completed ? classColor + "55" : classColor,
+            borderLeftWidth: task.completed ? 3 : 5,
           },
           highlighted && styles.cardHighlighted,
         ]}
@@ -488,16 +490,6 @@ const TaskCard = ({
               >
                 {task.title}
               </Text>
-
-              {/* Grade badge — completed tasks only */}
-              {task.completed && task.grade ? (() => {
-                const gc = gradeChipColor(task.grade, colors);
-                return (
-                  <View style={[styles.badge, { backgroundColor: gc.bg, borderColor: gc.border }]}>
-                    <Text style={[styles.badgeText, { color: gc.text }]}>{task.grade}</Text>
-                  </View>
-                );
-              })() : null}
 
               {/* Priority badge — pending tasks only */}
               {!task.completed && displayPriority && (
