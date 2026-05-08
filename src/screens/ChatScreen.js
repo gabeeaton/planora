@@ -25,6 +25,7 @@ import { useUserProfile } from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
 import { sendChatMessage, invalidateTodayFocusCache, getWhatDoIDo } from "../services/openai";
 import { loadChatHistory, saveChatHistory, clearChatHistory } from "../services/firebase";
+import { useCalendarEvents } from "../hooks/useCalendarEvents";
 import { spacing, radius, typography } from "../utils/theme";
 import * as Haptics from "expo-haptics";
 
@@ -174,6 +175,7 @@ export default function ChatScreen() {
   const { tasks, patterns, createTask, createManyTasks, editTask, completeTask } = useTasks();
   const { profile }                  = useUserProfile();
   const { isPro: realIsPro }         = useSubscription();
+  const { events: calendarEvents }   = useCalendarEvents(!DEMO_MODE);
   const styles                       = makeStyles(colors);
 
   const isPro = DEMO_MODE ? true : realIsPro;
@@ -304,7 +306,8 @@ export default function ChatScreen() {
         trimmed,
         tasks,
         profile,
-        patterns
+        patterns,
+        calendarEvents
       );
       const aiMsg = { id: (Date.now() + 1).toString(), role: "assistant", text: reply, ts: Date.now() };
       setMessages((prev) => [...prev, aiMsg]);
@@ -404,7 +407,7 @@ export default function ChatScreen() {
     } finally {
       setTyping(false);
     }
-  }, [typing, messages, tasks, profile, patterns, isPro]);
+  }, [typing, messages, tasks, profile, patterns, isPro, calendarEvents]);
 
   // ── "Where should I start?" quick action ──────────────────
   // Free for everyone — counts against daily limit like any chat message.

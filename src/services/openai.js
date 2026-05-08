@@ -143,7 +143,7 @@ const callProxy = async ({ model, messages, temperature = 0.3, max_tokens = 500 
 //       'focus'  — just the pattern context string, no task list (used in getTodayFocus/getWhatDoIDo)
 //       'full'   — same as 'brief' but 14-day window (future use)
 //
-const buildStudentContext = (tasks, userProfile, patterns, mode = "brief") => {
+const buildStudentContext = (tasks, userProfile, patterns, mode = "brief", calendarEvents = []) => {
   // 'focus' mode: just the behavioral pattern string
   if (mode === "focus") {
     return patterns ? buildPatternContext(patterns, userProfile) : "No pattern data yet.";
@@ -217,6 +217,15 @@ const buildStudentContext = (tasks, userProfile, patterns, mode = "brief") => {
         return `${cls}"${t.title}"${grade}`;
       }).join(", ")}`
     );
+  }
+
+  if (calendarEvents?.length > 0) {
+    const evLines = calendarEvents.slice(0, 8).map((e) => {
+      const start = e.allDay ? "all day" : new Date(e.startDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      const end   = e.allDay ? "" : `–${new Date(e.endDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+      return `• ${start}${end} ${e.title}${e.location ? ` @ ${e.location}` : ""}`;
+    }).join("\n");
+    lines.push(`\nToday's calendar:\n${evLines}`);
   }
 
   if (patterns) {
@@ -450,9 +459,10 @@ export const sendChatMessage = async (
   userMessage,
   tasks,
   userProfile,
-  patterns
+  patterns,
+  calendarEvents = []
 ) => {
-  const contextBlock = buildStudentContext(tasks, userProfile, patterns, "brief");
+  const contextBlock = buildStudentContext(tasks, userProfile, patterns, "brief", calendarEvents);
   const systemMsg    = { role: "system", content: CHAT_SYSTEM(contextBlock) };
 
   // Cap history at last 8 messages to leave token headroom

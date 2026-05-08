@@ -59,7 +59,13 @@
         }
       ],
       "@sentry/react-native",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Planora reads your calendar to show today's events alongside your assignments."
+        }
+      ]
     ],
     "extra": {
       "eas": {

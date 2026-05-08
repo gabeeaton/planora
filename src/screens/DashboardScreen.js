@@ -46,6 +46,8 @@ import * as Notifications from "expo-notifications";
 import { typography, spacing, radius, shadows, getClassColor } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import CompletionBurst from "../components/CompletionBurst";
+import TodaySchedule from "../components/TodaySchedule";
+import { useCalendarEvents } from "../hooks/useCalendarEvents";
 import { AddTaskContext } from "../navigation/AppNavigator";
 import { useSetWalkthroughTarget } from "../utils/WalkthroughContext";
 import { Share } from "react-native";
@@ -655,6 +657,9 @@ const DashboardScreen = ({ navigation }) => {
   const [todayPlanSessions, setTodayPlanSessions] = useState([]);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
 
+  const [calEnabled, setCalEnabled] = useState(!DEMO_MODE);
+  const { events: calEvents, permission: calPermission } = useCalendarEvents(calEnabled);
+
   useEffect(() => {
     if (tasks.length === 0) return;
     AsyncStorage.getItem(NOTIF_PROMPT_KEY).then(async (val) => {
@@ -1168,6 +1173,15 @@ const DashboardScreen = ({ navigation }) => {
             completedCount={completedTasks.length}
           />
         </View>
+
+        {/* Today's calendar events */}
+        {!DEMO_MODE && (
+          <TodaySchedule
+            events={calEvents}
+            permission={calPermission}
+            onRequestPermission={() => setCalEnabled(true)}
+          />
+        )}
 
         {/* Today's Focus — auto-loads, no button press needed */}
         {tasks.length > 0 && (
