@@ -95,7 +95,7 @@ export default function ResetPasswordScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={s.safe}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <View style={s.inner}>
           <View style={s.icon}>
             <Feather name="lock" size={26} color={colors.accent} />

@@ -35,6 +35,8 @@ const FREE_DAILY_LIMIT = 10;
 const todayKey        = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 const COUNT_KEY       = (uid) => `@planora_chat_count_${uid}_${todayKey()}`;
 
+const COACH_NAME = "Ace"; // ← change to swap the AI character name everywhere
+
 // ── Intro message tail (varies each open) ─────────────────────
 const INTRO_TAILS = [
   "What's stressing you out?",
@@ -175,7 +177,7 @@ export default function ChatScreen() {
   const { tasks, patterns, createTask, createManyTasks, editTask, completeTask } = useTasks();
   const { profile }                  = useUserProfile();
   const { isPro: realIsPro }         = useSubscription();
-  const { events: calendarEvents }   = useCalendarEvents(!DEMO_MODE);
+  const { events: calendarEvents }   = useCalendarEvents(!DEMO_MODE);  // status/requestPermission handled in CalendarScreen
   const styles                       = makeStyles(colors);
 
   const isPro = DEMO_MODE ? true : realIsPro;
@@ -199,12 +201,13 @@ export default function ChatScreen() {
   const listRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Auto-focus input when opened as modal — delay lets the slide-in animation settle
+  // No auto-focus — user opens keyboard intentionally by tapping the input
+
+  // Blur input when switching away from this tab so keyboard doesn't persist
   useEffect(() => {
-    if (!navigation.canGoBack()) return;
-    const t = setTimeout(() => inputRef.current?.focus(), 380);
-    return () => clearTimeout(t);
-  }, []);
+    const unsub = navigation.addListener("blur", () => inputRef.current?.blur());
+    return unsub;
+  }, [navigation]);
 
   // Auto-send suggestion tapped from the quick-asks bar
   const initialTextSent = useRef(false);
@@ -466,6 +469,7 @@ export default function ChatScreen() {
       .slice(0, 3)
       .map((c) => c.name || c.className || c)
       .filter(Boolean);
+    const capLine = "I can add tasks, reschedule deadlines, prioritize your workload, and log grades — just tell me what you need.";
     if (firstName && classes.length > 0) {
       const overflow = (profile?.classes?.length ?? 0) - classes.length;
       const list =
@@ -475,11 +479,11 @@ export default function ChatScreen() {
             (overflow > 0
               ? `, and ${overflow + 1} more`
               : ` and ${classes[classes.length - 1]}`);
-      return `Hey ${firstName} 👋 I've got ${list} loaded up. ${pickIntroTail()}`;
+      return `Hey ${firstName} — I'm ${COACH_NAME}, your AI study coach. I've got ${list} loaded and I know what's due. ${capLine}`;
     }
     if (firstName)
-      return `Hey ${firstName} 👋 I know your schedule and deadlines. ${pickIntroTail()}`;
-    return `Hey 👋 I know your classes and deadlines — ${pickIntroTail().toLowerCase()}`;
+      return `Hey ${firstName} — I'm ${COACH_NAME}, your AI study coach. I know your schedule and deadlines. ${capLine}`;
+    return `Hey — I'm ${COACH_NAME}, your AI study coach. I know your classes and deadlines. ${capLine}`;
   }, [historyLoaded, messages.length, profile, firstName]);
 
   // ── Inject date separators (or intro) into message list ───
@@ -539,26 +543,19 @@ export default function ChatScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerAvatar}>
-          <Image source={require("../assets/logo.png")} style={{ width: 26, height: 26, borderRadius: 7 }} />
+          <Image source={require("../assets/logo.png")} style={{ width: 44, height: 44 }} resizeMode="contain" />
         </View>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Your sidekick</Text>
+          <Text style={styles.headerTitle}>{COACH_NAME}</Text>
           <Text style={styles.headerSub}>Knows your classes, grades & deadlines</Text>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-          {messages.length > 0 && (
-            <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); clearChat(); }} style={styles.clearBtn}>
-              <Feather name="trash-2" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowCapabilities(true); }} style={styles.clearBtn}>
-            <Feather name="info" size={18} color={colors.textMuted} />
+          <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); clearChat(); }} style={styles.clearBtn}>
+            <Feather name="trash-2" size={18} color="rgba(255,255,255,0.75)" />
           </TouchableOpacity>
-          {navigation.canGoBack() && (
-            <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); navigation.goBack(); }} style={styles.clearBtn}>
-              <Feather name="x" size={20} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowCapabilities(true); }} style={styles.clearBtn}>
+            <Feather name="info" size={18} color="rgba(255,255,255,0.75)" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -666,21 +663,27 @@ const makeStyles = (colors) => StyleSheet.create({
 
   header: {
     flexDirection: "row", alignItems: "center",
-    paddingHorizontal: spacing.md, paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.isDark ? colors.border : "#EAEAF0",
+    paddingHorizontal: spacing.md, paddingVertical: 12,
     gap: 12,
-    backgroundColor: colors.isDark ? colors.bg : "#FFFFFF",
+    backgroundColor: colors.accent,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+    overflow: "hidden",
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.32,
+    shadowRadius: 16,
+    elevation: 8,
   },
   headerAvatar: {
-    width: 38, height: 38, borderRadius: 12,
-    backgroundColor: colors.accentGlow,
+    width: 54, height: 54, borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center", justifyContent: "center",
   },
   backBtn:      { padding: 4 },
   headerCenter: { flex: 1 },
-  headerTitle:  { fontSize: 16, fontFamily: "Outfit-Bold", color: colors.textPrimary },
-  headerSub:    { fontSize: 11, color: colors.textMuted, fontFamily: "Outfit-Regular", marginTop: 1 },
+  headerTitle:  { fontSize: 16, fontFamily: "Outfit-Bold", color: "#fff" },
+  headerSub:    { fontSize: 11, color: "rgba(255,255,255,0.72)", fontFamily: "Outfit-Regular", marginTop: 1 },
   clearBtn:     { padding: 6 },
 
   // Empty state
@@ -833,7 +836,7 @@ const makeStyles = (colors) => StyleSheet.create({
   bubbleRow:     { flexDirection: "row", alignItems: "flex-end", gap: 8, marginBottom: 2 },
   bubbleRowUser: { flexDirection: "row-reverse" },
   avatar: {
-    width: 30, height: 30, borderRadius: 10, flexShrink: 0,
+    width: 42, height: 42, flexShrink: 0,
   },
   bubble: {
     maxWidth: "80%", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10,
@@ -843,8 +846,17 @@ const makeStyles = (colors) => StyleSheet.create({
     borderBottomRightRadius: 5,
   },
   bubbleAI: {
-    backgroundColor: colors.isDark ? colors.bgCard : "#F2F2F7",
+    backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
     borderBottomLeftRadius: 5,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.isDark ? "transparent" : "#E8E8F0",
+    ...(colors.isDark ? {} : {
+      shadowColor: "#6B6B8A",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.07,
+      shadowRadius: 4,
+      elevation: 2,
+    }),
   },
   bubbleError:       { backgroundColor: colors.highGlow, borderWidth: 1, borderColor: colors.high },
   bubbleConfirm:     { backgroundColor: colors.accentGlow, borderWidth: 1, borderColor: colors.accent },

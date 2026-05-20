@@ -332,13 +332,16 @@ const TaskCard = ({
   }, []);
 
   const playCompleteAnimation = () => {
+    // Scale: compress → overshoot → settle (physical feel)
     Animated.sequence([
-      Animated.spring(checkScale, { toValue: 1.5, useNativeDriver: true, speed: 50 }),
-      Animated.spring(checkScale, { toValue: 1.0, useNativeDriver: true, speed: 20 }),
+      Animated.spring(checkScale, { toValue: 0.82, useNativeDriver: true, speed: 80, bounciness: 0 }),
+      Animated.spring(checkScale, { toValue: 1.25, useNativeDriver: true, speed: 40, bounciness: 8 }),
+      Animated.spring(checkScale, { toValue: 1.0,  useNativeDriver: true, speed: 25, bounciness: 4 }),
     ]).start();
+    // Flash: punch in fast, fade slowly
     Animated.sequence([
-      Animated.timing(flashOpacity, { toValue: 1, duration: 100, useNativeDriver: true }),
-      Animated.timing(flashOpacity, { toValue: 0, duration: 600, useNativeDriver: true }),
+      Animated.timing(flashOpacity, { toValue: 0.9, duration: 60,  useNativeDriver: true }),
+      Animated.timing(flashOpacity, { toValue: 0,   duration: 500, useNativeDriver: true }),
     ]).start();
   };
 

@@ -91,5 +91,13 @@
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Planora reads your calendar to show today's events alongside your assignments.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Planora reads your calendar to show today's events alongside your assignments.</string>
+    <key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+    <string>Planora reads your calendar to show today's events alongside your assignments.</string>
+    <key>NSRemindersUsageDescription</key>
+    <string>Planora uses Reminders to help you stay on top of your assignments.</string>
   </dict>
 </plist>

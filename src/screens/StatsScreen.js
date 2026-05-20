@@ -6,7 +6,7 @@ import { FEATURE_FLAGS } from "../config";
 const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
 import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -28,6 +28,22 @@ import * as Haptics from "expo-haptics";
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
 import { differenceInCalendarDays, subDays, format } from "date-fns";
+
+// Counts up from 0 to `value` when the screen gains focus
+const CountingNumber = ({ value, color, style }) => {
+  const animVal  = useRef(new Animated.Value(0)).current;
+  const [display, setDisplay] = useState(0);
+
+  useFocusEffect(useCallback(() => {
+    animVal.setValue(0);
+    setDisplay(0);
+    const id = animVal.addListener(({ value: v }) => setDisplay(Math.round(v)));
+    Animated.timing(animVal, { toValue: value, duration: 650, delay: 280, useNativeDriver: false }).start();
+    return () => { animVal.removeListener(id); animVal.stopAnimation(); };
+  }, [value]));
+
+  return <Text style={[style, { color }]}>{display}</Text>;
+};
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -725,7 +741,7 @@ const makeStyles = (colors) =>
 
 // ── Screen ────────────────────────────────────────────────────
 
-const StatsScreen = () => {
+const StatsScreen = ({ navigation }) => {
   const { colors, isDark } = useTheme();
   const styles = makeStyles(colors);
   const realTasks = useTasks();
@@ -925,7 +941,19 @@ const StatsScreen = () => {
     }
   };
 
-  const totalCompleted = completedTasks.length;
+  // Semester
+  const semBounds = getSemesterBounds(profile?.semester);
+
+  // Filter completed tasks to the current semester so stats reflect this term only
+  const semesterCompleted = useMemo(() => {
+    if (!semBounds) return completedTasks;
+    return completedTasks.filter(t => {
+      const d = toDate(t.completedAt);
+      return d && d >= semBounds.start;
+    });
+  }, [completedTasks, semBounds?.start?.getTime()]);
+
+  const totalCompleted = semesterCompleted.length;
   const totalPending = tasks.filter((t) => !t.completed).length;
 
   const totalOverdue = tasks.filter(t => {
@@ -957,20 +985,16 @@ const StatsScreen = () => {
       Array.from({ length: 7 }, (_, i) => {
         const day = subDays(today, 6 - i);
         const dayStr = format(day, "yyyy-MM-dd");
-        const count = completedTasks.filter((t) => {
+        const count = semesterCompleted.filter((t) => {
           const d = toDate(t.completedAt);
           return d && format(d, "yyyy-MM-dd") === dayStr;
         }).length;
         return { label: format(day, "EEEEE"), count, isToday: i === 6 };
       }),
-    [completedTasks]
+    [semesterCompleted]
   );
   const activityMax = Math.max(...activityDays.map((d) => d.count), 1);
   const weekTotal = activityDays.reduce((s, d) => s + d.count, 0);
-
-
-  // Semester
-  const semBounds = getSemesterBounds(profile?.semester);
   const daysLeft = semBounds
     ? differenceInCalendarDays(semBounds.end, today)
     : null;
@@ -983,12 +1007,14 @@ const StatsScreen = () => {
 
   // Classes sorted by health (worst first)
   const byClass = useMemo(() => {
+    const semCompletedIds = new Set(semesterCompleted.map(t => t.id));
     const map = {};
     tasks.forEach((t) => {
       const key = t.className ?? "No class";
       if (!map[key]) map[key] = { done: 0, pending: 0, overdue: 0 };
       if (t.completed) {
-        map[key].done++;
+        // Only count completions from this semester
+        if (semCompletedIds.has(t.id)) map[key].done++;
       } else if (t.dueDate) {
         const due = toDate(t.dueDate);
         if (due) {
@@ -1027,7 +1053,7 @@ const StatsScreen = () => {
         return ho !== 0 ? ho : b.total - a.total;
       })
       .slice(0, 8);
-  }, [tasks]);
+  }, [tasks, semesterCompleted]);
 
   const semesterPct = getSemesterProgress(profile?.semester);
 
@@ -1112,6 +1138,11 @@ const StatsScreen = () => {
           <View>
             <Text style={styles.headerTitle}>Progress</Text>
           </View>
+          {navigation?.canGoBack() && (
+            <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Feather name="x" size={22} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
         </View>
         <View style={styles.emptyState}>
           <View style={styles.emptyIcon}>
@@ -1143,6 +1174,7 @@ const StatsScreen = () => {
           <Text style={styles.headerTitle}>Progress</Text>
           <Text style={styles.headerSubtitle}>How your term is going</Text>
         </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         {streak > 0 && (
           <View style={styles.streakPill}>
             <Text>🔥</Text>
@@ -1153,6 +1185,12 @@ const StatsScreen = () => {
             </View>
           </View>
         )}
+        {navigation?.canGoBack() && (
+          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Feather name="x" size={22} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
+        </View>
       </View>
 
       <ScrollView
@@ -1179,9 +1217,7 @@ const StatsScreen = () => {
             >
               <Feather name="check-circle" size={16} color={colors.low} />
             </View>
-            <Text style={[styles.statValue, { color: colors.low }]}>
-              {totalCompleted}
-            </Text>
+            <CountingNumber value={totalCompleted} color={colors.low} style={styles.statValue} />
             <Text style={styles.statLabel}>Completed</Text>
           </View>
           {/* Overdue */}
@@ -1210,14 +1246,11 @@ const StatsScreen = () => {
                 color={totalOverdue > 0 ? colors.high : colors.low}
               />
             </View>
-            <Text
-              style={[
-                styles.statValue,
-                { color: totalOverdue > 0 ? colors.high : colors.low },
-              ]}
-            >
-              {totalOverdue}
-            </Text>
+            <CountingNumber
+              value={totalOverdue}
+              color={totalOverdue > 0 ? colors.high : colors.low}
+              style={styles.statValue}
+            />
             <Text style={styles.statLabel}>Overdue</Text>
           </View>
           {/* Completion rate */}
@@ -1233,9 +1266,7 @@ const StatsScreen = () => {
             >
               <Feather name="trending-up" size={16} color={colors.accent} />
             </View>
-            <Text style={[styles.statValue, { color: colors.accent }]}>
-              {totalPending}
-            </Text>
+            <CountingNumber value={totalPending} color={colors.accent} style={styles.statValue} />
             <Text style={styles.statLabel}>Remaining</Text>
           </View>
         </View>

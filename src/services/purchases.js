@@ -63,21 +63,27 @@ export const getOfferings = async () => {
   }
 };
 
-// Purchase a package — throws on failure/cancellation
+// Purchase a package — throws only on user cancellation or payment failure.
+// Entitlement activation can lag in sandbox; we fall back to Firestore isPro flag.
 export const purchasePackage = async (pkg) => {
   const { customerInfo: info } = await Purchases.purchasePackage(pkg);
 
-  // Check immediately
+  // Immediate check
   if (info.entitlements.active[ENTITLEMENT_ID] !== undefined) return info;
 
-  // Sandbox can be slow to reflect entitlements — wait 1.5s and re-fetch once
-  await new Promise((r) => setTimeout(r, 1500));
-  const fresh = await Purchases.getCustomerInfo();
-  const isActive =
-    fresh.entitlements.active[ENTITLEMENT_ID] !== undefined ||
-    fresh.activeSubscriptions.length > 0;
-  if (!isActive) throw new Error("Purchase completed but entitlement not activated.");
-  return fresh;
+  // Sandbox / webhook latency — wait 2s and re-fetch
+  await new Promise((r) => setTimeout(r, 2000));
+  try {
+    const fresh = await Purchases.getCustomerInfo();
+    if (
+      fresh.entitlements.active[ENTITLEMENT_ID] !== undefined ||
+      fresh.activeSubscriptions.length > 0
+    ) return fresh;
+  } catch {}
+
+  // Payment was accepted by StoreKit — return original info.
+  // Caller writes isPro to Firestore immediately as the source of truth.
+  return info;
 };
 
 // Restore previous purchases

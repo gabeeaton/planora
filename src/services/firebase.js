@@ -194,7 +194,16 @@ export const clearCompletedTasks = async (userId) => {
 export const recordTaskCompletion = async (task) => {
   try {
     const now = new Date();
-    const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+    // Handle Firestore Timestamp, plain Date, seconds-object, or string
+    const rawDue = task.dueDate;
+    let dueDate = null;
+    if (rawDue) {
+      if (rawDue instanceof Date)                     dueDate = rawDue;
+      else if (typeof rawDue.toDate === "function")   dueDate = rawDue.toDate();
+      else if (typeof rawDue.seconds === "number")    dueDate = new Date(rawDue.seconds * 1000);
+      else { const d = new Date(rawDue); dueDate = isNaN(d.getTime()) ? null : d; }
+    }
+    // Positive = completed early, 0 = same day, negative = completed AFTER deadline (late)
     const daysBeforeDeadline = dueDate
       ? Math.round((dueDate - now) / (1000 * 60 * 60 * 24))
       : null;

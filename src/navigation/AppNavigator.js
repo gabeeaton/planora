@@ -5,7 +5,7 @@
 // ============================================================
 
 import React, { useEffect, useRef, useState, useCallback, useContext, useMemo } from "react";
-import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text, Animated, Dimensions, Image } from "react-native";
+import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text, Animated, Image } from "react-native";
 import * as Haptics from "expo-haptics";
 import { NavigationContainer, useNavigation, useNavigationState } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
@@ -20,6 +20,8 @@ import { saveUserProfile }  from "../services/firebase";
 import DashboardScreen      from "../screens/DashboardScreen";
 import ProfileScreen        from "../screens/ProfileScreen";
 import StatsScreen          from "../screens/StatsScreen";
+import TasksScreen          from "../screens/TasksScreen";
+import FocusScreen          from "../screens/FocusScreen";
 import AuthScreen, { EmailVerificationScreen } from "../screens/AuthScreen";
 import OnboardingScreen     from "../screens/OnboardingScreen";
 import PaywallScreen        from "../screens/PaywallScreen";
@@ -27,17 +29,20 @@ import SyllabusParserScreen from "../screens/SyllabusParserScreen";
 import ICSReviewScreen      from "../screens/ICSReviewScreen";
 import FocusModeScreen       from "../screens/FocusModeScreen";
 import ChatScreen            from "../screens/ChatScreen";
+import CalendarScreen        from "../screens/CalendarScreen";
 import ResetPasswordScreen   from "../screens/ResetPasswordScreen";
 import StudyPlanScreen       from "../screens/StudyPlanScreen";
 import { useTheme } from "../utils/ThemeContext";
 import TaskModal from "../components/TaskModal";
+import AcePopup from "../components/AcePopup";
 import WalkthroughOverlay from "../components/WalkthroughOverlay";
 import { WalkthroughProvider, useSetWalkthroughTarget } from "../utils/WalkthroughContext";
 import { useTasks } from "../hooks/useTasks";
+import { useSubscription } from "../hooks/useSubscription";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { FEATURE_FLAGS } from "../config";
 
-export const AddTaskContext = React.createContext({ openAddTask: () => {} });
+export const AddTaskContext = React.createContext({ openAddTask: () => {}, openQuickAdd: () => {} });
 
 const linking = {
   prefixes: ["planora://"],
@@ -54,10 +59,12 @@ const Tab   = createBottomTabNavigator();
 
 // ── Custom Tab Bar ────────────────────────────────────────────
 
-const TAB_ICONS  = { Dashboard: "home", Stats: "bar-chart-2", Chat: "message-circle", Profile: "user" };
-const TAB_LABELS = { Dashboard: "Home", Stats: "Progress",    Chat: "Coach",          Profile: "Profile" };
+const COACH_NAME = "Ace"; // ← change to rename the AI character everywhere
 
-const TAB_TARGET_NAMES = { Dashboard: "homeTab", Stats: "statsTab", Chat: "chatTab", Profile: "profileTab" };
+const TAB_ICONS  = { Dashboard: "home", Chat: "message-circle", Tasks: "check-square", Calendar: "calendar", Focus: "zap" };
+const TAB_LABELS = { Dashboard: "Home", Chat: COACH_NAME, Tasks: "Tasks", Calendar: "Calendar", Focus: "Focus" };
+
+const TAB_TARGET_NAMES = { Dashboard: "homeTab", Chat: "chatTab", Tasks: "tasksTab", Calendar: "calendarTab", Focus: "focusTab" };
 
 const TabItem = ({ route, isFocused, onPress, colors, onMeasure }) => {
   const outerRef   = useRef(null);
@@ -123,36 +130,10 @@ const TabItem = ({ route, isFocused, onPress, colors, onMeasure }) => {
 const CustomTabBar = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { openAddTask } = useContext(AddTaskContext);
   const setTarget = useSetWalkthroughTarget();
-  const plusScale = useRef(new Animated.Value(1)).current;
-  const plusRef   = useRef(null);
 
   const [localIndex, setLocalIndex] = useState(state.index);
   useEffect(() => { setLocalIndex(state.index); }, [state.index]);
-
-  const mid = Math.floor(state.routes.length / 2);
-
-  const renderTab = (route, index) => {
-    const isFocused = localIndex === index;
-    const onPress = () => {
-      if (isFocused) return;
-      setLocalIndex(index);
-      const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-      if (!event.defaultPrevented) navigation.navigate(route.name);
-    };
-    const targetName = TAB_TARGET_NAMES[route.name];
-    return (
-      <TabItem
-        key={route.key}
-        route={route}
-        isFocused={isFocused}
-        onPress={onPress}
-        colors={colors}
-        onMeasure={targetName ? (rect) => setTarget(targetName, rect) : undefined}
-      />
-    );
-  };
 
   return (
     <View style={[
@@ -163,35 +144,26 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
         borderTopColor: colors.isDark ? colors.border : "#E0E0E8",
       }
     ]}>
-      {state.routes.slice(0, mid).map((route, index) => renderTab(route, index))}
-
-      <View
-        ref={plusRef}
-        style={tabStyles.plusWrap}
-        onLayout={() => {
-          plusRef.current?.measureInWindow((x, y, w, h) => {
-            setTarget("plus", { cx: x + w / 2, cy: y + h / 2, w: 44, h: 40, r: 12 });
-          });
-        }}
-      >
-        <Animated.View style={{ transform: [{ scale: plusScale }] }}>
-          <TouchableOpacity
-            style={[tabStyles.plusBtn, { backgroundColor: colors.accent }]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-              openAddTask();
-            }}
-            onPressIn={() => Animated.spring(plusScale, { toValue: 0.88, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
-            onPressOut={() => Animated.spring(plusScale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 8 }).start()}
-            activeOpacity={1}
-          >
-            <Feather name="plus" size={22} color="#fff" />
-          </TouchableOpacity>
-        </Animated.View>
-        <Text style={[tabStyles.label, { color: colors.accent }]}>Add</Text>
-      </View>
-
-      {state.routes.slice(mid).map((route, index) => renderTab(route, mid + index))}
+      {state.routes.map((route, index) => {
+        const isFocused = localIndex === index;
+        const onPress = () => {
+          if (isFocused) return;
+          setLocalIndex(index);
+          const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+          if (!event.defaultPrevented) navigation.navigate(route.name);
+        };
+        const targetName = TAB_TARGET_NAMES[route.name];
+        return (
+          <TabItem
+            key={route.key}
+            route={route}
+            isFocused={isFocused}
+            onPress={onPress}
+            colors={colors}
+            onMeasure={targetName ? (rect) => setTarget(targetName, rect) : undefined}
+          />
+        );
+      })}
     </View>
   );
 };
@@ -208,97 +180,94 @@ const tabStyles = StyleSheet.create({
   tab:      { flex: 1, alignItems: "center", gap: 4 },
   iconWrap: { width: 40, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 12 },
   label:    { fontSize: 10, fontFamily: "Outfit-SemiBold", letterSpacing: 0.3 },
-  plusWrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4 },
-  plusBtn: {
-    width: 40, height: 36, borderRadius: 12,
+});
+
+
+const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100];
+const MILESTONE_COPY = {
+  3:   { emoji: "🔥", title: "3-day streak",      sub: "You're building something real." },
+  7:   { emoji: "🔥", title: "One week straight", sub: "That's serious consistency." },
+  14:  { emoji: "⚡", title: "Two weeks strong",  sub: "You're in the zone." },
+  30:  { emoji: "💎", title: "30-day streak",     sub: "A full month of showing up." },
+  60:  { emoji: "🚀", title: "60-day streak",     sub: "You're built different." },
+  100: { emoji: "👑", title: "100 days",          sub: "This is legendary." },
+};
+
+const aceStyles = StyleSheet.create({
+  aceBtnWrap: {
+    position: "absolute",
+    right: 16,
+    zIndex: 99,
+  },
+  aceBtn: {
+    width: 54, height: 54, borderRadius: 27,
     alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.38,
+    shadowRadius: 14,
+    elevation: 10,
   },
+  aceBtnLogo: {
+    width: 44, height: 44,
+  },
+  milestoneBanner: {
+    position: "absolute",
+    left: 14,
+    right: 14,
+    borderRadius: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    paddingHorizontal: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    elevation: 14,
+    zIndex: 9999,
+  },
+  milestoneEmoji: { fontSize: 26 },
+  milestoneTitle: { fontSize: 15, fontFamily: "Outfit-Bold", color: "#fff" },
+  milestoneSub:   { fontSize: 12, fontFamily: "Outfit-Medium", color: "rgba(255,255,255,0.78)", marginTop: 1 },
 });
 
-const QUICK_ASKS = [
-  "Am I going to be okay this week?",
-  "Which class should I worry about?",
-  "I've been procrastinating — be honest.",
-  "Where should I start?",
-];
+// ── Floating Ace / Planora FAB ────────────────────────────────
+// Separate component so it can call useSetWalkthroughTarget inside WalkthroughProvider
 
-const aiBarStyles = StyleSheet.create({
-  bar: {
-    position: "absolute",
-    left: 12,
-    right: 12,
-    height: 50,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  inputArea: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-    height: "100%",
-  },
-  barLogo: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-  },
-  placeholder: {
-    fontSize: 14,
-    fontFamily: "Outfit-Regular",
-    flex: 1,
-  },
-  zapBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  suggestCard: {
-    position: "absolute",
-    left: 12,
-    right: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  suggestHeader: {
-    fontSize: 10,
-    fontFamily: "Outfit-ExtraBold",
-    letterSpacing: 0.8,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 6,
-  },
-  suggestItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    gap: 8,
-  },
-  suggestText: {
-    fontSize: 14,
-    fontFamily: "Outfit-Medium",
-    flex: 1,
-  },
-});
+const AceFabInner = ({ bottom, aceBtnScale, acePulse, colors, onPress, onPressIn, onPressOut }) => {
+  const setTarget = useSetWalkthroughTarget();
+  const fabRef    = useRef(null);
+  return (
+    <View
+      ref={fabRef}
+      style={[aceStyles.aceBtnWrap, { bottom }]}
+      onLayout={() => {
+        fabRef.current?.measureInWindow((x, y, w, h) => {
+          if (w > 0 && h > 0) setTarget("aceBtn", { cx: x + w / 2, cy: y + h / 2, w, h, r: 25 });
+        });
+      }}
+    >
+      <Animated.View style={{ transform: [{ scale: aceBtnScale }] }}>
+        <Animated.View style={{ transform: [{ scale: acePulse }] }}>
+          <TouchableOpacity
+            style={[aceStyles.aceBtn, {
+              backgroundColor: colors.accent,
+              borderColor: "rgba(255,255,255,0.25)",
+              shadowColor: colors.accent,
+            }]}
+            onPress={onPress}
+            onPressIn={onPressIn}
+            onPressOut={onPressOut}
+            activeOpacity={1}
+          >
+            <Image source={require("../assets/logo.png")} style={aceStyles.aceBtnLogo} resizeMode="contain" />
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
+    </View>
+  );
+};
 
 // ── Main tab navigator ────────────────────────────────────────
 
@@ -309,9 +278,10 @@ const MainTabs = () => (
     sceneContainerStyle={{ backgroundColor: "transparent" }}
   >
     <Tab.Screen name="Dashboard" component={DashboardScreen} />
-    <Tab.Screen name="Stats"     component={StatsScreen} />
     <Tab.Screen name="Chat"      component={ChatScreen} />
-    <Tab.Screen name="Profile"   component={ProfileScreen} />
+    <Tab.Screen name="Tasks"     component={TasksScreen} />
+    <Tab.Screen name="Calendar"  component={CalendarScreen} />
+    <Tab.Screen name="Focus"     component={FocusScreen} />
   </Tab.Navigator>
 );
 
@@ -320,14 +290,63 @@ const MainTabsMemo = React.memo(MainTabs);
 const MainTabsWithModal = () => {
   const [visible, setVisible] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [acePopupVisible, setAcePopupVisible] = useState(false);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const suggestAnim = useRef(new Animated.Value(0)).current;
-  const { createTask, editTask } = useTasks();
+  const aceBtnScale = useRef(new Animated.Value(1)).current;
+  const { createTask, editTask, tasks, patterns, streak } = useTasks();
   const { user } = useAuth();
   const { profile } = useUserProfile();
+  const { isPro } = useSubscription();
   const navigation = useNavigation();
   const walkthroughTriggered = useRef(false);
+
+  // Subtle idle breathing pulse
+  const acePulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(acePulse, { toValue: 1.06, duration: 1800, useNativeDriver: true }),
+        Animated.timing(acePulse, { toValue: 1,    duration: 1800, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  // ── Streak milestone banner ───────────────────────────────────
+  const [milestoneBanner, setMilestoneBanner] = useState(null);
+  const bannerAnim      = useRef(new Animated.Value(0)).current;
+  const bannerTimer     = useRef(null);
+  const prevStreakRef   = useRef(streak);
+
+  useEffect(() => {
+    const prev = prevStreakRef.current;
+    prevStreakRef.current = streak;
+    if (streak <= prev || streak === 0) return;
+    const milestone = STREAK_MILESTONES.find((m) => m === streak);
+    if (!milestone) return;
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    setMilestoneBanner(MILESTONE_COPY[milestone]);
+    bannerAnim.setValue(0);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    Animated.spring(bannerAnim, { toValue: 1, speed: 16, bounciness: 10, useNativeDriver: true }).start();
+    bannerTimer.current = setTimeout(() => {
+      Animated.timing(bannerAnim, { toValue: 0, duration: 220, useNativeDriver: true }).start(
+        () => setMilestoneBanner(null)
+      );
+    }, 5000);
+    return () => { if (bannerTimer.current) clearTimeout(bannerTimer.current); };
+  }, [streak]);
+
+  const showPendingPaywall = useCallback(() => {
+    AsyncStorage.getItem("@planora_paywall_pending")
+      .then((flag) => {
+        if (!flag) return;
+        AsyncStorage.removeItem("@planora_paywall_pending").catch(() => {});
+        setTimeout(() => navigation.navigate("Paywall"), 350);
+      })
+      .catch(() => {});
+  }, [navigation]);
 
   useEffect(() => {
     if (walkthroughTriggered.current || profile == null) return;
@@ -337,6 +356,9 @@ const MainTabsWithModal = () => {
         navigation.navigate("Dashboard");
         setShowWalkthrough(true);
       }, 900);
+    } else {
+      // Walkthrough already done — check for a paywall that was deferred from onboarding
+      showPendingPaywall();
     }
   }, [profile]);
 
@@ -345,7 +367,9 @@ const MainTabsWithModal = () => {
     if (!FEATURE_FLAGS.FORCE_WALKTHROUGH && user?.uid) {
       saveUserProfile(user.uid, { walkthroughComplete: true }).catch(() => {});
     }
-  }, [user?.uid]);
+    // Show paywall now that the walkthrough is out of the way
+    showPendingPaywall();
+  }, [user?.uid, showPendingPaywall]);
 
   // Open StudyPlan when user taps a study-plan-reminder notification
   const lastNotifResponse = Notifications.useLastNotificationResponse();
@@ -361,146 +385,163 @@ const MainTabsWithModal = () => {
   }, []);
 
   const handleSave = useCallback(async (taskData) => {
-    if (editingTask) await editTask(editingTask.id, taskData);
+    if (editingTask?.id) await editTask(editingTask.id, taskData);
     else await createTask(taskData);
     invalidateTodayFocusCache();
   }, [editingTask, editTask, createTask]);
 
-  const contextValue = useMemo(() => ({ openAddTask }), [openAddTask]);
+  const openQuickAdd = useCallback(() => openAddTask(null), [openAddTask]);
+  const contextValue = useMemo(() => ({ openAddTask, openQuickAdd }), [openAddTask, openQuickAdd]);
 
-  const insets   = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
   const tabIndex = useNavigationState((s) => s?.routes?.[s.index]?.state?.index ?? 0);
-  const onChatTab = tabIndex === 2; // Chat is index 2: Dashboard(0), Stats(1), Chat(2), Profile(3)
+  const onChatTab = tabIndex === 1; // Dashboard(0), Chat(1), Tasks(2), Calendar(3), Focus(4)
   const { colors } = useTheme();
 
-  const barBottom  = Math.max(insets.bottom, 8) + 62 + 8;
-  const cardBottom = barBottom + 50 + 8;
-
-  const openSuggestions = useCallback(() => {
-    setShowSuggestions(true);
-    Haptics.selectionAsync().catch(() => {});
-    Animated.spring(suggestAnim, { toValue: 1, speed: 22, bounciness: 5, useNativeDriver: true }).start();
-  }, [suggestAnim]);
-
-  const closeSuggestions = useCallback(() => {
-    Animated.timing(suggestAnim, { toValue: 0, duration: 160, useNativeDriver: true }).start(
-      () => setShowSuggestions(false)
-    );
-  }, [suggestAnim]);
-
-  const handleSuggestion = useCallback((text) => {
-    closeSuggestions();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    navigation.navigate("ChatModal", { initialText: text });
-  }, [closeSuggestions, navigation]);
+  const aceBtnBottom = Math.max(insets.bottom, 8) + 62 + 14;
 
   return (
     <WalkthroughProvider>
       <AddTaskContext.Provider value={contextValue}>
+        <View style={{ flex: 1 }}>
         <MainTabsMemo />
+
+        {/* Streak milestone banner — slides in from top */}
+        {milestoneBanner && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              aceStyles.milestoneBanner,
+              {
+                top: insets.top + 10,
+                backgroundColor: colors.accent,
+                shadowColor: colors.accent,
+                opacity: bannerAnim,
+                transform: [{ translateY: bannerAnim.interpolate({ inputRange: [0, 1], outputRange: [-70, 0] }) }],
+              },
+            ]}
+          >
+            <Text style={aceStyles.milestoneEmoji}>{milestoneBanner.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={aceStyles.milestoneTitle}>{milestoneBanner.title}</Text>
+              <Text style={aceStyles.milestoneSub}>{milestoneBanner.sub}</Text>
+            </View>
+          </Animated.View>
+        )}
+
         <TaskModal
           visible={visible}
           task={editingTask}
           onClose={() => setVisible(false)}
           onSave={handleSave}
         />
-        {showWalkthrough && <WalkthroughOverlay onDone={handleWalkthroughDone} />}
 
-        {/* Floating AI bar — hidden on Chat tab */}
+        {/* Floating Planora FAB — hidden on Chat tab */}
         {!onChatTab && (
-          <>
-            {/* Backdrop to dismiss suggestions */}
-              {showSuggestions && (
-                <TouchableOpacity
-                  style={StyleSheet.absoluteFillObject}
-                  activeOpacity={1}
-                  onPress={closeSuggestions}
-                />
-              )}
-
-              {/* Suggestions card */}
-              {showSuggestions && (
-                <Animated.View
-                  style={[
-                    aiBarStyles.suggestCard,
-                    {
-                      bottom: cardBottom,
-                      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
-                      borderColor: colors.isDark ? colors.border : "#E8E8F2",
-                      opacity: suggestAnim,
-                      transform: [{ translateY: suggestAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
-                    },
-                  ]}
-                >
-                  <Text style={[aiBarStyles.suggestHeader, { color: colors.textMuted }]}>QUICK ASKS</Text>
-                  {QUICK_ASKS.map((q, i) => (
-                    <TouchableOpacity
-                      key={q}
-                      style={[
-                        aiBarStyles.suggestItem,
-                        { borderBottomColor: colors.isDark ? colors.border : "#F0F0F8" },
-                        i === QUICK_ASKS.length - 1 && { borderBottomWidth: 0 },
-                      ]}
-                      onPress={() => handleSuggestion(q)}
-                      activeOpacity={0.6}
-                    >
-                      <Text style={[aiBarStyles.suggestText, { color: colors.textPrimary }]}>{q}</Text>
-                      <Feather name="arrow-up-right" size={13} color={colors.textMuted} />
-                    </TouchableOpacity>
-                  ))}
-                </Animated.View>
-              )}
-
-              {/* AI bar */}
-              <View
-                style={[
-                  aiBarStyles.bar,
-                  {
-                    bottom: barBottom,
-                    backgroundColor: colors.isDark ? colors.bgCard : "#fff",
-                    borderColor: colors.isDark ? colors.border : "#E8E8F2",
-                    shadowColor: colors.isDark ? "#000" : "#6B6B8A",
-                  },
-                ]}
-              >
-                <TouchableOpacity
-                  style={aiBarStyles.inputArea}
-                  onPress={() => {
-                    closeSuggestions();
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                    navigation.navigate("ChatModal");
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Image
-                    source={require("../assets/logo.png")}
-                    style={aiBarStyles.barLogo}
-                  />
-                  <Text style={[aiBarStyles.placeholder, { color: colors.textMuted }]}>
-                    Ask your sidekick...
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[aiBarStyles.zapBtn, { backgroundColor: colors.accentGlow }]}
-                  onPress={showSuggestions ? closeSuggestions : openSuggestions}
-                  activeOpacity={0.7}
-                >
-                  <Feather name="help-circle" size={16} color={colors.accent} />
-                </TouchableOpacity>
-              </View>
-          </>
+          <AceFabInner
+            bottom={aceBtnBottom}
+            aceBtnScale={aceBtnScale}
+            acePulse={acePulse}
+            colors={colors}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              setAcePopupVisible(true);
+            }}
+            onPressIn={() => Animated.spring(aceBtnScale, { toValue: 0.88, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
+            onPressOut={() => Animated.spring(aceBtnScale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }).start()}
+          />
         )}
+
+        <AcePopup
+          visible={acePopupVisible}
+          onClose={() => setAcePopupVisible(false)}
+          onOpenFullChat={() => navigation.navigate("Chat")}
+        />
+
+        {showWalkthrough && <WalkthroughOverlay onDone={handleWalkthroughDone} />}
+        </View>
       </AddTaskContext.Provider>
     </WalkthroughProvider>
   );
 };
 
+// ── Branded splash screen ─────────────────────────────────────
+
+const PlanoraSplash = ({ colors }) => {
+  const logoAnim = useRef(new Animated.Value(0)).current;
+  const textAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(logoAnim, { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(textAnim,  { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, speed: 22, bounciness: 4, useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, []);
+
+  return (
+    <View style={[splashStyles.container, { backgroundColor: colors.bg }]}>
+      <View style={[splashStyles.orb1, { backgroundColor: colors.accent + "18" }]} />
+      <View style={[splashStyles.orb2, { backgroundColor: colors.accent + "10" }]} />
+      <Animated.View style={[splashStyles.logoWrap, { opacity: logoAnim, backgroundColor: colors.isDark ? colors.bgCard : "#fff", shadowColor: colors.accent }]}>
+        <Image source={require("../assets/planora-brand.jpg")} style={splashStyles.logo} />
+      </Animated.View>
+      <Animated.View style={{ opacity: textAnim, transform: [{ translateY: slideAnim }], alignItems: "center" }}>
+        <Text style={[splashStyles.wordmark, { color: colors.textPrimary }]}>Planora</Text>
+        <Text style={[splashStyles.tagline, { color: colors.textMuted }]}>Your AI study coach</Text>
+      </Animated.View>
+    </View>
+  );
+};
+
+const splashStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 20,
+  },
+  orb1: {
+    position: "absolute",
+    width: 280, height: 280, borderRadius: 140,
+    top: -60, right: -80,
+  },
+  orb2: {
+    position: "absolute",
+    width: 200, height: 200, borderRadius: 100,
+    bottom: -40, left: -60,
+  },
+  logoWrap: {
+    width: 84, height: 84, borderRadius: 24,
+    alignItems: "center", justifyContent: "center",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  logo: { width: 52, height: 52, borderRadius: 12 },
+  wordmark: { fontSize: 30, fontFamily: "Outfit-ExtraBold", letterSpacing: -0.5, marginTop: 4 },
+  tagline:  { fontSize: 14, fontFamily: "Outfit-Regular", marginTop: 4 },
+});
+
 // ── Root navigator ────────────────────────────────────────────
+
+const SPLASH_MIN_MS = 1400; // always show splash for at least this long
 
 const AppNavigator = () => {
   const { user, loading: authLoading }                                 = useAuth();
   const { profile, hasCompletedOnboarding, firestoreReady, loading: profileLoading } = useUserProfile();
   const { setTheme, colors }                                          = useTheme();
+  const [splashDone, setSplashDone] = useState(false);
+
+  // Minimum splash duration
+  useEffect(() => {
+    const t = setTimeout(() => setSplashDone(true), SPLASH_MIN_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (profile?.colorTheme) {
@@ -522,12 +563,8 @@ const AppNavigator = () => {
   const shouldOnboard = !!user && !loading && firestoreReady &&
     (FEATURE_FLAGS.FORCE_ONBOARDING || profile?.onboardingComplete !== true);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={colors.accent} />
-      </View>
-    );
+  if (loading || !splashDone) {
+    return <PlanoraSplash colors={colors} />;
   }
 
   return (
@@ -573,17 +610,32 @@ const AppNavigator = () => {
             <Stack.Screen
               name="ChatModal"
               component={ChatScreen}
-              options={{ presentation: "modal", headerShown: false }}
+              options={{ presentation: "modal", headerShown: false, gestureEnabled: true, gestureDirection: "vertical" }}
             />
             <Stack.Screen
               name="Paywall"
               component={PaywallScreen}
-              options={{ presentation: "transparentModal", headerShown: false }}
+              options={{ presentation: "transparentModal", headerShown: false, gestureEnabled: false }}
             />
             <Stack.Screen
               name="StudyPlan"
               component={StudyPlanScreen}
-              options={{ presentation: "modal", headerShown: false }}
+              options={{ presentation: "modal", headerShown: false, gestureEnabled: true, gestureDirection: "vertical" }}
+            />
+            <Stack.Screen
+              name="Stats"
+              component={StatsScreen}
+              options={{ presentation: "modal", headerShown: false, gestureEnabled: true, gestureDirection: "vertical" }}
+            />
+            <Stack.Screen
+              name="Tasks"
+              component={TasksScreen}
+              options={{ presentation: "modal", headerShown: false, gestureEnabled: true, gestureDirection: "vertical" }}
+            />
+            <Stack.Screen
+              name="Profile"
+              component={ProfileScreen}
+              options={{ presentation: "modal", headerShown: false, gestureEnabled: true, gestureDirection: "vertical" }}
             />
             <Stack.Screen
               name="SyllabusParser"

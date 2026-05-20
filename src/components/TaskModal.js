@@ -3,16 +3,22 @@
 // Fixed: full theme system (no hardcoded colors), recurrence UI added
 // ============================================================
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Modal, KeyboardAvoidingView, Platform, ScrollView, Linking, Alert, Animated,
+  Modal, Platform, ScrollView, Linking, Alert, Animated,
+  Keyboard, TouchableWithoutFeedback, LayoutAnimation, UIManager, PanResponder,
 } from "react-native";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Feather } from "@expo/vector-icons";
 import { typography, spacing, radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
-import { format } from "date-fns";
+import { format, addDays, startOfDay } from "date-fns";
 import * as Haptics from "expo-haptics";
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
@@ -22,16 +28,31 @@ import { useTasks } from "../hooks/useTasks";
 import { getRecurrenceLabel } from "../services/recurringTasks";
 
 
+const DUE_CHIPS = [
+  { label: "Today",     getValue: () => startOfDay(new Date()) },
+  { label: "Tomorrow",  getValue: () => startOfDay(addDays(new Date(), 1)) },
+  { label: "In 3 days", getValue: () => startOfDay(addDays(new Date(), 3)) },
+  { label: "Next week", getValue: () => startOfDay(addDays(new Date(), 7)) },
+];
+
 const makeStyles = (colors) => StyleSheet.create({
-  backdrop:    { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
+  backdrop:    { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
+  kavContainer: {
+    position: "absolute", left: 0, right: 0, bottom: 0,
+    justifyContent: "flex-end",
+  },
   sheet: {
     backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 20, paddingBottom: 32, maxHeight: "90%",
+    paddingHorizontal: 20, maxHeight: "92%",
+  },
+  handleArea: {
+    alignSelf: "stretch", alignItems: "center",
+    paddingTop: 12, paddingBottom: 8,
   },
   handle: {
     width: 40, height: 4, backgroundColor: colors.isDark ? colors.border : "#D8D8E0",
-    borderRadius: 2, alignSelf: "center", marginTop: 12, marginBottom: 16,
+    borderRadius: 2,
   },
   header: {
     flexDirection: "row", justifyContent: "space-between",
@@ -89,6 +110,15 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.isDark ? colors.border : "#D8D8E0",
   },
   priorityLabel:    { fontSize: 14, color: colors.textMuted, fontFamily: "Outfit-SemiBold" },
+  dueDateChipRow:   { flexDirection: "row", gap: 6, marginBottom: 12, flexWrap: "wrap" },
+  dueDateChip: {
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full,
+    borderWidth: 1, backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7",
+    borderColor: colors.isDark ? colors.border : "#D8D8E0",
+  },
+  dueDateChipActive: { backgroundColor: colors.accentGlow, borderColor: colors.accent },
+  dueDateChipText:   { fontSize: 13, color: colors.textSecondary, fontFamily: "Outfit-SemiBold" },
+  dueDateChipTextActive: { color: colors.accent },
   dateHeaderRow:    { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   dateBadge: {
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
@@ -233,9 +263,59 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
   const { colors }   = useTheme();
   const styles       = makeStyles(colors);
   const PRIORITY_META = priorityMeta(colors);
-  const handleClose = onClose;
+  const insets       = useSafeAreaInsets();
   const { profile, updateProfile } = useUserProfile();
   const { tasks } = useTasks();
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const slideAnim        = useRef(new Animated.Value(600)).current;
+  const fadeAnim         = useRef(new Animated.Value(0)).current;
+  const dismissTriggered = useRef(false);
+
+  useEffect(() => {
+    if (visible) {
+      setModalVisible(true);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (modalVisible && visible) {
+      slideAnim.setValue(600);
+      fadeAnim.setValue(0);
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, speed: 20, bounciness: 4, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [modalVisible, visible]);
+
+  const handleClose = useCallback(() => {
+    dismissTriggered.current = false;
+    Keyboard.dismiss();
+    Animated.parallel([
+      Animated.timing(fadeAnim,  { toValue: 0, duration: 160, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 600, duration: 200, useNativeDriver: true }),
+    ]).start(() => {
+      setModalVisible(false);
+      onClose();
+    });
+  }, [onClose]);
+
+  const handlePan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderMove: (_, g) => { if (g.dy > 0) slideAnim.setValue(g.dy); },
+    onPanResponderRelease: (_, g) => {
+      if (g.dy > 80 || g.vy > 0.5) {
+        handleClose();
+      } else {
+        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, speed: 30, bounciness: 4 }).start();
+      }
+    },
+    onPanResponderTerminate: () => {
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, speed: 30, bounciness: 4 }).start();
+    },
+  })).current;
 
   // Merge profile classes with class names from existing tasks
   // (catches classes imported before the profile-save fix)
@@ -417,12 +497,18 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
       })()
     : "Add time";
 
+  const paddingBottom = Math.max(insets.bottom, 8) + 16;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
+    <Modal visible={modalVisible} animationType="none" transparent statusBarTranslucent onRequestClose={handleClose}>
+      <TouchableWithoutFeedback onPress={handleClose}>
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
+      </TouchableWithoutFeedback>
+      <View style={styles.kavContainer} pointerEvents="box-none">
+        <Animated.View style={[styles.sheet, { paddingBottom, transform: [{ translateY: slideAnim }] }]}>
+          <View style={styles.handleArea} {...handlePan.panHandlers}>
+            <View style={styles.handle} />
+          </View>
           <View style={styles.header}>
             <Text style={styles.headerTitle}>
               {modalStep === "save-class" ? "Save Class" : task ? "Edit Task" : "New Task"}
@@ -443,7 +529,18 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
             </View>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingRight: 8 }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingRight: 8 }}
+            bounces={true}
+            scrollEventThrottle={16}
+            onScrollEndDrag={({ nativeEvent }) => {
+              if (nativeEvent.contentOffset.y < -52 && !dismissTriggered.current) {
+                dismissTriggered.current = true;
+                handleClose();
+              }
+            }}
+          >
             {modalStep === "save-class" ? (
               <>
                 <Text style={[styles.label, { marginBottom: 4, marginTop: 4, fontSize: 13, textTransform: "none", letterSpacing: 0, color: colors.textSecondary }]}>
@@ -509,7 +606,6 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
               placeholderTextColor={colors.textMuted}
               value={title}
               onChangeText={setTitle}
-              autoFocus
             />
 
             {/* Class selector */}
@@ -589,12 +685,27 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
               <View style={styles.dateHeaderRow}>
                 <Text style={styles.label}>DUE DATE</Text>
                 {dueDate && (
-                  <View style={[styles.dateBadge, { backgroundColor: colors.accentGlow, borderColor: colors.accent + "80" }]}>
-                    <Text style={[styles.dateBadgeText, { color: colors.accentLight ?? colors.accent }]}>
-                      {format(dueDate, "MMM d, yyyy")}
-                    </Text>
-                  </View>
+                  <TouchableOpacity onPress={() => { tap(); setDueDate(null); setDueTime(null); }}>
+                    <Text style={{ fontSize: 12, color: colors.high, fontFamily: "Outfit-SemiBold" }}>Clear</Text>
+                  </TouchableOpacity>
                 )}
+              </View>
+              <View style={styles.dueDateChipRow}>
+                {DUE_CHIPS.map((chip) => {
+                  const chipVal = chip.getValue();
+                  const isActive = dueDate && chipVal && dueDate.toDateString() === chipVal.toDateString();
+                  return (
+                    <TouchableOpacity
+                      key={chip.label}
+                      onPress={() => { tap(); setDueDate(chipVal); }}
+                      style={[styles.dueDateChip, isActive && styles.dueDateChipActive]}
+                    >
+                      <Text style={[styles.dueDateChipText, isActive && styles.dueDateChipTextActive]}>
+                        {chip.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
               <DatePicker value={dueDate} onChange={setDueDate} onClear={() => { setDueDate(null); setDueTime(null); }} />
             </View>
@@ -779,10 +890,9 @@ const TaskModal = ({ visible, task, onClose, onSave }) => {
             </>
             )}
           </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+        </Animated.View>
+      </View>
     </Modal>
-
   );
 };
 

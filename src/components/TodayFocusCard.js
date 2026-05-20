@@ -12,7 +12,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import {
-  View, Text, StyleSheet, ActivityIndicator, Animated, TouchableOpacity,
+  View, Text, StyleSheet, ActivityIndicator, Animated, TouchableOpacity, Image,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { spacing, radius, priorityColors } from "../utils/theme";
@@ -25,21 +25,30 @@ const formatDueDate = (dueDate, dueTime) => {
   const d = dueDate instanceof Date ? dueDate : new Date(dueDate);
   if (isNaN(d)) return null;
 
-  const daysOut = differenceInCalendarDays(d, new Date());
-  let datePart;
-  if (isToday(d))         datePart = "Today";
-  else if (isTomorrow(d)) datePart = "Tomorrow";
-  else if (daysOut < 0)   return `${Math.abs(daysOut)}d overdue`;
-  else                    datePart = `${d.getMonth() + 1}/${d.getDate()}`;
+  const now = new Date();
+  const daysOut = differenceInCalendarDays(d, now);
 
   if (Array.isArray(dueTime) && dueTime.length === 2) {
     const [h, m] = dueTime;
     const suffix  = h >= 12 ? "PM" : "AM";
     const display = h % 12 === 0 ? 12 : h % 12;
     const mins    = String(m).padStart(2, "0");
-    return `${datePart} ${display}:${mins} ${suffix}`;
+    const timeStr = `${display}:${mins} ${suffix}`;
+
+    // Build exact datetime to check if time has passed
+    const exact = new Date(d);
+    exact.setHours(h, m, 0, 0);
+    if (exact < now) return `Overdue · ${timeStr}`;
+
+    if (isToday(d))         return `Today ${timeStr}`;
+    if (isTomorrow(d))      return `Tomorrow ${timeStr}`;
+    return `${d.getMonth() + 1}/${d.getDate()} ${timeStr}`;
   }
-  return datePart;
+
+  if (daysOut < 0)   return `${Math.abs(daysOut)}d overdue`;
+  if (isToday(d))    return "Today";
+  if (isTomorrow(d)) return "Tomorrow";
+  return `${d.getMonth() + 1}/${d.getDate()}`;
 };
 
 const cleanText = (str) => {
@@ -73,32 +82,38 @@ const FocusTaskRow = ({ task, idx, isLast, onPress, styles, colors, PRIORITY_COL
   const priority  = task.aiPriority ?? task.priority;
   const chipColor = PRIORITY_COLORS[priority];
   const title     = cleanText(task.title) || task.title;
+  const dueLabel  = task.dueDate ? formatDueDate(task.dueDate, task.dueTime) : null;
+  const isOverdue = dueLabel?.includes("overdue") || dueLabel?.includes("Overdue");
 
   return (
     <Animated.View style={{ opacity, transform: [{ translateY }, { scale: rowScale }] }}>
       <TouchableOpacity
-        style={[styles.taskRow, isLast && styles.taskRowLast]}
+        style={[
+          styles.taskRow,
+          isLast && styles.taskRowLast,
+          isOverdue && styles.taskRowOverdue,
+        ]}
         onPress={() => onPress?.(task.id)}
         onPressIn={onRowIn}
         onPressOut={onRowOut}
         activeOpacity={1}
       >
-        <View style={[styles.taskDot, chipColor && { backgroundColor: chipColor }]} />
+        <View style={[styles.taskDot, isOverdue ? styles.taskDotOverdue : chipColor && { backgroundColor: chipColor }]} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.taskTitle} numberOfLines={2}>{title}</Text>
+          <Text style={[styles.taskTitle, isOverdue && styles.taskTitleOverdue]} numberOfLines={2}>{title}</Text>
           {(task.className || task.dueDate) ? (
             <View style={styles.taskMeta}>
               {task.className ? <Text style={styles.taskClass}>{task.className}</Text> : null}
               {task.className && task.dueDate ? <Text style={styles.taskDot2}>·</Text> : null}
-              {task.dueDate ? (() => {
-                const label    = formatDueDate(task.dueDate, task.dueTime);
-                const isOverdue = label?.includes("overdue");
-                return <Text style={isOverdue ? styles.taskDueOverdue : styles.taskDue}>{label}</Text>;
-              })() : null}
+              {dueLabel ? <Text style={isOverdue ? styles.taskDueOverdue : styles.taskDue}>{dueLabel}</Text> : null}
             </View>
           ) : null}
         </View>
-        {chipColor ? (
+        {isOverdue ? (
+          <View style={styles.overdueChip}>
+            <Text style={styles.overdueChipText}>Overdue</Text>
+          </View>
+        ) : chipColor ? (
           <View style={[styles.taskChip, { borderColor: chipColor + "66", backgroundColor: chipColor + "18" }]}>
             <Text style={[styles.taskChipText, { color: chipColor }]}>{priority}</Text>
           </View>
@@ -114,7 +129,7 @@ const makeStyles = (colors) => StyleSheet.create({
     borderColor: colors.isDark ? colors.border : "transparent",
     borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
     borderLeftWidth: 5, borderLeftColor: colors.accent,
-    marginBottom: spacing.md, overflow: "visible",
+    overflow: "visible",
     ...(colors.isDark
       ? {}
       : {
@@ -126,12 +141,13 @@ const makeStyles = (colors) => StyleSheet.create({
         }),
   },
   header: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: 6,
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: spacing.md, paddingTop: 14, paddingBottom: 8,
   },
+  aceLogo: { width: 48, height: 48, flexShrink: 0 },
   headerLabel: {
-    fontSize: 10, fontFamily: "Outfit-ExtraBold", color: colors.accent,
-    textTransform: "uppercase", letterSpacing: 1, flex: 1,
+    fontSize: 11, fontFamily: "Outfit-ExtraBold", color: colors.accent,
+    textTransform: "uppercase", letterSpacing: 1.1, flex: 1,
   },
   taskRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
@@ -139,8 +155,19 @@ const makeStyles = (colors) => StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.isDark ? colors.border : "#F0F0F5",
   },
   taskRowLast: { borderBottomWidth: 0 },
-  taskDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
-  taskTitle: { flex: 1, fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, lineHeight: 19 },
+  taskRowOverdue: {
+    backgroundColor: colors.isDark ? "rgba(255,60,60,0.08)" : "rgba(220,38,38,0.05)",
+  },
+  taskDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
+  taskDotOverdue: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.isDark ? "#FF5C5C" : "#DC2626" },
+  taskTitle:        { flex: 1, fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, lineHeight: 19 },
+  taskTitleOverdue: { flex: 1, fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.isDark ? "#FF8080" : "#DC2626", lineHeight: 19 },
+  overdueChip: {
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6,
+    backgroundColor: colors.isDark ? "rgba(255,60,60,0.20)" : "rgba(220,38,38,0.10)",
+    borderWidth: 1, borderColor: colors.isDark ? "#FF5C5C55" : "#DC262655",
+  },
+  overdueChipText: { fontSize: 10, fontFamily: "Outfit-Bold", color: colors.isDark ? "#FF6B6B" : "#DC2626" },
   taskMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 },
   taskClass: { fontSize: 11, color: colors.textMuted },
   taskDot2: { fontSize: 11, color: colors.textMuted },
@@ -246,7 +273,7 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
       <View style={styles.card}>
         <View style={styles.shimmer}>
           <ActivityIndicator size={14} color={colors.accent} />
-          <Text style={styles.shimmerText}>Finding your focus for today...</Text>
+          <Text style={styles.shimmerText}>Ace is reading your week...</Text>
         </View>
       </View>
     );
@@ -282,7 +309,7 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
   return (
     <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.header}>
-        <Feather name="zap" size={13} color={colors.accent} />
+        <Image source={require("../assets/logo.png")} style={styles.aceLogo} resizeMode="contain" />
         <Text style={styles.headerLabel}>Focus today</Text>
         <TouchableOpacity onPress={retry} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Feather name="refresh-cw" size={13} color={colors.textMuted} />

@@ -1,21 +1,12 @@
 // ============================================================
 // src/screens/ProfileScreen.js
 // ============================================================
-import * as Notifications from 'expo-notifications';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, Alert, TextInput, Modal,
-  FlatList, KeyboardAvoidingView, Platform,
+  FlatList, KeyboardAvoidingView, Platform, Linking,
+  Animated, PanResponder,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -26,20 +17,33 @@ import { typography, spacing, radius, shadows, COLOR_THEMES } from "../utils/the
 import { generateTerms, WORK_TIMES, GRADES, CREDIT_OPTS } from "../utils/termHelpers";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile, deleteUserAccount, deleteAllUserTasks, clearIncompleteTasksForSemester } from "../services/firebase";
-import { testAllNotifications, testBatchNotifications, testStudyPlanNotification } from "../services/notifications";
 import { useTasks } from "../hooks/useTasks";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+const DAYS_SHORT = ["M", "Tu", "W", "Th", "F", "Sa", "Su"];
+
+const parseTimeStr = (str) => {
+  if (!str) { const d = new Date(); d.setHours(9, 0, 0, 0); return d; }
+  const m = str.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+  if (!m) { const d = new Date(); d.setHours(9, 0, 0, 0); return d; }
+  let h = parseInt(m[1]), mn = parseInt(m[2]);
+  if (m[3].toUpperCase() === "PM" && h !== 12) h += 12;
+  if (m[3].toUpperCase() === "AM" && h === 12) h = 0;
+  const d = new Date(); d.setHours(h, mn, 0, 0); return d;
+};
+
+const formatTimeDate = (date) => {
+  if (!date) return "";
+  let h = date.getHours(), mn = date.getMinutes();
+  const period = h >= 12 ? "PM" : "AM";
+  if (h > 12) h -= 12;
+  if (h === 0) h = 12;
+  return `${h}:${String(mn).padStart(2, "0")} ${period}`;
+};
 
 // ── Styles ────────────────────────────────────────────────────
 const makeStyles = (colors) => StyleSheet.create({
@@ -184,6 +188,51 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   gradeChipText: { fontSize: 11, fontFamily: "Outfit-Bold" },
 
+  // ── Class schedule display ──
+  scheduleRow: { flexDirection: "row", alignItems: "center", overflow: "hidden" },
+  scheduleStrip: { width: 4, alignSelf: "stretch", minHeight: 52 },
+  scheduleRowInfo: { flex: 1, paddingHorizontal: spacing.md, paddingVertical: 12 },
+  scheduleName: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
+  scheduleMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+
+  // ── Schedule editor ──
+  scheduleEditorCard: {
+    backgroundColor: colors.bg, borderRadius: radius.md, borderWidth: 1,
+    borderColor: colors.border, padding: spacing.md, marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm, gap: 4,
+  },
+  scheduleEditorHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  scheduleEditorLabel: { fontSize: 10, fontFamily: "Outfit-ExtraBold", color: colors.textMuted, letterSpacing: 0.8 },
+  scheduleNameInput: {
+    backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 9,
+    color: colors.textPrimary, fontSize: 15, marginTop: 6,
+  },
+  scheduleChip: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgCard,
+  },
+  scheduleChipSelected: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
+  scheduleChipText: { fontSize: 12, fontFamily: "Outfit-Medium", color: colors.textSecondary },
+  scheduleChipTextSel: { color: colors.accent, fontFamily: "Outfit-SemiBold" },
+  scheduleDayRow: { flexDirection: "row", gap: 6, marginTop: 6 },
+  scheduleDayChip: {
+    width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgCard,
+  },
+  scheduleDayChipActive: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
+  scheduleDayText: { fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
+  scheduleDayTextActive: { color: colors.accent },
+  timeRow: { flexDirection: "row", gap: 8, marginTop: 14, alignItems: "flex-end" },
+  timeBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6,
+    backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10,
+  },
+  timeBtnActive: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
+  timeBtnText: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textSecondary },
+  iosPicker: { height: 120, marginTop: 4 },
+
   version: { textAlign: "center", fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
 
   // ── Modal shared ──
@@ -195,9 +244,13 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.bgCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     paddingBottom: 36,
   },
+  sheetHandleArea: {
+    alignSelf: "stretch", alignItems: "center",
+    paddingTop: 12, paddingBottom: 8,
+  },
   sheetHandle: {
     width: 36, height: 4, borderRadius: 2,
-    backgroundColor: colors.border, alignSelf: "center", marginTop: 10, marginBottom: 4,
+    backgroundColor: colors.border,
   },
   sheetHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
@@ -298,9 +351,45 @@ const ProfileScreen = ({ navigation }) => {
   const [nameInput, setNameInput]                 = useState("");
 
   // Modal state
-  const [modal, setModal] = useState(null); // "semester" | "worktime" | "classes"
+  const [modal, setModal] = useState(null); // "semester" | "worktime" | "classes" | "schedule"
   // Classes editor local state
   const [editClasses, setEditClasses] = useState([]);
+  // Schedule editor local state
+  const [editSchedule, setEditSchedule] = useState([]);
+  // { id, field: "startTime"|"endTime" } — which picker is open
+  const [timePicking, setTimePicking] = useState(null);
+
+  // ── Sheet animation (shared across all modals) ─────────────
+  const sheetAnim = useRef(new Animated.Value(400)).current;
+
+  const openModal = (name) => {
+    sheetAnim.setValue(400);
+    setModal(name);
+    Animated.spring(sheetAnim, { toValue: 0, speed: 18, bounciness: 3, useNativeDriver: true }).start();
+  };
+
+  const closeModal = () => {
+    Animated.timing(sheetAnim, { toValue: 400, duration: 220, useNativeDriver: true })
+      .start(() => setModal(null));
+  };
+
+  const sheetPan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderMove: (_, g) => {
+      if (g.dy > 0) sheetAnim.setValue(g.dy);
+    },
+    onPanResponderRelease: (_, g) => {
+      if (g.dy > 80 || g.vy > 0.5) {
+        closeModal();
+      } else {
+        Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true, speed: 30, bounciness: 4 }).start();
+      }
+    },
+    onPanResponderTerminate: () => {
+      Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true, speed: 30, bounciness: 4 }).start();
+    },
+  })).current;
 
   useEffect(() => {
     setNameInput(profile?.name ?? "");
@@ -369,14 +458,14 @@ const ProfileScreen = ({ navigation }) => {
   };
 
 // ── Term picker ──
-  const openSemester = () => setModal("semester");
+  const openSemester = () => openModal("semester");
   const pickSystem = async (sys) => {
     await saveUserProfile(user.uid, { schoolSystem: sys, semester: null });
   };
   const pickSemester = async (s) => {
     const isNewTerm = profile?.semester && profile.semester !== s;
     if (isNewTerm) {
-      setModal(null);
+      closeModal();
       Alert.alert(
         "New Semester",
         `Switch to ${s}?\n\nWould you also like to clear all current tasks? This can't be undone.`,
@@ -398,15 +487,15 @@ const ProfileScreen = ({ navigation }) => {
       );
     } else {
       await saveUserProfile(user.uid, { semester: s });
-      setModal(null);
+      closeModal();
     }
   };
 
   // ── Work time picker ──
-  const openWorkTime = () => setModal("worktime");
+  const openWorkTime = () => openModal("worktime");
   const pickWorkTime = async (t) => {
     await saveUserProfile(user.uid, { preferredWorkTime: t });
-    setModal(null);
+    closeModal();
   };
 
   // ── Classes editor ──
@@ -416,7 +505,7 @@ const ProfileScreen = ({ navigation }) => {
       existing.push({ id: Date.now().toString(), name: "", creditHours: "3", grade: "No grade yet" });
     }
     setEditClasses(existing);
-    setModal("classes");
+    openModal("classes");
   };
 
   const addClassRow = () => {
@@ -443,47 +532,45 @@ const ProfileScreen = ({ navigation }) => {
       return true;
     });
     await saveUserProfile(user.uid, { classes: valid });
-    setModal(null);
+    closeModal();
   };
 
-  // const triggerLocalTest = async () => {
-  //   console.log("🔔 [Step 1]: Button Pressed");
-  
-  //   try {
-  //     // Check Permissions
-  //     const { status } = await Notifications.requestPermissionsAsync();
-  //     console.log("🔔 [Step 2]: Permission Status:", status);
-  
-  //     if (status !== 'granted') {
-  //       console.log("❌ [Error]: Permission not granted!");
-  //       alert("Go to iPhone Settings > Planora > Notifications and Allow them!");
-  //       return;
-  //     }
-  
-  //     // Attempt to schedule
-  //     console.log("🔔 [Step 3]: Attempting to schedule...");
-  //     const id = await Notifications.scheduleNotificationAsync({
-  //       content: {
-  //         title: "Planora Scholar 🎓",
-  //         body: "Check your syllabus! New tasks detected.",
-  //         sound: true,
-  //       },
-  //       // CHANGED THIS:
-  //       trigger: { 
-  //         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, // Explicitly set the type
-  //         seconds: 2, 
-  //         repeats: false 
-  //       },
-  //     });
-  
-  //     console.log("✅ [Success]: Scheduled with ID:", id);
-  //     alert("Check your lock screen in 2 seconds!");
-  
-  //   } catch (error) {
-  //     console.log("❌ [Native Error]:", error);
-  //     alert("Internal Error: " + error.message);
-  //   }
-  // };
+  // ── Class schedule editor ──
+  const openSchedule = () => {
+    const existing = (profile?.classSchedule ?? []).map((e) => ({ ...e }));
+    if (existing.length === 0) {
+      existing.push({ id: Date.now().toString(), className: profile?.classes?.[0]?.name ?? "", days: [], startTime: "", endTime: "" });
+    }
+    setEditSchedule(existing);
+    setTimePicking(null);
+    openModal("schedule");
+  };
+
+  const addScheduleEntry = () => {
+    setEditSchedule((prev) => [
+      ...prev,
+      { id: Date.now().toString(), className: profile?.classes?.[0]?.name ?? "", days: [], startTime: "", endTime: "" },
+    ]);
+  };
+
+  const updateScheduleEntry = (id, field, value) =>
+    setEditSchedule((prev) => prev.map((e) => e.id === id ? { ...e, [field]: value } : e));
+
+  const toggleScheduleDay = (id, day) =>
+    setEditSchedule((prev) => prev.map((e) => {
+      if (e.id !== id) return e;
+      const days = e.days.includes(day) ? e.days.filter((d) => d !== day) : [...e.days, day];
+      return { ...e, days };
+    }));
+
+  const removeScheduleEntry = (id) =>
+    setEditSchedule((prev) => prev.filter((e) => e.id !== id));
+
+  const saveSchedule = async () => {
+    const valid = editSchedule.filter((e) => e.className.trim() && e.days.length > 0 && e.startTime);
+    await saveUserProfile(user.uid, { classSchedule: valid });
+    closeModal();
+  };
 
   // ── Shared components ──
   const SectionHeader = ({ title }) =>
@@ -626,6 +713,8 @@ const ProfileScreen = ({ navigation }) => {
           <View style={styles.divider} />
           <Row icon="layers" label="Classes"        value={profile?.classes?.length ? `${profile.classes.length} classes` : "Not set"} onPress={openClasses} />
           <View style={styles.divider} />
+          <Row icon="clock"  label="Class Schedule" value={profile?.classSchedule?.length ? `${profile.classSchedule.length} ${profile.classSchedule.length === 1 ? "class" : "classes"}` : "Not set"} onPress={openSchedule} />
+          <View style={styles.divider} />
           <Row icon="sun"    label="Best work time" value={profile?.preferredWorkTime ?? "Not set"}  onPress={openWorkTime} />
         </View>
 
@@ -662,10 +751,65 @@ const ProfileScreen = ({ navigation }) => {
           </>
         )}
 
+        {/* Class Schedule summary */}
+        {profile?.classSchedule?.length > 0 && (
+          <>
+            <SectionHeader title="Class Schedule" />
+            <View style={styles.card}>
+              {profile.classSchedule.map((entry, i) => (
+                <View key={entry.id ?? i}>
+                  {i > 0 && <View style={styles.divider} />}
+                  <View style={styles.scheduleRow}>
+                    <View style={[styles.scheduleStrip, { backgroundColor: colors.accent }]} />
+                    <View style={styles.scheduleRowInfo}>
+                      <Text style={styles.scheduleName}>{entry.className}</Text>
+                      <Text style={styles.scheduleMeta}>
+                        {entry.days.join(" · ")}{entry.startTime ? `  ·  ${entry.startTime}${entry.endTime ? ` – ${entry.endTime}` : ""}` : ""}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        {/* Progress */}
+        <SectionHeader title="Progress" />
+        <View style={styles.card}>
+          <Row
+            icon="bar-chart-2"
+            label="View Progress"
+            onPress={() => { tap(); navigation.navigate("Stats"); }}
+          />
+        </View>
+
         {/* Account */}
         <SectionHeader title="Account" />
         <View style={styles.card}>
           <Row icon="mail" label="Email" value={user?.email} />
+        </View>
+
+        <SectionHeader title="Support" />
+        <View style={styles.card}>
+          <Row
+            icon="mail"
+            label="Contact Support"
+            value="hello@planoraapp.net"
+            onPress={() => Linking.openURL("mailto:hello@planoraapp.net").catch(() => {})}
+          />
+          <View style={styles.divider} />
+          <Row
+            icon="shield"
+            label="Privacy Policy"
+            onPress={() => Linking.openURL("https://planoraapp.net/privacy").catch(() => {})}
+          />
+          <View style={styles.divider} />
+          <Row
+            icon="file-text"
+            label="Terms of Service"
+            onPress={() => Linking.openURL("https://planoraapp.net/terms").catch(() => {})}
+          />
         </View>
 
         <SectionHeader title="" />
@@ -710,13 +854,13 @@ const ProfileScreen = ({ navigation }) => {
       </ScrollView>
 
       {/* ── Term picker modal ── */}
-      <Modal visible={modal === "semester"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { tap(); setModal(null); }}>
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
+      <Modal visible={modal === "semester"} transparent animationType="none" onRequestClose={closeModal}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { tap(); closeModal(); }}>
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetAnim }] }]}>
+            <View style={styles.sheetHandleArea} {...sheetPan.panHandlers}><View style={styles.sheetHandle} /></View>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Select Term</Text>
-              <TouchableOpacity onPress={() => { tap(); setModal(null); }}>
+              <TouchableOpacity onPress={() => { tap(); closeModal(); }}>
                 <Feather name="x" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -745,18 +889,18 @@ const ProfileScreen = ({ navigation }) => {
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </Animated.View>
         </TouchableOpacity>
       </Modal>
 
       {/* ── Work time picker modal ── */}
-      <Modal visible={modal === "worktime"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { tap(); setModal(null); }}>
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
+      <Modal visible={modal === "worktime"} transparent animationType="none" onRequestClose={closeModal}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { tap(); closeModal(); }}>
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetAnim }] }]}>
+            <View style={styles.sheetHandleArea} {...sheetPan.panHandlers}><View style={styles.sheetHandle} /></View>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Best Work Time</Text>
-              <TouchableOpacity onPress={() => { tap(); setModal(null); }}>
+              <TouchableOpacity onPress={() => { tap(); closeModal(); }}>
                 <Feather name="x" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -780,15 +924,16 @@ const ProfileScreen = ({ navigation }) => {
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </Animated.View>
         </TouchableOpacity>
       </Modal>
 
       {/* ── Classes editor modal ── */}
-      <Modal visible={modal === "classes"} transparent animationType="slide" onRequestClose={() => setModal(null)}>
+      <Modal visible={modal === "classes"} transparent animationType="none" onRequestClose={closeModal}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-          <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModal(null)}>
-            <View style={[styles.sheet, { maxHeight: "85%" }]}>
+          <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={closeModal}>
+            <Animated.View style={[styles.sheet, { maxHeight: "85%", transform: [{ translateY: sheetAnim }] }]}>
+              <View style={styles.sheetHandleArea} {...sheetPan.panHandlers}><View style={styles.sheetHandle} /></View>
               <View style={styles.sheetHeader}>
                 <Text style={styles.sheetTitle}>Edit Classes</Text>
                 <TouchableOpacity style={styles.sheetDone} onPress={() => { tap(); saveClasses(); }}>
@@ -796,7 +941,15 @@ const ProfileScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView keyboardShouldPersistTaps="handled" style={{ paddingTop: spacing.sm }}>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                style={{ paddingTop: spacing.sm }}
+                bounces={true}
+                scrollEventThrottle={16}
+                onScrollEndDrag={({ nativeEvent }) => {
+                  if (nativeEvent.contentOffset.y < -52) closeModal();
+                }}
+              >
                 {editClasses.map((cls) => (
                   <View key={cls.id} style={styles.classEditorRow}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -852,7 +1005,172 @@ const ProfileScreen = ({ navigation }) => {
 
                 <View style={{ height: 24 }} />
               </ScrollView>
-            </View>
+            </Animated.View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Class Schedule editor modal ── */}
+      <Modal visible={modal === "schedule"} transparent animationType="none" onRequestClose={closeModal}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={closeModal}>
+            <Animated.View style={[styles.sheet, { maxHeight: "90%", transform: [{ translateY: sheetAnim }] }]}>
+              <View style={styles.sheetHandleArea} {...sheetPan.panHandlers}><View style={styles.sheetHandle} /></View>
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>Class Schedule</Text>
+                <TouchableOpacity style={styles.sheetDone} onPress={() => { tap(); saveSchedule(); }}>
+                  <Text style={styles.sheetDoneText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                style={{ paddingTop: spacing.sm }}
+                bounces={true}
+                scrollEventThrottle={16}
+                onScrollEndDrag={({ nativeEvent }) => {
+                  if (nativeEvent.contentOffset.y < -52) closeModal();
+                }}
+              >
+                {editSchedule.map((entry) => {
+                  const classNames = (profile?.classes ?? []).map((c) => c.name).filter(Boolean);
+                  return (
+                    <View key={entry.id} style={styles.scheduleEditorCard}>
+                      {/* Header row with delete */}
+                      <View style={styles.scheduleEditorHeader}>
+                        <Text style={styles.scheduleEditorLabel}>CLASS NAME</Text>
+                        <TouchableOpacity onPress={() => { tap(); removeScheduleEntry(entry.id); }} style={{ padding: 4 }}>
+                          <Feather name="trash-2" size={15} color={colors.high} />
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Class name input */}
+                      <TextInput
+                        style={styles.scheduleNameInput}
+                        placeholder="e.g. MATH 201"
+                        placeholderTextColor={colors.textMuted}
+                        value={entry.className}
+                        onChangeText={(v) => updateScheduleEntry(entry.id, "className", v)}
+                      />
+
+                      {/* Quick-fill chips from existing classes */}
+                      {classNames.length > 0 && (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                          <View style={{ flexDirection: "row", gap: 6, paddingBottom: 2 }}>
+                            {classNames.map((cn) => (
+                              <TouchableOpacity
+                                key={cn}
+                                style={[styles.scheduleChip, entry.className === cn && styles.scheduleChipSelected]}
+                                onPress={() => { tap(); updateScheduleEntry(entry.id, "className", cn); }}
+                              >
+                                <Text style={[styles.scheduleChipText, entry.className === cn && styles.scheduleChipTextSel]}>{cn}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </ScrollView>
+                      )}
+
+                      {/* Days */}
+                      <Text style={[styles.scheduleEditorLabel, { marginTop: 14 }]}>DAYS</Text>
+                      <View style={styles.scheduleDayRow}>
+                        {DAYS_SHORT.map((day) => {
+                          const active = entry.days.includes(day);
+                          return (
+                            <TouchableOpacity
+                              key={day}
+                              style={[styles.scheduleDayChip, active && styles.scheduleDayChipActive]}
+                              onPress={() => { tap(); toggleScheduleDay(entry.id, day); }}
+                            >
+                              <Text style={[styles.scheduleDayText, active && styles.scheduleDayTextActive]}>{day}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+
+                      {/* Start / End time */}
+                      <View style={styles.timeRow}>
+                        {/* Start */}
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.scheduleEditorLabel}>START TIME</Text>
+                          <TouchableOpacity
+                            style={[
+                              styles.timeBtn,
+                              timePicking?.id === entry.id && timePicking?.field === "startTime" && styles.timeBtnActive,
+                            ]}
+                            onPress={() => {
+                              tap();
+                              setTimePicking(
+                                timePicking?.id === entry.id && timePicking?.field === "startTime"
+                                  ? null
+                                  : { id: entry.id, field: "startTime" }
+                              );
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Feather name="clock" size={13} color={timePicking?.id === entry.id && timePicking?.field === "startTime" ? colors.accent : colors.textMuted} />
+                            <Text style={[styles.timeBtnText, timePicking?.id === entry.id && timePicking?.field === "startTime" && { color: colors.accent }]}>
+                              {entry.startTime || "Set time"}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        <Text style={[styles.scheduleEditorLabel, { alignSelf: "flex-end", marginBottom: 12, paddingHorizontal: 4 }]}>–</Text>
+
+                        {/* End */}
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.scheduleEditorLabel}>END TIME</Text>
+                          <TouchableOpacity
+                            style={[
+                              styles.timeBtn,
+                              timePicking?.id === entry.id && timePicking?.field === "endTime" && styles.timeBtnActive,
+                            ]}
+                            onPress={() => {
+                              tap();
+                              setTimePicking(
+                                timePicking?.id === entry.id && timePicking?.field === "endTime"
+                                  ? null
+                                  : { id: entry.id, field: "endTime" }
+                              );
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Feather name="clock" size={13} color={timePicking?.id === entry.id && timePicking?.field === "endTime" ? colors.accent : colors.textMuted} />
+                            <Text style={[styles.timeBtnText, timePicking?.id === entry.id && timePicking?.field === "endTime" && { color: colors.accent }]}>
+                              {entry.endTime || "Set time"}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {/* Inline wheel picker (iOS) / fires Android dialog */}
+                      {timePicking?.id === entry.id && (
+                        <DateTimePicker
+                          value={parseTimeStr(timePicking.field === "startTime" ? entry.startTime : entry.endTime)}
+                          mode="time"
+                          display={Platform.OS === "ios" ? "spinner" : "default"}
+                          themeVariant={colors.isDark ? "dark" : "light"}
+                          onChange={(_, date) => {
+                            if (!date) { if (Platform.OS === "android") setTimePicking(null); return; }
+                            const formatted = formatTimeDate(date);
+                            updateScheduleEntry(entry.id, timePicking.field, formatted);
+                            if (Platform.OS === "android") setTimePicking(null);
+                          }}
+                          style={Platform.OS === "ios" ? styles.iosPicker : undefined}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
+
+                <TouchableOpacity style={styles.addClassBtn} onPress={() => { tap(); addScheduleEntry(); }}>
+                  <Feather name="plus-circle" size={16} color={colors.accent} />
+                  <Text style={styles.addClassText}>Add another class time</Text>
+                </TouchableOpacity>
+
+                <View style={{ height: 32 }} />
+              </ScrollView>
+            </Animated.View>
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>

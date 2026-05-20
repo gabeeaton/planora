@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Animated, Alert, DeviceEventEmitter,
@@ -13,6 +13,7 @@ import { useTasks } from "../hooks/useTasks";
 import { useSubscription } from "../hooks/useSubscription";
 import { scheduleStudyPlanReminders, cancelStudyPlanReminders } from "../services/notifications";
 import { generateStudyPlan } from "../services/openai";
+import { useCalendarEvents } from "../hooks/useCalendarEvents";
 import { FEATURE_FLAGS } from "../config";
 import { spacing, radius } from "../utils/theme";
 import { addDays, format, startOfToday, isSameDay } from "date-fns";
@@ -48,8 +49,20 @@ const colorForClass = (name) => {
   return CLASS_COLORS[Math.abs(hash) % CLASS_COLORS.length];
 };
 
-const MAX_HOURS = 6;
 const PLAN_CACHE_KEY = "@planora_study_plan_cache";
+
+const TIME_PRESETS = [
+  { label: "Off", value: 0 },
+  { label: "30m", value: 0.5 },
+  { label: "1h",  value: 1 },
+  { label: "2h",  value: 2 },
+  { label: "3h",  value: 3 },
+  { label: "4h",  value: 4 },
+  { label: "5h",  value: 5 },
+  { label: "6h",  value: 6 },
+  { label: "7h",  value: 7 },
+  { label: "8h",  value: 8 },
+];
 
 const makeStyles = (colors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
@@ -64,36 +77,52 @@ const makeStyles = (colors) => StyleSheet.create({
   // Availability picker
   pickerHint: {
     fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary,
-    paddingHorizontal: spacing.lg, paddingTop: 20, paddingBottom: 16, lineHeight: 20,
+    paddingHorizontal: spacing.lg, paddingTop: 20, paddingBottom: 12, lineHeight: 20,
   },
-  dayGrid: {
-    flexDirection: "row", flexWrap: "wrap",
-    paddingHorizontal: spacing.lg, gap: 10,
-  },
-  dayCard: {
-    width: "47.5%",
-    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+  availList: { paddingHorizontal: spacing.lg, gap: 8 },
+  availRow: {
     backgroundColor: colors.isDark ? colors.bgCard : "#fff",
-    paddingTop: 14, paddingBottom: 10, paddingHorizontal: 14,
-    alignItems: "center",
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+    paddingTop: 12, paddingBottom: 10, paddingLeft: 14, paddingRight: 0,
+    ...(colors.isDark ? {} : {
+      shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    }),
   },
-  dayCardOff: {
-    backgroundColor: colors.isDark ? colors.bg : "#FAFAFA",
-    borderColor: colors.isDark ? colors.border : "#E8E8EE",
-  },
-  dayCardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: 10 },
-  dayCardName: { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.textPrimary },
-  dayCardDate: { fontSize: 11, fontFamily: "Outfit-Regular", color: colors.textMuted, marginTop: 1 },
-  dayCardHours: { fontSize: 38, fontFamily: "Outfit-Bold", color: colors.accent, lineHeight: 44, marginBottom: 10 },
-  dayCardOff_: { color: colors.textMuted, fontSize: 26 },
-  dayCardBtns: { flexDirection: "row", gap: 8, width: "100%" },
-  dayCardBtn: {
-    flex: 1, paddingVertical: 7, borderRadius: 8,
+  availRowTop: { flexDirection: "row", alignItems: "center" },
+  availDayInfo: { width: 72 },
+  availDayName: { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.textPrimary },
+  availDayDate: { fontSize: 11, fontFamily: "Outfit-Regular", color: colors.textMuted, marginTop: 1 },
+  availChipScroll: { flex: 1 },
+  availChipRow: { flexDirection: "row", gap: 6, paddingHorizontal: 10, paddingRight: 14 },
+  availChip: {
+    paddingHorizontal: 11, paddingVertical: 6, borderRadius: 8,
     borderWidth: 1, borderColor: colors.border,
-    alignItems: "center", justifyContent: "center",
     backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7",
   },
-  dayCardBtnDisabled: { opacity: 0.3 },
+  availChipSelected: {
+    borderColor: colors.accent, backgroundColor: colors.accentGlow,
+  },
+  availChipText: { fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.textSecondary },
+  availChipTextSelected: { color: colors.accent },
+
+  // Schedule pills shown under each day
+  availScheduleRow: {
+    flexDirection: "row", flexWrap: "wrap", gap: 5,
+    paddingHorizontal: 14, paddingRight: 14, marginTop: 8,
+  },
+  availSchedulePill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: colors.isDark ? colors.bgInput : "#F2F2F8",
+    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+  },
+  availSchedulePillClass: {
+    backgroundColor: colors.accentGlow,
+  },
+  availScheduleText: {
+    fontSize: 10, fontFamily: "Outfit-SemiBold", color: colors.textMuted,
+  },
+  availScheduleTextClass: { color: colors.accent },
 
   loadingWrap: {
     paddingHorizontal: spacing.lg, paddingTop: 48, paddingBottom: 16, alignItems: "center",
@@ -205,7 +234,79 @@ const StudyPlanScreen = ({ navigation }) => {
   const { isPro: realIsPro } = useSubscription();
   const isPro = DEMO_MODE ? true : realIsPro;
 
+  const { events: calEvents } = useCalendarEvents(!DEMO_MODE);
+
   const today = startOfToday();
+
+  // Per-day schedule: classes + calendar events for each of the 7 upcoming days
+  const DAY_MAP = ["Su", "M", "Tu", "W", "Th", "F", "Sa"];
+
+  const parseTimeStr = (str) => {
+    if (!str) return null;
+    const m = str.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+    if (!m) return null;
+    let h = parseInt(m[1]), min = parseInt(m[2]);
+    if (m[3].toUpperCase() === "PM" && h !== 12) h += 12;
+    if (m[3].toUpperCase() === "AM" && h === 12) h = 0;
+    return { h, min };
+  };
+
+  const fmtTime = (str) => {
+    const t = parseTimeStr(str);
+    if (!t) return str;
+    const suffix = t.h >= 12 ? "PM" : "AM";
+    const h12 = t.h % 12 || 12;
+    const mm = String(t.min).padStart(2, "0");
+    return mm === "00" ? `${h12} ${suffix}` : `${h12}:${mm} ${suffix}`;
+  };
+
+  const scheduleByDay = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(today, i);
+      const dayKey = DAY_MAP[date.getDay()];
+      const dateStr = format(date, "yyyy-MM-dd");
+
+      // Class schedule entries for this weekday
+      const classes = (profile?.classSchedule ?? [])
+        .filter((e) => e.days?.includes(dayKey) && e.className)
+        .map((e) => ({
+          id: `cls-${e.id}`,
+          title: e.className,
+          time: e.startTime ? fmtTime(e.startTime) : null,
+          endTime: e.endTime ? fmtTime(e.endTime) : null,
+          isClass: true,
+          durationMins: (() => {
+            const s = parseTimeStr(e.startTime);
+            const end = parseTimeStr(e.endTime);
+            if (!s || !end) return 0;
+            return (end.h * 60 + end.min) - (s.h * 60 + s.min);
+          })(),
+        }));
+
+      // Calendar events for this date (non-all-day)
+      const calForDay = (calEvents ?? [])
+        .filter((e) => {
+          const d = new Date(e.startDate);
+          return format(d, "yyyy-MM-dd") === dateStr && !e.allDay;
+        })
+        .map((e) => ({
+          id: `cal-${e.id}`,
+          title: e.title,
+          time: format(new Date(e.startDate), "h:mm a").replace(":00", ""),
+          isClass: false,
+          durationMins: Math.round((new Date(e.endDate) - new Date(e.startDate)) / 60000),
+        }));
+
+      const totalClassMins = classes.reduce((sum, c) => sum + c.durationMins, 0);
+
+      return {
+        dateStr,
+        events: [...classes, ...calForDay].slice(0, 5), // cap display at 5
+        totalClassMins,
+      };
+    });
+  }, [profile?.classSchedule, calEvents]);
+
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(today, i);
     return {
@@ -271,6 +372,13 @@ const StudyPlanScreen = ({ navigation }) => {
   const setHours = (index, hours) =>
     setAvailability((prev) => prev.map((d, i) => i === index ? { ...d, hours } : d));
 
+  const formatHoursDisplay = (h) => {
+    if (h === 0) return "Off";
+    if (h === 0.5) return "30m";
+    if (h % 1 === 0) return `${h}h`;
+    return `${Math.floor(h)}h 30m`;
+  };
+
   const toggleSessionDone = useCallback((key) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setPlan((prev) => {
@@ -296,7 +404,10 @@ const StudyPlanScreen = ({ navigation }) => {
       return;
     }
     try {
-      const result = await generateStudyPlan(tasks, profile, patterns, availability, completedSessions);
+      const result = await generateStudyPlan(tasks, profile, patterns, availability, completedSessions, {
+        classSchedule: profile?.classSchedule ?? [],
+        calEvents: calEvents ?? [],
+      });
       const ts = Date.now();
       const newSessions = result.map((s, i) => ({ ...s, _key: `gen_${ts}_${i}` }));
       const merged = [...completedSessions, ...newSessions].sort((a, b) => a.date.localeCompare(b.date));
@@ -365,36 +476,61 @@ const StudyPlanScreen = ({ navigation }) => {
               How many free hours do you have each day? I'll build a schedule around your tasks and deadlines.
             </Text>
 
-            <View style={styles.dayGrid}>
+            <View style={styles.availList}>
               {availability.map((day, i) => {
-                const isOff = day.hours === 0;
+                const dayInfo = scheduleByDay[i];
                 return (
-                  <View key={day.date} style={[styles.dayCard, isOff && styles.dayCardOff]}>
-                    <View style={styles.dayCardTopRow}>
-                      <View>
-                        <Text style={styles.dayCardName}>{day.label}</Text>
-                        <Text style={styles.dayCardDate}>{day.dateLabel}</Text>
+                  <View key={day.date} style={styles.availRow}>
+                    {/* Top row: day label + hour chips */}
+                    <View style={styles.availRowTop}>
+                      <View style={styles.availDayInfo}>
+                        <Text style={styles.availDayName}>{day.label}</Text>
+                        <Text style={styles.availDayDate}>{day.dateLabel}</Text>
                       </View>
-                    </View>
-                    <Text style={[styles.dayCardHours, isOff && styles.dayCardOff_]}>
-                      {isOff ? "Off" : `${day.hours}h`}
-                    </Text>
-                    <View style={styles.dayCardBtns}>
-                      <TouchableOpacity
-                        style={[styles.dayCardBtn, isOff && styles.dayCardBtnDisabled]}
-                        onPress={() => { tap(); setHours(i, Math.max(0, day.hours - 1)); }}
-                        disabled={isOff}
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.availChipScroll}
+                        contentContainerStyle={styles.availChipRow}
                       >
-                        <Feather name="minus" size={14} color={colors.textPrimary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.dayCardBtn, day.hours === MAX_HOURS && styles.dayCardBtnDisabled]}
-                        onPress={() => { tap(); setHours(i, Math.min(MAX_HOURS, day.hours + 1)); }}
-                        disabled={day.hours === MAX_HOURS}
-                      >
-                        <Feather name="plus" size={14} color={colors.textPrimary} />
-                      </TouchableOpacity>
+                        {TIME_PRESETS.map(({ label, value }) => {
+                          const selected = day.hours === value;
+                          return (
+                            <TouchableOpacity
+                              key={value}
+                              style={[styles.availChip, selected && styles.availChipSelected]}
+                              onPress={() => { tap(); setHours(i, value); }}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={[styles.availChipText, selected && styles.availChipTextSelected]}>
+                                {label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
                     </View>
+
+                    {/* Schedule pills: classes + calendar events */}
+                    {dayInfo?.events?.length > 0 && (
+                      <View style={styles.availScheduleRow}>
+                        {dayInfo.events.map((evt) => (
+                          <View
+                            key={evt.id}
+                            style={[styles.availSchedulePill, evt.isClass && styles.availSchedulePillClass]}
+                          >
+                            <Feather
+                              name={evt.isClass ? "book" : "calendar"}
+                              size={9}
+                              color={evt.isClass ? colors.accent : colors.textMuted}
+                            />
+                            <Text style={[styles.availScheduleText, evt.isClass && styles.availScheduleTextClass]}>
+                              {evt.title}{evt.time ? ` · ${evt.time}` : ""}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 );
               })}

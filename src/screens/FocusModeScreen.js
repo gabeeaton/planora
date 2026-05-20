@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, Alert, ScrollView,
+  Animated, Alert, ScrollView, Linking, Image,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -16,8 +16,31 @@ import { spacing, radius } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useTasks } from "../hooks/useTasks";
 
-const WORK    = 25 * 60;
-const BREAK_S =  5 * 60;
+const BREAK_S     =  5 * 60;
+const DUR_OPTIONS = [15, 25, 45, 60]; // minutes
+
+const MUSIC_APPS = [
+  {
+    key: "spotify",
+    label: "Spotify",
+    url: "https://open.spotify.com/playlist/37i9dQZF1DX8NTLI2TtZa6",
+    appUrl: "spotify:playlist:37i9dQZF1DX8NTLI2TtZa6",
+    logo: require("../assets/spotify-logo.png"),
+  },
+  {
+    key: "apple",
+    label: "Apple Music",
+    url: "https://music.apple.com/us/playlist/pl.f4d106fed2bd41149fffb86d56414c07",
+    appUrl: "music://",
+    logo: require("../assets/apple-music-logo.jpg"),
+  },
+];
+const openMusicApp = (app) => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  Linking.canOpenURL(app.appUrl)
+    .then((can) => Linking.openURL(can ? app.appUrl : app.url))
+    .catch(() => Linking.openURL(app.url).catch(() => {}));
+};
 const fmt = (s) =>
   `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
@@ -39,7 +62,8 @@ export default function FocusModeScreen({ route, navigation }) {
 
   const task = deserializeTask(route.params?.task ?? null);
 
-  const [secs, setSecs]     = useState(WORK);
+  const [durMin, setDurMin] = useState(25);
+  const [secs, setSecs]     = useState(25 * 60);
   const [on, setOn]         = useState(false);
   const [n, setN]           = useState(0);
   const [brk, setBrk]       = useState(false);
@@ -55,6 +79,8 @@ export default function FocusModeScreen({ route, navigation }) {
   const mounted   = useRef(true);
   const brkRef    = useRef(brk);
   useEffect(() => { brkRef.current = brk; }, [brk]);
+  const durMinRef = useRef(durMin);
+  useEffect(() => { durMinRef.current = durMin; }, [durMin]);
 
   // Button scale springs
   const playScale  = useRef(new Animated.Value(1)).current;
@@ -100,7 +126,7 @@ export default function FocusModeScreen({ route, navigation }) {
               setDone(true);
             } else {
               setBrk(false);
-              setSecs(WORK);
+              setSecs(durMinRef.current * 60);
             }
             return 0;
           }
@@ -171,13 +197,31 @@ export default function FocusModeScreen({ route, navigation }) {
 
   const reset = () => {
     setOn(false);
-    setSecs(brk ? BREAK_S : WORK);
+    setSecs(brk ? BREAK_S : durMin * 60);
   };
 
   const startAnother = () => {
     setDone(false);
     setBrk(false);
-    setSecs(WORK);
+    setSecs(durMin * 60);
+  };
+
+  const changeDur = (d) => {
+    if (on || n > 0) return; // can't change while running or after first session
+    Haptics.selectionAsync().catch(() => {});
+    setDurMin(d);
+    setSecs(d * 60);
+  };
+
+  const adjustTime = (deltaMin) => {
+    Haptics.selectionAsync().catch(() => {});
+    setSecs((v) => Math.max(60, v + deltaMin * 60));
+  };
+
+  const openMusic = () => {
+    Linking.openURL("spotify:").catch(() =>
+      Linking.openURL("music://").catch(() => {})
+    );
   };
 
   const ac = brk ? colors.low : colors.accent;
@@ -219,6 +263,19 @@ export default function FocusModeScreen({ route, navigation }) {
     mainBtn: { width: 70, height: 70, borderRadius: 35, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
     mainOff: { backgroundColor: colors.bgCard, borderWidth: 2, borderColor: colors.accent },
     sideBtn: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.bgCard, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: colors.border },
+    adjustRow: {
+      flexDirection: "row", gap: 10, marginBottom: spacing.md,
+    },
+    adjustBtn: {
+      paddingHorizontal: 18, paddingVertical: 8,
+      borderRadius: 20, borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.bgCard,
+    },
+    adjustTxt: {
+      fontSize: 13, fontFamily: "Outfit-Bold",
+      color: colors.textSecondary,
+    },
     dots:    { flexDirection: "row", gap: 8, marginTop: spacing.lg },
     dot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
     dotOn:   { backgroundColor: colors.accent },
@@ -231,6 +288,22 @@ export default function FocusModeScreen({ route, navigation }) {
       borderWidth: 1, borderColor: colors.border,
     },
     spacer: { width: 36 },
+    musicPill: {
+      width: 32, height: 32, borderRadius: 9,
+      backgroundColor: colors.bgCard, borderWidth: 1.5, borderColor: colors.border,
+      alignItems: "center", justifyContent: "center", overflow: "hidden",
+    },
+    musicPillLogo: { width: 32, height: 32 },
+    durRow: {
+      flexDirection: "row", gap: 8,
+      marginBottom: spacing.xl, marginTop: -spacing.md,
+    },
+    durChip: {
+      paddingHorizontal: 14, paddingVertical: 7,
+      borderRadius: 20, borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    durChipTxt: { fontSize: 13, fontFamily: "Outfit-SemiBold" },
 
     over: {
       ...StyleSheet.absoluteFillObject,
@@ -286,7 +359,19 @@ export default function FocusModeScreen({ route, navigation }) {
           <Feather name="zap" size={11} color={colors.accent} />
           <Text style={s.badgeTxt}>{brk ? "Break Time" : "Focus Mode"}</Text>
         </View>
-        <View style={s.spacer} />
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {MUSIC_APPS.map((app) => (
+            <TouchableOpacity
+              key={app.key}
+              style={s.musicPill}
+              onPress={() => openMusicApp(app)}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              activeOpacity={0.75}
+            >
+              <Image source={app.logo} style={s.musicPillLogo} resizeMode="cover" />
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       <View style={s.center}>
@@ -311,13 +396,51 @@ export default function FocusModeScreen({ route, navigation }) {
           <>
             <Text style={[s.meta, { marginBottom: spacing.sm }]}>Step away from the screen</Text>
             <TouchableOpacity
-              onPress={() => { setBrk(false); setSecs(WORK); setOn(false); }}
+              onPress={() => { setBrk(false); setSecs(durMin * 60); setOn(false); }}
               style={s.skipBtn}
             >
               <Text style={s.skipT}>Skip break</Text>
             </TouchableOpacity>
           </>
         )}
+
+        {!on && n === 0 && !brk && (
+          <View style={s.durRow}>
+            {DUR_OPTIONS.map((d) => {
+              const active = durMin === d;
+              return (
+                <TouchableOpacity
+                  key={d}
+                  style={[s.durChip, active && { backgroundColor: colors.accent, borderColor: colors.accent }]}
+                  onPress={() => changeDur(d)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[s.durChipTxt, { color: active ? "#fff" : colors.textMuted }]}>
+                    {d}m
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* +/- time adjust */}
+        <View style={s.adjustRow}>
+          <TouchableOpacity
+            style={s.adjustBtn}
+            onPress={() => adjustTime(-5)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={s.adjustTxt}>−5m</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.adjustBtn}
+            onPress={() => adjustTime(5)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={s.adjustTxt}>+5m</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={s.btnRow}>
           <Animated.View style={{ transform: [{ scale: resetScale }] }}>

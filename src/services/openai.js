@@ -479,7 +479,7 @@ export const sendChatMessage = async (
       model: APP_CONFIG.gptModel, // chat uses primary model — nuanced coaching matters here
       messages,
       temperature: 0.5,
-      max_tokens: 400,
+      max_tokens: 500,
     });
 
     // Guard against double action blocks — use the last one if multiple appear
@@ -521,7 +521,7 @@ const TASK_DURATION_MINUTES = (title = "") => {
   return 60;
 };
 
-export const generateStudyPlan = async (tasks, userProfile, patterns, availability, completedSessions = []) => {
+export const generateStudyPlan = async (tasks, userProfile, patterns, availability, completedSessions = [], schedule = {}) => {
   const now = new Date();
   const todayStr = format(now, "yyyy-MM-dd");
 
@@ -578,9 +578,67 @@ export const generateStudyPlan = async (tasks, userProfile, patterns, availabili
     return `- [ID:${t.id}] ${cls} "${t.title}" — ${urgency}, est. ${est} min${timeNote}${avoidedNote}, priority: ${t.aiPriority ?? t.priority ?? "MEDIUM"}`;
   }).join("\n");
 
+  // ── Build per-day blocked schedule (classes + calendar events) ─────────
+  const parseSchedTime = (str) => {
+    if (!str) return null;
+    const m = str.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+    if (!m) return null;
+    let h = parseInt(m[1]), min = parseInt(m[2]);
+    if (m[3].toUpperCase() === "PM" && h !== 12) h += 12;
+    if (m[3].toUpperCase() === "AM" && h === 12) h = 0;
+    return h * 60 + min;
+  };
+
+  const DAY_MAP_SCHED = ["Su", "M", "Tu", "W", "Th", "F", "Sa"];
+
+  // classMinsPerDay: date string → total class minutes that day
+  const classMinsPerDay = {};
+  const blockedLines = availability.map((d) => {
+    const date = new Date(d.date + "T12:00:00");
+    const dayKey = DAY_MAP_SCHED[date.getDay()];
+    const parts = [];
+    let classMins = 0;
+
+    // Class schedule entries
+    const classEntries = (schedule.classSchedule ?? []).filter((e) => e.days?.includes(dayKey) && e.className);
+    classEntries.forEach((e) => {
+      const start = parseSchedTime(e.startTime);
+      const end   = parseSchedTime(e.endTime);
+      if (start != null && end != null && end > start) {
+        const dur = end - start;
+        classMins += dur;
+        parts.push(`${e.className} ${e.startTime}–${e.endTime} (${dur}min)`);
+      } else if (e.className) {
+        parts.push(`${e.className} (time unset)`);
+      }
+    });
+
+    // Calendar events that day (non-all-day)
+    (schedule.calEvents ?? [])
+      .filter((e) => {
+        const evDate = new Date(e.startDate);
+        return format(evDate, "yyyy-MM-dd") === d.date && !e.allDay;
+      })
+      .slice(0, 3)
+      .forEach((e) => {
+        const dur = Math.round((new Date(e.endDate) - new Date(e.startDate)) / 60000);
+        parts.push(`${e.title} (cal event, ${dur > 0 ? dur + "min" : "unknown duration"})`);
+      });
+
+    classMinsPerDay[d.date] = classMins;
+    if (parts.length === 0) return null;
+    const netFree = Math.max(0, d.hours * 60 - classMins);
+    return `  ${d.label} (${d.date}): ${parts.join(", ")} → ${netFree}min net study time`;
+  }).filter(Boolean).join("\n");
+
   const availLines = availability
     .filter((d) => d.hours > 0)
-    .map((d) => `${d.label} (${d.date}): ${d.hours * 60} min available`)
+    .map((d) => {
+      const classMins = classMinsPerDay[d.date] ?? 0;
+      const netFree = Math.max(0, d.hours * 60 - classMins);
+      const classNote = classMins > 0 ? ` (${classMins}min in class, ${netFree}min net free)` : "";
+      return `${d.label} (${d.date}): ${d.hours * 60} min selected${classNote}`;
+    })
     .join("\n");
 
   const name = userProfile?.name ? `Student: ${userProfile.name}. ` : "";
@@ -590,15 +648,17 @@ export const generateStudyPlan = async (tasks, userProfile, patterns, availabili
 
 ${name}Today: ${today()} (date: ${todayStr})
 
-Daily availability (soft guide for spreading non-urgent work):
+Daily availability (student's estimate of free hours — net of class time shown):
 ${availLines || "120 min/day for all days"}
-
+${blockedLines ? `\nCLASS SCHEDULE & CALENDAR (do NOT schedule study sessions during these times — they are fixed commitments):\n${blockedLines}` : ""}
 Tasks to schedule:
 ${taskLines}
 ${completedSessions.length > 0 ? `\nAlready completed this week — reduce remaining time estimates for these tasks accordingly:\n${completedSessions.map((s) => `- ${s.className ? `[${s.className}] ` : ""}"${s.sessionTitle}" (${s.durationMinutes ?? 0}min logged)`).join("\n")}` : ""}
 ${patternContext ? `\nSTUDENT BEHAVIORAL PATTERNS (use these actively — they are real data):\n${patternContext}` : ""}
 
 ═══ SCHEDULING RULES ═══
+
+0. CLASS CONFLICT: Never schedule study sessions that overlap with the student's class schedule or calendar events listed above. Sessions only have a date (no specific start time), so treat the class/event minutes as already consumed from that day's available time. If a day has heavy class time, plan fewer or shorter study sessions for it.
 
 1. DATE CONSTRAINT: Every session must be scheduled BEFORE the task's due date. Never on or after it. OVERDUE tasks → schedule today only.
 

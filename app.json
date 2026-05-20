@@ -16,17 +16,26 @@
       "icon": "./icon.png",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification", 
+          "remote-notification",
           "fetch"
         ],
         "NSUserTrackingUsageDescription": "Planora does not track you across other apps or websites.",
         "NSCameraUsageDescription": "Planora uses your camera to scan and import your course syllabus.",
-        "NSPhotoLibraryUsageDescription": "Planora accesses your photo library so you can import a syllabus image."
+        "NSPhotoLibraryUsageDescription": "Planora accesses your photo library so you can import a syllabus image.",
+        "NSRemindersUsageDescription": "Planora uses Reminders to help you stay on top of your assignments.",
+        "NSCalendarsUsageDescription": "Planora reads your calendar to show upcoming events alongside your assignments.",
+        "NSCalendarsFullAccessUsageDescription": "Planora reads your calendar to show upcoming events alongside your assignments.",
+        "NSCalendarsWriteOnlyAccessUsageDescription": "Planora reads your calendar to show upcoming events alongside your assignments."
       },
       "scheme": "planora"
     },
     "android": {
       "package": "com.planora.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./icon.png",
+        "backgroundColor": "#7C3AED"
+      },
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
@@ -65,7 +74,9 @@
         {
           "calendarPermission": "Planora reads your calendar to show today's events alongside your assignments."
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

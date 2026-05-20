@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert, Linking, Animated,
+  ScrollView, ActivityIndicator, Alert, Linking, Animated, PanResponder,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -17,10 +17,18 @@ import * as Haptics from "expo-haptics";
 const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
 const FEATURES = [
-  { icon: "cpu",            label: "AI Priority Coach" },
-  { icon: "message-circle", label: "Unlimited AI Chat" },
-  { icon: "bell",           label: "Smart Reminders" },
-  { icon: "edit-3",         label: "Weekly Study Plan" },
+  { icon: "cpu",            label: "AI Priority Coach",     desc: "Ranks your tasks by urgency so you always know what's next." },
+  { icon: "message-circle", label: "Unlimited AI Chat",     desc: "Ask Ace anything about your workload, any time." },
+  { icon: "bell",           label: "Smart Reminders",       desc: "Nudges that adapt to your deadlines and habits." },
+  { icon: "edit-3",         label: "Weekly Study Plan",     desc: "AI builds your study schedule so you never cram again." },
+  { icon: "trending-up",    label: "Behavioral Insights",   desc: "See when you're most productive and where you lose time." },
+  { icon: "cloud",          label: "Cloud Sync",            desc: "Your data backed up and synced across devices." },
+];
+
+const TRUST_SIGNALS = [
+  { icon: "shield",   label: "No charge today" },
+  { icon: "x-circle", label: "Cancel anytime" },
+  { icon: "lock",     label: "Secure via App Store" },
 ];
 
 const PLANS = [
@@ -38,11 +46,41 @@ export default function PaywallScreen({ navigation }) {
   const [selectedPlan, setSelectedPlan] = useState("annual");
   const [loading, setLoading]           = useState(false);
   const [packages, setPackages]         = useState({});
+  const scrollRef        = useRef(null);
+  const dismissTriggered = useRef(false);
 
-  const fadeAnim   = useRef(new Animated.Value(0)).current;
-  const slideAnim  = useRef(new Animated.Value(28)).current;
-  const ctaScale   = useRef(new Animated.Value(1)).current;
-  const planScales = useRef(PLANS.map(() => new Animated.Value(1))).current;
+  const fadeAnim    = useRef(new Animated.Value(0)).current;
+  const slideAnim   = useRef(new Animated.Value(28)).current;
+  const ctaScale    = useRef(new Animated.Value(1)).current;
+  const planScales  = useRef(PLANS.map(() => new Animated.Value(1))).current;
+  const sheetY      = useRef(new Animated.Value(0)).current;
+  const overlayFade = useRef(new Animated.Value(1)).current;
+
+  const dismissSheet = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Animated.parallel([
+      Animated.timing(sheetY,      { toValue: 600, duration: 220, useNativeDriver: true }),
+      Animated.timing(overlayFade, { toValue: 0,   duration: 200, useNativeDriver: true }),
+    ]).start(() => navigation.goBack());
+  };
+
+  const swipePan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderMove: (_, g) => {
+      if (g.dy > 0) sheetY.setValue(g.dy);
+    },
+    onPanResponderRelease: (_, g) => {
+      if (g.dy > 80 || g.vy > 0.5) {
+        dismissSheet();
+      } else {
+        Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, speed: 30, bounciness: 4 }).start();
+      }
+    },
+    onPanResponderTerminate: () => {
+      Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, speed: 30, bounciness: 4 }).start();
+    },
+  })).current;
 
   useEffect(() => {
     getOfferings().then(setPackages).catch(() => {});
@@ -77,22 +115,27 @@ export default function PaywallScreen({ navigation }) {
       return;
     }
     setLoading(true);
-    try {
-      await purchasePackage(pkg);
-      // Immediately write isPro to Firestore so entitlement is reflected in the app
-      // even if RevenueCat's listener is delayed (especially in sandbox)
+    const succeed = () => {
       if (user?.uid) setProStatus(user.uid, true).catch(() => {});
       invalidateTodayFocusCache();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       Alert.alert("You're in! 🎉", "Scholar is now unlocked. Build your first study plan.", [
         { text: "Let's go!", onPress: () => navigation.goBack() },
       ]);
+    };
+    try {
+      await purchasePackage(pkg);
+      succeed();
     } catch (err) {
       if (err.userCancelled) return;
+      const raw = (err.message ?? "").toLowerCase();
+      // StoreKit accepted the payment but RevenueCat's backend hasn't synced yet
+      // (very common in sandbox). Treat as success — Firestore flag is source of truth.
+      if (raw.includes("entitlement not activated")) {
+        succeed();
+        return;
+      }
       const msg = (() => {
-        const raw = (err.message ?? "").toLowerCase();
-        if (raw.includes("entitlement not activated"))
-          return "Your payment went through but activation is still processing. Tap \"Restore purchases\" in a moment to unlock Scholar.";
         if (raw.includes("network") || raw.includes("internet") || raw.includes("connection"))
           return "No internet connection. Check your network and try again.";
         if (raw.includes("payment") || raw.includes("card") || raw.includes("billing"))
@@ -130,40 +173,81 @@ export default function PaywallScreen({ navigation }) {
   const activePlan = PLANS.find((p) => p.key === selectedPlan);
 
   return (
-    <View style={styles.overlay}>
-      <View style={styles.root}>
-        {/* Handle */}
-        <View style={styles.handleWrap}>
+    <Animated.View style={[styles.overlay, { opacity: overlayFade }]}>
+      <Animated.View style={[styles.root, { transform: [{ translateY: sheetY }] }]}>
+        {/* Handle — attach swipe-down gesture here */}
+        <View style={styles.handleWrap} {...swipePan.panHandlers}>
           <View style={styles.handle} />
         </View>
 
         {/* Close */}
         <TouchableOpacity
           style={styles.closeBtn}
-          onPress={() => navigation.goBack()}
+          onPress={dismissSheet}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Feather name="x" size={15} color={colors.textMuted} />
         </TouchableOpacity>
 
         <Animated.ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
-          bounces={false}
+          bounces={true}
+          scrollEventThrottle={16}
+          onScrollEndDrag={({ nativeEvent }) => {
+            if (nativeEvent.contentOffset.y < -52 && !dismissTriggered.current) {
+              dismissTriggered.current = true;
+              dismissSheet();
+            }
+          }}
           style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
         >
           {/* ── Hero ── */}
           <View style={styles.hero}>
-            <Text style={styles.heroLabel}>SCHOLAR</Text>
+            {/* Layered decorative orbs */}
+            <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+              <View style={styles.heroOrb1} />
+              <View style={styles.heroOrb2} />
+              <View style={styles.heroOrb3} />
+            </View>
+
+            <View style={styles.heroIconWrap}>
+              <Feather name="zap" size={28} color="#fff" />
+            </View>
+            <Text style={styles.heroLabel}>SCHOLAR PLAN</Text>
             <Text style={styles.heroTitle}>Your AI academic{"\n"}coach, unlocked.</Text>
-            <View style={styles.trialBadge}>
-              <Feather name="gift" size={12} color={colors.accent} />
-              <Text style={styles.trialBadgeText}>7-day free trial · No charge today</Text>
+
+            {/* Feature pills */}
+            <View style={styles.statsPillRow}>
+              {[
+                { icon: "cpu",         label: "AI Priority" },
+                { icon: "edit-3",      label: "Study Plans" },
+                { icon: "trending-up", label: "Insights" },
+              ].map((s) => (
+                <View key={s.label} style={styles.statsPill}>
+                  <Feather name={s.icon} size={11} color={colors.accent} />
+                  <Text style={styles.statsPillText}>{s.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Trust signals — honest, verifiable */}
+            <View style={styles.trustRow}>
+              {TRUST_SIGNALS.map((t, i) => (
+                <View key={t.label} style={styles.trustItem}>
+                  <Feather name={t.icon} size={11} color={colors.accent} />
+                  <Text style={styles.trustText}>{t.label}</Text>
+                  {i < TRUST_SIGNALS.length - 1 && (
+                    <View style={styles.trustDivider} />
+                  )}
+                </View>
+              ))}
             </View>
           </View>
 
           {/* ── Plan cards ── */}
-          <View style={styles.plansWrap}>
+          <View style={[styles.plansWrap, { marginTop: 16 }]}>
             {PLANS.map((plan, idx) => {
               const selected = selectedPlan === plan.key;
               return (
@@ -205,14 +289,18 @@ export default function PaywallScreen({ navigation }) {
             })}
           </View>
 
-          {/* ── Feature grid ── */}
-          <View style={styles.featureGrid}>
-            {FEATURES.map((f) => (
-              <View key={f.label} style={styles.featureCell}>
-                <View style={styles.featureIcon}>
-                  <Feather name={f.icon} size={13} color={colors.accent} />
+          {/* ── Feature list ── */}
+          <View style={styles.featureList}>
+            {FEATURES.map((f, i) => (
+              <View key={f.label} style={[styles.featureRow, i === FEATURES.length - 1 && { borderBottomWidth: 0 }]}>
+                <View style={styles.featureIconWrap}>
+                  <Feather name={f.icon} size={14} color={colors.accent} />
                 </View>
-                <Text style={styles.featureLabel}>{f.label}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.featureLabel}>{f.label}</Text>
+                  <Text style={styles.featureDesc}>{f.desc}</Text>
+                </View>
+                <Feather name="check" size={14} color={colors.accent} />
               </View>
             ))}
           </View>
@@ -244,6 +332,10 @@ export default function PaywallScreen({ navigation }) {
             <Text style={styles.restoreBtnText}>Restore purchases</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity onPress={dismissSheet} style={styles.freePlanBtn}>
+            <Text style={styles.freePlanText}>Continue with free plan</Text>
+          </TouchableOpacity>
+
           <Text style={styles.legal}>
             Free trial ends after 7 days. {activePlan?.billing?.toLowerCase()}.{" "}
             Subscription renews automatically unless cancelled at least 24 hours before the end of the period.{" "}
@@ -252,8 +344,8 @@ export default function PaywallScreen({ navigation }) {
             <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/privacy")}>Privacy</Text>
           </Text>
         </Animated.ScrollView>
-      </View>
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -270,7 +362,7 @@ const makeStyles = (colors, insets) => StyleSheet.create({
     maxHeight: "92%",
     overflow: "hidden",
   },
-  handleWrap: { alignItems: "center", paddingTop: 12 },
+  handleWrap: { alignItems: "center", paddingTop: 12, paddingBottom: 8 },
   handle: {
     width: 36, height: 4, borderRadius: 2,
     backgroundColor: colors.isDark ? colors.border : "#D1D1D8",
@@ -289,27 +381,74 @@ const makeStyles = (colors, insets) => StyleSheet.create({
   },
 
   // ── Hero ──────────────────────────────────────────────────────
-  hero: { alignItems: "center", paddingTop: 18, paddingBottom: 20 },
+  hero: {
+    alignItems: "center",
+    paddingTop: 20, paddingBottom: 28,
+    marginHorizontal: -spacing.lg,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.isDark ? colors.accent + "22" : colors.accent + "12",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.accent + "20",
+    overflow: "hidden",
+  },
+  heroOrb1: {
+    position: "absolute", width: 240, height: 240, borderRadius: 120,
+    backgroundColor: colors.accent + "30", top: -100, right: -70,
+  },
+  heroOrb2: {
+    position: "absolute", width: 160, height: 160, borderRadius: 80,
+    backgroundColor: colors.accent + "20", bottom: -50, left: -50,
+  },
+  heroOrb3: {
+    position: "absolute", width: 100, height: 100, borderRadius: 50,
+    backgroundColor: colors.accent + "18", top: 10, left: -20,
+  },
+  heroIconWrap: {
+    width: 68, height: 68, borderRadius: 22,
+    backgroundColor: colors.accent,
+    alignItems: "center", justifyContent: "center",
+    marginBottom: 14,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45, shadowRadius: 20, elevation: 10,
+  },
   heroLabel: {
-    fontSize: 11, fontFamily: "Outfit-ExtraBold",
-    color: colors.accent, letterSpacing: 2.5, marginBottom: 10,
+    fontSize: 10, fontFamily: "Outfit-ExtraBold",
+    color: colors.accent, letterSpacing: 2.8, marginBottom: 8,
   },
   heroTitle: {
-    fontSize: 30, fontFamily: "Outfit-ExtraBold",
+    fontSize: 28, fontFamily: "Outfit-ExtraBold",
     color: colors.textPrimary, textAlign: "center",
-    letterSpacing: -0.6, lineHeight: 36, marginBottom: 14,
+    letterSpacing: -0.5, lineHeight: 34, marginBottom: 14,
   },
-  trialBadge: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: colors.accentGlow,
+  statsPillRow: {
+    flexDirection: "row", gap: 8, marginBottom: 16, flexWrap: "wrap", justifyContent: "center",
+  },
+  trustRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 0, flexWrap: "wrap",
+  },
+  trustItem: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+  },
+  trustText: {
+    fontSize: 11, fontFamily: "Outfit-Medium",
+    color: colors.isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.4)",
+  },
+  trustDivider: {
+    width: 1, height: 10, marginHorizontal: 8,
+    backgroundColor: colors.isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)",
+  },
+  statsPill: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: colors.isDark ? colors.accent + "22" : "#fff",
     borderRadius: radius.full,
-    borderWidth: 1, borderColor: colors.accent + "55",
-    paddingHorizontal: 14, paddingVertical: 7,
+    borderWidth: 1, borderColor: colors.accent + "35",
+    paddingHorizontal: 10, paddingVertical: 5,
   },
-  trialBadgeText: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.accent },
-
+  statsPillText: { fontSize: 11, fontFamily: "Outfit-SemiBold", color: colors.accent },
   // ── Plan cards ────────────────────────────────────────────────
-  plansWrap: { gap: 8, marginBottom: 16 },
+  plansWrap: { gap: 8, marginBottom: 20 },
   planCard: {
     flexDirection: "row", alignItems: "center",
     gap: 14, paddingVertical: 14, paddingHorizontal: 16,
@@ -365,25 +504,36 @@ const makeStyles = (colors, insets) => StyleSheet.create({
     color: colors.textMuted,
   },
 
-  // ── Feature grid ─────────────────────────────────────────────
-  featureGrid: {
-    flexDirection: "row", flexWrap: "wrap",
-    columnGap: 12, rowGap: 12,
+  // ── Feature list ─────────────────────────────────────────────
+  featureList: {
+    backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+    borderRadius: 16, borderWidth: 1,
+    borderColor: colors.isDark ? colors.border : "#EBEBF2",
+    overflow: "hidden",
     marginBottom: 20,
+    ...(colors.isDark ? {} : {
+      shadowColor: "#6B6B8A", shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
+    }),
   },
-  featureCell: {
-    width: "47%",
-    flexDirection: "row", alignItems: "center", gap: 10,
+  featureRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingVertical: 13, paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.isDark ? colors.border : "#F2F2F8",
   },
-  featureIcon: {
-    width: 28, height: 28, borderRadius: 9,
+  featureIconWrap: {
+    width: 34, height: 34, borderRadius: 10,
     backgroundColor: colors.accentGlow,
     alignItems: "center", justifyContent: "center",
     flexShrink: 0,
   },
   featureLabel: {
-    fontSize: 13, fontFamily: "Outfit-SemiBold",
-    color: colors.textSecondary, flex: 1,
+    fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary,
+  },
+  featureDesc: {
+    fontSize: 11, fontFamily: "Outfit-Regular",
+    color: colors.textMuted, marginTop: 1, lineHeight: 15,
   },
 
   // ── CTA ──────────────────────────────────────────────────────
@@ -402,6 +552,12 @@ const makeStyles = (colors, insets) => StyleSheet.create({
 
   restoreBtn: { alignItems: "center", paddingVertical: 8 },
   restoreBtnText: { fontSize: 13, color: colors.textMuted, fontFamily: "Outfit-Regular" },
+  freePlanBtn: { alignItems: "center", paddingVertical: 10 },
+  freePlanText: {
+    fontSize: 13, fontFamily: "Outfit-SemiBold",
+    color: colors.isDark ? "rgba(255,255,255,0.30)" : "rgba(0,0,0,0.28)",
+    textDecorationLine: "underline",
+  },
 
   legal: {
     fontSize: 10, color: colors.textMuted,

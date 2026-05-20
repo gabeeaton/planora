@@ -6,30 +6,57 @@
 // Supports: canvas.instructure.com hosted and self-hosted instances.
 // ============================================================
 
+import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const TOKEN_KEY  = "@taskflow_canvas_token";
-const DOMAIN_KEY = "@taskflow_canvas_domain";
+const TOKEN_KEY  = "planora_canvas_token";
+const DOMAIN_KEY = "planora_canvas_domain";
+// Legacy AsyncStorage keys — used only for one-time migration
+const LEGACY_TOKEN_KEY  = "@taskflow_canvas_token";
+const LEGACY_DOMAIN_KEY = "@taskflow_canvas_domain";
 
-// ── Credential storage ────────────────────────────────────────
+// Migrate any credentials previously stored in unencrypted AsyncStorage
+const migrateIfNeeded = async () => {
+  try {
+    const [legacyToken, legacyDomain] = await Promise.all([
+      AsyncStorage.getItem(LEGACY_TOKEN_KEY),
+      AsyncStorage.getItem(LEGACY_DOMAIN_KEY),
+    ]);
+    if (legacyToken) {
+      await SecureStore.setItemAsync(TOKEN_KEY, legacyToken);
+      await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
+    }
+    if (legacyDomain) {
+      await SecureStore.setItemAsync(DOMAIN_KEY, legacyDomain);
+      await AsyncStorage.removeItem(LEGACY_DOMAIN_KEY);
+    }
+  } catch {}
+};
+
+// ── Credential storage (encrypted via platform keychain/keystore) ─
 
 export const saveCanvasCredentials = async (domain, token) => {
-  // Normalize domain — strip https://, trailing slashes
   const clean = domain.replace(/^https?:\/\//i, "").replace(/\/$/, "").trim();
-  await AsyncStorage.setItem(DOMAIN_KEY, clean);
-  await AsyncStorage.setItem(TOKEN_KEY, token.trim());
+  await Promise.all([
+    SecureStore.setItemAsync(DOMAIN_KEY, clean),
+    SecureStore.setItemAsync(TOKEN_KEY, token.trim()),
+  ]);
 };
 
 export const loadCanvasCredentials = async () => {
+  await migrateIfNeeded();
   const [domain, token] = await Promise.all([
-    AsyncStorage.getItem(DOMAIN_KEY),
-    AsyncStorage.getItem(TOKEN_KEY),
+    SecureStore.getItemAsync(DOMAIN_KEY),
+    SecureStore.getItemAsync(TOKEN_KEY),
   ]);
   return { domain, token };
 };
 
 export const clearCanvasCredentials = async () => {
-  await AsyncStorage.multiRemove([DOMAIN_KEY, TOKEN_KEY]);
+  await Promise.all([
+    SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {}),
+    SecureStore.deleteItemAsync(DOMAIN_KEY).catch(() => {}),
+  ]);
 };
 
 export const hasCanvasCredentials = async () => {

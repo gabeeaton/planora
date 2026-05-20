@@ -24,6 +24,7 @@ import {
   UIManager,
   InteractionManager,
   DeviceEventEmitter,
+  Image,
 } from "react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -56,7 +57,6 @@ import {
   addDays,
   isToday,
   startOfToday,
-  startOfWeek,
   differenceInCalendarDays,
 } from "date-fns";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -75,34 +75,153 @@ const makeStyles = (colors, insets) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bg },
     header: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: 8,
+      paddingBottom: 12,
+      backgroundColor: colors.accent,
+      borderBottomLeftRadius: 26,
+      borderBottomRightRadius: 26,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.38,
+      shadowRadius: 18,
+      elevation: 10,
+    },
+    headerTopRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingHorizontal: spacing.lg,
-      paddingTop: 10,
-      paddingBottom: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.isDark ? colors.border : "#EAEAF0",
+      marginBottom: 2,
     },
-    headerLeft: { flex: 1 },
+    headerLeft: { flex: 1, marginRight: 10 },
+    profileAvatar: {
+      width: 38, height: 38, borderRadius: 19,
+      alignItems: "center", justifyContent: "center",
+      backgroundColor: "rgba(255,255,255,0.22)",
+      borderWidth: 1.5,
+      borderColor: "rgba(255,255,255,0.55)",
+      flexShrink: 0,
+    },
+    profileAvatarText: { fontSize: 15, fontFamily: "Outfit-Bold", color: "#fff" },
     greeting: {
       fontFamily: "Outfit-ExtraBold", fontSize: 22,
-      color: colors.textPrimary, letterSpacing: -0.3,
+      color: "#fff", letterSpacing: -0.3, lineHeight: 26,
     },
-    dateRow:   { flexDirection: "row", alignItems: "center", marginTop: 3, gap: 8 },
-    date: { fontSize: 12, color: colors.textMuted },
+    dateRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 1 },
+    date: { fontSize: 12, color: "rgba(255,255,255,0.70)", fontFamily: "Outfit-Medium" },
+    // streak pill on same line as date
     streakPill: {
-      flexDirection: "row", alignItems: "center", gap: 4,
-      backgroundColor: colors.isDark ? colors.mediumGlow : "rgba(217,119,6,0.1)",
+      flexDirection: "row", alignItems: "center", gap: 3,
+      backgroundColor: "rgba(255,255,255,0.18)",
       borderRadius: radius.full,
-      paddingHorizontal: 8, paddingVertical: 3,
-      borderWidth: 1,
-      borderColor: colors.isDark ? colors.medium + "40" : "rgba(217,119,6,0.35)",
+      paddingHorizontal: 7, paddingVertical: 2,
+      borderWidth: 1, borderColor: "rgba(255,255,255,0.30)",
     },
-    streakText: {
+    streakText: { fontSize: 12, fontFamily: "Outfit-ExtraBold", color: "#fff" },
+    // Combined bottom row — status info + action buttons
+    headerBottomRow: {
+      flexDirection: "row", alignItems: "center",
+      gap: 6, marginTop: 10,
+    },
+    statusChip: {
+      flexDirection: "row", alignItems: "center", gap: 5,
+      borderRadius: 9,
+      paddingHorizontal: 9, paddingVertical: 5,
+      backgroundColor: "rgba(255,255,255,0.13)",
+      borderWidth: 1, borderColor: "rgba(255,255,255,0.22)",
+    },
+    statusChipOverdue: {
+      backgroundColor: "rgba(255,80,80,0.22)",
+      borderColor: "rgba(255,100,100,0.40)",
+    },
+    statusChipText: {
+      fontSize: 12, fontFamily: "Outfit-SemiBold", color: "rgba(255,255,255,0.9)",
+    },
+    statusChipTextOverdue: { color: "#FFB3B3" },
+    statusChipToday: {
+      flexDirection: "row", alignItems: "center", gap: 4,
+      borderRadius: 9, paddingHorizontal: 9, paddingVertical: 5,
+      backgroundColor: "rgba(255,255,255,0.22)",
+    },
+    dueTodayBang: {
+      fontSize: 12, fontFamily: "Outfit-ExtraBold", color: "#fff",
+    },
+    dueTodayLabel: {
+      fontSize: 12, fontFamily: "Outfit-SemiBold", color: "rgba(255,255,255,0.92)",
+    },
+    // ── Unified Ace card ──────────────────────────────────────
+    aceCard: {
+      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+      borderRadius: 16,
+      borderWidth: 1, borderColor: colors.isDark ? colors.border : "#E8E8F0",
+      borderLeftWidth: 4, borderLeftColor: colors.accent,
+      overflow: "hidden",
+      ...(colors.isDark ? {} : {
+        shadowColor: "#6B6B8A", shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.10, shadowRadius: 8, elevation: 3,
+      }),
+    },
+    aceCardHeader: {
+      flexDirection: "row", alignItems: "center", gap: 12,
+      paddingHorizontal: spacing.md, paddingTop: 16, paddingBottom: 6,
+    },
+    aceCardLogo: { width: 60, height: 60, flexShrink: 0 },
+    aceCardName: {
       fontSize: 13, fontFamily: "Outfit-ExtraBold",
-      color: colors.isDark ? colors.medium : "#CC6600",
+      color: colors.accent, letterSpacing: 1.4, flex: 1,
     },
+    aceCardSparkle: {
+      fontSize: 15, color: colors.accent, opacity: 0.75,
+    },
+    aceCardMessage: {
+      fontSize: 15, fontFamily: "Outfit-Medium", fontStyle: "italic",
+      color: colors.textPrimary, lineHeight: 25,
+      paddingHorizontal: spacing.md, paddingTop: 2, paddingBottom: 20,
+    },
+    // Legacy — keep so nothing else references break
+    aceBriefRow: { flexDirection: "row" },
+    aceBriefLogo: { width: 15, height: 15 },
+    aceBriefLine: { flex: 1, fontSize: 12 },
+    // action strip at bottom of header
+    actionStrip: {
+      flexDirection: "row",
+      gap: 8,
+      marginTop: 12,
+    },
+    actionChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: "rgba(255,255,255,0.16)",
+      borderRadius: 11,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.20)",
+    },
+    actionChipActive: {
+      backgroundColor: "rgba(255,255,255,0.92)",
+    },
+    actionChipText: {
+      fontSize: 12, fontFamily: "Outfit-SemiBold", color: "#fff",
+    },
+    actionChipTextActive: {
+      color: colors.accent,
+    },
+    // kept for compat but unused after rearrange
+    headerSummaryRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+    headerSummaryDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "rgba(255,120,120,0.85)" },
+    headerSummaryText: { fontSize: 11, fontFamily: "Outfit-SemiBold", color: "rgba(255,255,255,0.65)" },
+    decoOrb: {
+      position: "absolute",
+      width: 100, height: 100,
+      borderRadius: 50,
+    },
+    decoSparkle: {
+      position: "absolute",
+      fontFamily: "Outfit-ExtraBold",
+    },
+
     subGreetingBanner: {
       marginHorizontal: spacing.lg,
       marginTop: 10,
@@ -139,7 +258,7 @@ const makeStyles = (colors, insets) =>
     clearBtnText: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.high },
 
     scroll: { flex: 1 },
-    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 80 },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingTop: 12, paddingBottom: insets.bottom + 90 },
 
     planCard: {
       flexDirection: "row", alignItems: "center",
@@ -173,6 +292,96 @@ const makeStyles = (colors, insets) =>
       marginBottom: spacing.sm,
     },
     insightText: { fontSize: 13, fontFamily: "Outfit-Medium", flex: 1, lineHeight: 18 },
+
+    behaviorCard: {
+      borderRadius: 14,
+      borderWidth: 1,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+    },
+    behaviorCardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      marginBottom: 7,
+    },
+    behaviorCardLogo: {
+      width: 14,
+      height: 14,
+      borderRadius: 3,
+    },
+    behaviorCardLabel: {
+      fontSize: 10,
+      fontFamily: "Outfit-ExtraBold",
+      letterSpacing: 0.9,
+      textTransform: "uppercase",
+    },
+    behaviorCardText: {
+      fontSize: 13,
+      fontFamily: "Outfit-Regular",
+      lineHeight: 19,
+    },
+
+    allDoneCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.low + "30",
+      backgroundColor: colors.isDark ? colors.low + "12" : colors.low + "0D",
+      padding: 14,
+      marginTop: 6,
+      marginBottom: spacing.sm,
+    },
+    allDoneIconWrap: {
+      width: 36, height: 36, borderRadius: 12,
+      alignItems: "center", justifyContent: "center",
+    },
+    allDoneTitle: { fontSize: 14, fontFamily: "Outfit-Bold" },
+    allDoneSub:   { fontSize: 12, fontFamily: "Outfit-Regular", marginTop: 1 },
+
+    briefCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.isDark ? colors.border : "#E8E8F4",
+      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+      padding: 14,
+      marginBottom: spacing.sm,
+      ...(colors.isDark ? {} : {
+        shadowColor: "#6B6B8A",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 2,
+      }),
+    },
+    briefHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 9,
+    },
+    briefAvatar: {
+      width: 22, height: 22, borderRadius: 6,
+    },
+    briefName: {
+      fontSize: 11, fontFamily: "Outfit-ExtraBold",
+      color: colors.accent, letterSpacing: 0.6,
+    },
+    briefDot: {
+      width: 4, height: 4, borderRadius: 2,
+      backgroundColor: colors.low,
+      marginLeft: 2,
+    },
+    briefLive: {
+      fontSize: 10, fontFamily: "Outfit-SemiBold",
+      color: colors.low, letterSpacing: 0.3,
+    },
+    briefText: {
+      fontSize: 13.5, fontFamily: "Outfit-Medium",
+      color: colors.textPrimary, lineHeight: 20,
+    },
 
     segmentedControl: {
       flexDirection: "row",
@@ -322,6 +531,27 @@ const makeStyles = (colors, insets) =>
       textAlign: "center",
       lineHeight: 22,
     },
+    overdueAlertCard: {
+      flexDirection: "row", alignItems: "center", gap: 10,
+      borderRadius: 12, borderWidth: 1,
+      borderColor: colors.isDark ? "rgba(255,80,80,0.28)" : "rgba(220,38,38,0.22)",
+      backgroundColor: colors.isDark ? "rgba(255,60,60,0.11)" : "rgba(220,38,38,0.07)",
+      padding: 12, marginBottom: 4,
+    },
+    overdueAlertLeft: {
+      width: 30, height: 30, borderRadius: 9,
+      alignItems: "center", justifyContent: "center",
+      backgroundColor: colors.isDark ? "rgba(255,80,80,0.20)" : "rgba(220,38,38,0.14)",
+    },
+    overdueAlertTitle: {
+      fontSize: 13, fontFamily: "Outfit-Bold",
+      color: colors.isDark ? "#FF8080" : "#DC2626",
+    },
+    overdueAlertSub: {
+      fontSize: 11, fontFamily: "Outfit-Regular",
+      color: colors.isDark ? "rgba(255,140,140,0.70)" : "rgba(185,28,28,0.65)",
+      marginTop: 1,
+    },
   });
 
 // Animated insight strip — slides down and fades in each time a new insight appears
@@ -352,191 +582,6 @@ const InsightStrip = ({ insight, styles, colors }) => {
       <Feather name={insight.icon} size={13} color={insight.color} />
       <Text style={[styles.insightText, { color: insight.color }]}>{insight.text}</Text>
     </Animated.View>
-  );
-};
-
-const CAL_DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-const CAL_PRIO_ORDER = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-
-const calPillColor = (task, colors) => {
-  switch (task.priority) {
-    case "HIGH":   return colors.high;
-    case "MEDIUM": return colors.medium;
-    default:       return colors.accent;
-  }
-};
-
-const WeekCalendar = ({ tasks, onEditTask, weekOffset, onWeekChange, colors }) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const weekStart = addDays(today, -today.getDay() + weekOffset * 7);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-
-  const byDay = {};
-  days.forEach((d) => { byDay[format(d, "yyyy-MM-dd")] = []; });
-  tasks.forEach((t) => {
-    const d = safeDate(t.dueDate);
-    if (!d) return;
-    const key = format(d, "yyyy-MM-dd");
-    if (byDay[key]) byDay[key].push(t);
-  });
-  Object.values(byDay).forEach((arr) =>
-    arr.sort((a, b) => {
-      if (!a.completed && b.completed) return -1;
-      if (a.completed && !b.completed) return 1;
-      return (CAL_PRIO_ORDER[a.priority] ?? 1) - (CAL_PRIO_ORDER[b.priority] ?? 1);
-    })
-  );
-
-  const startLabel = format(weekStart, "MMM d");
-  const endLabel   = format(addDays(weekStart, 6), "MMM d");
-  const MAX_PILLS  = 5;
-
-  const gridBg = colors.isDark ? colors.bgCard : "#FFFFFF";
-
-  return (
-    <View style={{ marginHorizontal: -spacing.lg, marginBottom: spacing.md }}>
-      {/* Week nav */}
-      <View style={{
-        flexDirection: "row", alignItems: "center", gap: 8,
-        paddingHorizontal: spacing.lg, paddingVertical: 10,
-      }}>
-        <TouchableOpacity
-          onPress={() => { Haptics.selectionAsync().catch(() => {}); onWeekChange(weekOffset - 1); }}
-          style={{
-            width: 32, height: 32, borderRadius: 16,
-            backgroundColor: colors.accentGlow,
-            alignItems: "center", justifyContent: "center",
-          }}
-        >
-          <Feather name="chevron-left" size={16} color={colors.accent} />
-        </TouchableOpacity>
-
-        <View style={{ flex: 1, alignItems: "center", gap: 2 }}>
-          <Text style={{ fontFamily: "Outfit-ExtraBold", fontSize: 15, color: colors.textPrimary, letterSpacing: -0.2 }}>
-            {startLabel} – {endLabel}
-          </Text>
-          {weekOffset !== 0 && (
-            <TouchableOpacity
-              onPress={() => { Haptics.selectionAsync().catch(() => {}); onWeekChange(0); }}
-              style={{
-                backgroundColor: colors.accent,
-                borderRadius: 999,
-                paddingHorizontal: 10, paddingVertical: 2,
-              }}
-            >
-              <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: "#fff" }}>
-                Back to today
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <TouchableOpacity
-          onPress={() => { Haptics.selectionAsync().catch(() => {}); onWeekChange(weekOffset + 1); }}
-          style={{
-            width: 32, height: 32, borderRadius: 16,
-            backgroundColor: colors.accentGlow,
-            alignItems: "center", justifyContent: "center",
-          }}
-        >
-          <Feather name="chevron-right" size={16} color={colors.accent} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Grid — edge-to-edge, top+bottom border, column separators */}
-      <View style={{ borderTopWidth:1, borderBottomWidth:1, borderColor:colors.border, backgroundColor:gridBg }}>
-
-        {/* Day-of-week header row */}
-        <View style={{ flexDirection:"row", borderBottomWidth:1, borderBottomColor:colors.border }}>
-          {days.map((day, i) => {
-            const isTod = isToday(day);
-            return (
-              <View key={i} style={{
-                flex:1, alignItems:"center", paddingVertical:8,
-                backgroundColor: isTod ? colors.accentGlow : "transparent",
-                borderRightWidth: i < 6 ? 1 : 0,
-                borderRightColor: colors.border,
-              }}>
-                <Text style={{
-                  fontSize:10, fontFamily:"Outfit-Bold", letterSpacing:0.5,
-                  color: isTod ? colors.accent : colors.textMuted,
-                  marginBottom:4,
-                }}>
-                  {CAL_DAY_LABELS[day.getDay()]}
-                </Text>
-                <View style={{
-                  width:28, height:28, borderRadius:14,
-                  alignItems:"center", justifyContent:"center",
-                  backgroundColor: isTod ? colors.accent : "transparent",
-                }}>
-                  <Text style={{
-                    fontSize:14, fontFamily:"Outfit-ExtraBold",
-                    color: isTod ? "#fff" : colors.textPrimary,
-                  }}>
-                    {format(day, "d")}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Task pill columns */}
-        <View style={{ flexDirection:"row", minHeight:64, paddingVertical:6 }}>
-          {days.map((day, i) => {
-            const key      = format(day, "yyyy-MM-dd");
-            const dayTasks = byDay[key];
-            const isTod    = isToday(day);
-
-            return (
-              <View key={i} style={{
-                flex:1, paddingHorizontal:3, gap:3,
-                backgroundColor: isTod ? colors.accentGlow : "transparent",
-                borderRightWidth: i < 6 ? 1 : 0,
-                borderRightColor: colors.border,
-              }}>
-                {dayTasks.slice(0, MAX_PILLS).map((task) => {
-                  const pillColor = calPillColor(task, colors);
-                  const label = task.className ?? task.title;
-                  return (
-                    <TouchableOpacity
-                      key={task.id}
-                      onPress={() => { Haptics.selectionAsync().catch(() => {}); onEditTask(task); }}
-                      activeOpacity={0.75}
-                      style={{
-                        borderRadius:4,
-                        backgroundColor: pillColor + "20",
-                        borderLeftWidth:3,
-                        borderLeftColor: pillColor,
-                        paddingHorizontal:4,
-                        paddingVertical:4,
-                        opacity: task.completed ? 0.5 : 1,
-                      }}
-                    >
-                      <Text numberOfLines={1} style={{
-                        fontSize:10, fontFamily:"Outfit-SemiBold",
-                        color: pillColor,
-                        textDecorationLine: task.completed ? "line-through" : "none",
-                      }}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-                {dayTasks.length > MAX_PILLS && (
-                  <Text style={{ fontSize:9, fontFamily:"Outfit-Medium", color:colors.textMuted, textAlign:"center" }}>
-                    +{dayTasks.length - MAX_PILLS}
-                  </Text>
-                )}
-              </View>
-            );
-          })}
-        </View>
-
-      </View>
-    </View>
   );
 };
 
@@ -596,16 +641,36 @@ const DashboardScreen = ({ navigation }) => {
   const realTasks = useTasks();
 
   // ── Demo data ────────────────────────────────────────────────
+  const _dn = Date.now();
   const DEMO_TASKS = [
-    { id: "d1", title: "Study for Organic Chemistry midterm", className: "CHEM 201", dueDate: new Date(Date.now() + 1 * 86400000), completed: false, priority: "HIGH",   aiPriority: "HIGH"   },
-    { id: "d2", title: "Write 5-page essay on the Civil War", className: "HIST 110", dueDate: new Date(Date.now() + 2 * 86400000), completed: false, priority: "HIGH",   aiPriority: "HIGH"   },
-    { id: "d3", title: "Problem Set 4 — Linear Algebra",      className: "MATH 240", dueDate: new Date(Date.now() + 3 * 86400000), completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },
-    { id: "d4", title: "Read chapters 7–9 for lecture",       className: "PSYC 101", dueDate: new Date(Date.now() + 4 * 86400000), completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },
-    { id: "d5", title: "Lab report — titration experiment",   className: "CHEM 201", dueDate: new Date(Date.now() + 5 * 86400000), completed: false, priority: "LOW",    aiPriority: "LOW"    },
-    { id: "d6", title: "Spanish composition draft",           className: "SPAN 102", dueDate: new Date(Date.now() + 6 * 86400000), completed: false, priority: "LOW",    aiPriority: "LOW"    },
-    { id: "d7", title: "Quiz review — macro economics",       className: "ECON 101", dueDate: new Date(Date.now() + 1 * 86400000), completed: true,  priority: "MEDIUM", aiPriority: "MEDIUM" },
-    { id: "d8", title: "Group project slides",                className: "BUS 210",  dueDate: new Date(Date.now() - 1 * 86400000), completed: true,  priority: "HIGH",   aiPriority: "HIGH"   },
+    { id: "d-1", title: "Discussion post — environmental policy", className: "POLS 200", dueDate: new Date(_dn - 2 * 86400000), completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },
+    { id: "d0",  title: "Review lecture notes — today's quiz",    className: "BIOL 150", dueDate: new Date(_dn),                completed: false, priority: "HIGH",   aiPriority: "HIGH"   },
+    { id: "d1",  title: "Study for Organic Chemistry midterm",    className: "CHEM 201", dueDate: new Date(_dn + 86400000),     completed: false, priority: "HIGH",   aiPriority: "HIGH"   },
+    { id: "d2",  title: "Write 5-page essay on the Civil War",    className: "HIST 110", dueDate: new Date(_dn + 2 * 86400000), completed: false, priority: "HIGH",   aiPriority: "HIGH"   },
+    { id: "d3",  title: "Problem Set 4 — Linear Algebra",         className: "MATH 240", dueDate: new Date(_dn + 3 * 86400000), completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },
+    { id: "d4",  title: "Read chapters 7–9 for lecture",          className: "PSYC 101", dueDate: new Date(_dn + 4 * 86400000), completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },
+    { id: "d5",  title: "Lab report — titration experiment",      className: "CHEM 201", dueDate: new Date(_dn + 5 * 86400000), completed: false, priority: "LOW",    aiPriority: "LOW"    },
+    { id: "d6",  title: "Spanish composition draft",              className: "SPAN 102", dueDate: new Date(_dn + 6 * 86400000), completed: false, priority: "LOW",    aiPriority: "LOW"    },
+    { id: "d7",  title: "Quiz review — macro economics",          className: "ECON 101", dueDate: new Date(_dn + 86400000),     completed: true,  priority: "MEDIUM", aiPriority: "MEDIUM" },
+    { id: "d8",  title: "Group project slides",                   className: "BUS 210",  dueDate: new Date(_dn - 86400000),     completed: true,  priority: "HIGH",   aiPriority: "HIGH"   },
+    { id: "d9",  title: "Annotated bibliography draft",           className: "HIST 110", dueDate: new Date(_dn - 3 * 86400000), completed: true,  priority: "MEDIUM", aiPriority: "MEDIUM" },
   ];
+  const _tod = new Date();
+  const _dh = (h, m) => { const d = new Date(_tod); d.setHours(h, m, 0, 0); return d; };
+  const DEMO_CAL_EVENTS = [
+    { id: "ce1", title: "CHEM 201 — Lecture",      startDate: _dh(9,   0), endDate: _dh(10, 15), color: "#6C6FE5" },
+    { id: "ce2", title: "BIOL 150 — Lab & Quiz",   startDate: _dh(11,  0), endDate: _dh(11, 50), color: "#2ECC71" },
+    { id: "ce3", title: "PSYC 101 — Discussion",   startDate: _dh(14,  0), endDate: _dh(15, 15), color: "#F5A623" },
+    { id: "ce4", title: "MATH 240 — Office Hours", startDate: _dh(15, 30), endDate: _dh(16, 20), color: "#E74C3C" },
+  ];
+  const DEMO_PATTERNS = {
+    latenessProfile: { label: "last minute", totalSamples: 8, avgDaysBefore: 0 },
+    productiveTimeOfDay: { bestTime: "evening", totalSamples: 8 },
+    staleTasks: [],
+    urgentUntouched: [],
+    avoidanceScores: [],
+    overallStats: { totalPending: 8 },
+  };
   const DEMO_PROFILE = { name: "Alex Johnson", semester: "Spring 2025", classes: [], isPro: true };
 
   const profile       = DEMO_MODE ? DEMO_PROFILE : realProfile;
@@ -613,8 +678,8 @@ const DashboardScreen = ({ navigation }) => {
   const tasks         = DEMO_MODE ? DEMO_TASKS : realTasks.tasks;
   const pendingTasks  = DEMO_MODE ? DEMO_TASKS.filter(t => !t.completed) : realTasks.pendingTasks;
   const completedTasks = DEMO_MODE ? DEMO_TASKS.filter(t => t.completed) : realTasks.completedTasks;
-  const todaysTasks   = DEMO_MODE ? DEMO_TASKS.filter(t => !t.completed).slice(0, 3) : realTasks.todaysTasks;
-  const patterns      = DEMO_MODE ? null : realTasks.patterns;
+  const todaysTasks   = DEMO_MODE ? DEMO_TASKS.filter(t => !t.completed && t.dueDate && new Date(t.dueDate).toDateString() === new Date().toDateString()) : realTasks.todaysTasks;
+  const patterns      = DEMO_MODE ? DEMO_PATTERNS : realTasks.patterns;
   const loading       = DEMO_MODE ? false : realTasks.loading;
   const streak        = DEMO_MODE ? 7 : realTasks.streak;
   const createTask    = DEMO_MODE ? () => {} : realTasks.createTask;
@@ -626,11 +691,11 @@ const DashboardScreen = ({ navigation }) => {
   const { openAddTask } = useContext(AddTaskContext);
   const setTarget = useSetWalkthroughTarget();
   const studyPlanBtnRef  = useRef(null);
-  const calendarBtnRef   = useRef(null);
   const syllabusBtnRef   = useRef(null);
   const statsBarRef         = useRef(null);
   const todayFocusRef       = useRef(null);
   const insightStripRef     = useRef(null);
+  const todayScheduleRef    = useRef(null);
   const focusBtnRegistered      = useRef(false);
   const firstPendingIdRef       = useRef(null);
   const focusBtnRef             = useRef(null);
@@ -649,16 +714,45 @@ const DashboardScreen = ({ navigation }) => {
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
   const [now, setNow] = useState(new Date());
 
-  const [calendarMode, setCalendarMode] = useState(false);
-  const [calWeekOffset, setCalWeekOffset] = useState(0);
-  const [calendarLoading, setCalendarLoading] = useState(false);
+  // ── All-done-today celebration ────────────────────────────────
+  const [showAllDoneToday, setShowAllDoneToday] = useState(false);
+  const allDoneAnim    = useRef(new Animated.Value(0)).current;
+  const prevTodayCount = useRef(null);
+  useEffect(() => {
+    const prev = prevTodayCount.current;
+    prevTodayCount.current = todaysTasks.length;
+    if (prev === null || prev === 0 || todaysTasks.length !== 0 || loading) return;
+    setShowAllDoneToday(true);
+    allDoneAnim.setValue(0);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    Animated.spring(allDoneAnim, { toValue: 1, speed: 16, bounciness: 6, useNativeDriver: true }).start();
+    const t = setTimeout(() => {
+      Animated.timing(allDoneAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(
+        () => setShowAllDoneToday(false)
+      );
+    }, 7000);
+    return () => clearTimeout(t);
+  }, [todaysTasks.length, loading]);
+
+  // ── Streak pill pulse ─────────────────────────────────────────
+  const streakScale    = useRef(new Animated.Value(1)).current;
+  const prevStreakPill  = useRef(streak);
+  useEffect(() => {
+    if (streak <= 0 || streak === prevStreakPill.current) return;
+    prevStreakPill.current = streak;
+    Animated.sequence([
+      Animated.spring(streakScale, { toValue: 1.35, speed: 50, bounciness: 0, useNativeDriver: true }),
+      Animated.spring(streakScale, { toValue: 1,    speed: 18, bounciness: 10, useNativeDriver: true }),
+    ]).start();
+  }, [streak]);
+
   const [tabLoading, setTabLoading] = useState(false);
   const [planTodayCount, setPlanTodayCount] = useState(null);
   const [todayPlanSessions, setTodayPlanSessions] = useState([]);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+  const [scheduleView, setScheduleView] = useState("today");
 
-  const [calEnabled, setCalEnabled] = useState(!DEMO_MODE);
-  const { events: calEvents, permission: calPermission } = useCalendarEvents(calEnabled);
+  const { events: calEvents, status: calStatus, requestPermission: requestCalPermission } = useCalendarEvents(!DEMO_MODE);
 
   useEffect(() => {
     if (tasks.length === 0) return;
@@ -767,13 +861,50 @@ const DashboardScreen = ({ navigation }) => {
       });
     };
 
+    const scrollToElement = (ref, targetKey, r) => {
+      if (!ref.current || !scrollRef.current) return;
+      ref.current.measureInWindow((_, elAbsY) => {
+        scrollRef.current?.measureInWindow((__, svAbsY) => {
+          const targetScrollY = scrollOffsetY.current + (elAbsY - svAbsY) - 80;
+          scrollRef.current?.scrollTo({ y: Math.max(0, targetScrollY), animated: true });
+          setTimeout(() => {
+            ref.current?.measureInWindow((wx, wy, ww, wh) => {
+              if (ww > 0) setTarget(targetKey, { cx: wx + ww / 2, cy: wy + wh / 2, w: ww, h: wh, r });
+            });
+          }, 400);
+        });
+      });
+    };
+
     const sub = DeviceEventEmitter.addListener("walkthroughStep", (key) => {
+      if (key === "statsBar")      scrollToElement(statsBarRef,      "statsBar",      14);
+      if (key === "todayFocus")    scrollToElement(todayFocusRef,    "todayFocus",    16);
+      if (key === "todaySchedule") scrollToElement(todayScheduleRef, "todaySchedule", 16);
       if (key === "priorityBadge") scrollToFirstTask("priorityBadge", priorityBadgeRef, 6);
       if (key === "focusBtn")      scrollToFirstTask("focusBtn",      focusBtnRef,      10);
     });
     return () => sub.remove();
   }, []);
 
+
+  // Completed count filtered to current semester — keeps StatsBar number contextually accurate
+  const semesterCompletedCount = useMemo(() => {
+    const sem = profile?.semester;
+    if (!sem) return completedTasks.length;
+    const lower = sem.toLowerCase();
+    const m = sem.match(/\d{4}/);
+    const year = m ? parseInt(m[0]) : new Date().getFullYear();
+    const start = lower.includes("winter") ? new Date(year, 0, 6)
+                : lower.includes("spring") ? new Date(year, 0, 13)
+                : lower.includes("summer") ? new Date(year, 4, 15)
+                : lower.includes("fall")   ? new Date(year, 7, 20)
+                : null;
+    if (!start) return completedTasks.length;
+    return completedTasks.filter(t => {
+      const d = safeDate(t.completedAt);
+      return d && d >= start;
+    }).length;
+  }, [completedTasks, profile?.semester]);
 
   const enrichedTasks = useMemo(() => {
     const gradeMap = {};
@@ -1024,6 +1155,8 @@ const DashboardScreen = ({ navigation }) => {
     navigation.navigate("FocusMode", { task: serializeTask(task) });
   };
 
+  const COACH_NAME = "Ace"; // ← change this to swap the AI character name everywhere
+
   const greeting = () => {
     const h = now.getHours();
     if (h < 12) return "Good morning";
@@ -1037,11 +1170,315 @@ const DashboardScreen = ({ navigation }) => {
     if (due === 0 && pendingTasks.length === 0) return "Nothing due — enjoy the break 🌿";
     if (due === 0) return "No deadlines today. Make progress on what's next.";
     if (due === 1) return "One thing needs your attention today.";
-    if (due <= 3)  return `${due} things due today — you've got this.`;
+    if (due <= 3)  return `${due} things due today — a manageable list.`;
     if (h < 12)    return `${due} things due today. Early start = less stress.`;
     if (h < 17)    return `${due} things due today. Still time to get ahead.`;
     return `${due} things due today. Let's finish strong.`;
   };
+
+  // Full coaching brief — built from all available client-side data, no API call.
+  // Ace's voice: direct, honest, dry when warranted. Rooting for you but never hollow.
+  const aceBrief = useMemo(() => {
+    if (loading || tasks.length === 0) return null;
+    const h = now.getHours();
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon ... 6=Sat
+
+    const overdueTasks = pendingTasks.filter((t) => {
+      const d = safeDate(t.dueDate);
+      return d && differenceInCalendarDays(d, today) < 0;
+    });
+
+    // Map upcoming tasks by days-away (0–7)
+    const upcomingByDay = {};
+    pendingTasks.forEach((t) => {
+      const d = safeDate(t.dueDate);
+      if (!d) return;
+      const daysAway = differenceInCalendarDays(d, today);
+      if (daysAway < 0 || daysAway > 7) return;
+      if (!upcomingByDay[daysAway]) upcomingByDay[daysAway] = [];
+      upcomingByDay[daysAway].push(t);
+    });
+    const busiestDayEntry = Object.entries(upcomingByDay)
+      .sort((a, b) => b[1].length - a[1].length)[0];
+    const busiestDaysAway = busiestDayEntry ? Number(busiestDayEntry[0]) : null;
+    const busiestCount    = busiestDayEntry ? busiestDayEntry[1].length : 0;
+    const busiestDayName  = busiestDaysAway === 0 ? "today"
+                          : busiestDaysAway === 1 ? "tomorrow"
+                          : busiestDaysAway != null
+                            ? format(addDays(today, busiestDaysAway), "EEEE")
+                          : null;
+
+    const weekTotal = pendingTasks.filter((t) => {
+      const d = safeDate(t.dueDate);
+      return d && differenceInCalendarDays(d, today) >= 0 && differenceInCalendarDays(d, today) <= 7;
+    }).length;
+
+    // Pattern data
+    const latenessLabel    = patterns?.latenessProfile?.label;
+    const avgDaysBefore    = patterns?.latenessProfile?.avgDaysBefore;
+    const totalSamples     = patterns?.latenessProfile?.totalSamples ?? 0;
+    const latePattern      = latenessLabel === "last minute" || latenessLabel === "often late";
+    const staleName        = patterns?.staleTasks?.[0]?.title;
+    const urgentUntouched  = patterns?.urgentUntouched ?? [];
+    const bestTime         = patterns?.productiveTimeOfDay?.bestTime;
+    const timeSamples      = patterns?.productiveTimeOfDay?.totalSamples ?? 0;
+
+    // Highest-priority pending task for "start with this" call-out
+    const PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+    const highestPending = [...pendingTasks]
+      .sort((a, b) => {
+        const pa = PRIORITY_RANK[a.aiPriority ?? a.priority] ?? 1;
+        const pb = PRIORITY_RANK[b.aiPriority ?? b.priority] ?? 1;
+        if (pa !== pb) return pa - pb;
+        const da = safeDate(a.dueDate)?.getTime() ?? Infinity;
+        const db = safeDate(b.dueDate)?.getTime() ?? Infinity;
+        return da - db;
+      })[0] ?? null;
+
+    // Low-grade class + urgent deadline — high-signal alert
+    const lowGradeUrgent = enrichedTasks.find((t) => {
+      const d = safeDate(t.dueDate);
+      return t._lowGrade && !t.completed && d && differenceInCalendarDays(d, today) <= 3;
+    });
+
+    // Urgent task not started yet (not overdue, but due soon and untouched)
+    const urgentBlind = urgentUntouched.find(
+      (t) => !overdueTasks.some((o) => o.id === t.id)
+    ) ?? null;
+
+    const parts = [];
+
+    // ── PART 1: Lead — what's the situation right now ──────────────
+    if (overdueTasks.length === 1) {
+      const t = overdueTasks[0];
+      if (latePattern) {
+        parts.push(`"${t.title}" is past due — and honestly, this isn't the first time you've been here. That's the pattern. Today's a good day to actually break it.`);
+      } else {
+        parts.push(`One thing past due: "${t.title}". It's not going to sort itself out — fifteen minutes on it right now beats an hour tonight when everything else is piling up.`);
+      }
+    } else if (overdueTasks.length > 1) {
+      if (latePattern) {
+        parts.push(`${overdueTasks.length} things are past due. Your history says you'll wait until it's urgent — it is. Don't try to do all of them. Pick the smallest one and get off zero.`);
+      } else {
+        parts.push(`${overdueTasks.length} things past due. Don't overthink the order — start with whichever one takes the least mental load. Momentum is the goal right now, not perfection.`);
+      }
+    } else if (todaysTasks.length === 0 && weekTotal === 0) {
+      parts.push(streak >= 3
+        ? `Nothing due. Nothing coming. Clear board, ${streak}-day streak — that's what staying ahead actually looks like.`
+        : `Nothing urgent, nothing overdue. Enjoy the quiet — or use it to get ahead of next week before the pressure builds.`
+      );
+    } else if (todaysTasks.length === 1) {
+      const timeCtx = h < 12 ? "Morning's your best window — knock it out before the day gets complicated."
+                    : h < 17 ? "You've still got the afternoon. Don't wait until tonight."
+                    : "Evening is what you've got. Make it count.";
+      parts.push(`One thing due today: "${todaysTasks[0].title}". ${timeCtx}`);
+    } else if (todaysTasks.length > 1) {
+      const timeCtx = h < 12 ? `Morning is your highest-leverage time — use it.`
+                    : h < 17 ? `Afternoon's not gone yet — don't waste it.`
+                    : `Tonight's the window and it's closing.`;
+      parts.push(`${todaysTasks.length} things due today — ${timeCtx} Don't try to think about all of them at once; pick one and actually start.`);
+    } else if (dayOfWeek === 1 && h < 12 && weekTotal > 0) {
+      parts.push(`Fresh week. Nothing due today, but ${weekTotal} thing${weekTotal === 1 ? "" : "s"} coming up. How you start Monday sets the whole week — worth mapping it out now.`);
+    } else if (dayOfWeek === 0 && weekTotal > 0) {
+      parts.push(`${weekTotal} thing${weekTotal === 1 ? "" : "s"} coming up this week. Sunday's a good time to look at the list before it turns into Monday scramble.`);
+    } else if (weekTotal > 0) {
+      parts.push(`Clear today, but ${weekTotal > 1 ? `${weekTotal} things are` : "something's"} coming up this week. Good time to get ahead of one of them before you have to.`);
+    }
+
+    // ── PART 2: Specific start recommendation ──────────────────────
+    if (overdueTasks.length === 0 && highestPending) {
+      const isHigh = (highestPending.aiPriority ?? highestPending.priority) === "HIGH";
+      const alreadyNamed = (todaysTasks.length === 1 && todaysTasks[0]?.id === highestPending.id)
+                        || (overdueTasks.length === 1 && overdueTasks[0]?.id === highestPending.id);
+      if (!alreadyNamed && (isHigh || todaysTasks.length > 1)) {
+        parts.push(`If you're deciding where to start: "${highestPending.title}" is the highest-priority thing on your list right now.`);
+      }
+    }
+
+    // ── PART 3: Low grade + imminent deadline ──────────────────────
+    if (lowGradeUrgent && overdueTasks.length === 0) {
+      parts.push(`Heads up — "${lowGradeUrgent.title}" is due soon and your grade in ${lowGradeUrgent.className} needs the points. Make this one count.`);
+    }
+
+    // ── PART 4: Urgent task that hasn't been opened yet ────────────
+    if (urgentBlind && !lowGradeUrgent && overdueTasks.length === 0) {
+      const daysOut = differenceInCalendarDays(safeDate(urgentBlind.dueDate) ?? today, today);
+      const when = daysOut === 0 ? "today" : daysOut === 1 ? "tomorrow" : `in ${daysOut} days`;
+      parts.push(`"${urgentBlind.title}" is due ${when} and it looks like you haven't started. That one needs your attention.`);
+    }
+
+    // ── PART 5: Task being avoided ────────────────────────────────
+    if (staleName && overdueTasks.length === 0 && !lowGradeUrgent && !urgentBlind) {
+      parts.push(`"${staleName}" keeps getting pushed. The longer you leave it, the bigger it feels — ten minutes today breaks that cycle.`);
+    }
+
+    // ── PART 6: Upcoming cluster warning ──────────────────────────
+    if (busiestCount >= 2 && busiestDayName && busiestDaysAway != null && busiestDaysAway > 1) {
+      const closeCtx = latePattern
+        ? `Your habit is leaving things until the last window — ${busiestDayName} will be that window if you don't move something earlier.`
+        : `Getting even one thing done before then makes that day much more manageable.`;
+      parts.push(`${busiestDayName} has ${busiestCount} things due. ${closeCtx}`);
+    } else if (busiestCount >= 2 && busiestDayName === "tomorrow" && overdueTasks.length === 0 && todaysTasks.length === 0) {
+      parts.push(`Tomorrow has ${busiestCount} things due. Today's a low-pressure window to chip in early.`);
+    }
+
+    // ── PART 7: Behavioral pattern (≥5 data points) ───────────────
+    if (totalSamples >= 5) {
+      if (latenessLabel === "plans ahead" && avgDaysBefore != null) {
+        parts.push(`Worth saying: you've been finishing about ${avgDaysBefore} day${avgDaysBefore !== 1 ? "s" : ""} ahead of deadline on average — across ${totalSamples} tasks. That buffer is exactly why things don't feel like a crisis.`);
+      } else if (latenessLabel === "last minute" && avgDaysBefore != null && avgDaysBefore <= 0) {
+        parts.push(`One pattern worth knowing: you're finishing things the day they're due. It works — until it doesn't. One task done a day early completely changes how that due date feels.`);
+      } else if (latenessLabel === "last minute" && avgDaysBefore != null) {
+        parts.push(`Your average finish is about ${avgDaysBefore} day${avgDaysBefore !== 1 ? "s" : ""} before the deadline. That's closer than it sounds, especially when you've got a heavy week stacked.`);
+      } else if (latenessLabel === "often late") {
+        parts.push(`Looking at your history — there have been a few past-deadline submissions. One early finish, just one, can start breaking that pattern.`);
+      }
+    }
+
+    // ── PART 8: Peak work time ─────────────────────────────────────
+    if (timeSamples >= 5 && bestTime && parts.length <= 2 && overdueTasks.length === 0) {
+      parts.push(`Your completions tend to land in the ${bestTime}. That's your real work window — the one where things actually get done. Protect it.`);
+    }
+
+    // ── PART 9: Streak ────────────────────────────────────────────
+    if (streak >= 7 && overdueTasks.length === 0) {
+      parts.push(`${streak} days in a row. That's not luck at this point — that's a real habit.`);
+    } else if (streak >= 3 && streak < 7 && overdueTasks.length === 0 && parts.length <= 1) {
+      parts.push(`${streak}-day streak. Consistency is the part most people underestimate — keep the thread going.`);
+    }
+
+    // ── PART 10: Calendar + class schedule context ────────────────
+    // Only fires when it adds something Parts 1-9 didn't already cover
+    if (parts.length <= 2 && pendingTasks.length > 0) {
+      const DAY_MAP_10 = ["Su", "M", "Tu", "W", "Th", "F", "Sa"];
+      const todayDay10 = DAY_MAP_10[now.getDay()];
+      const parseT = (str) => {
+        if (!str) return null;
+        const m = str.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+        if (!m) return null;
+        let h = parseInt(m[1]), mn = parseInt(m[2]);
+        if (m[3].toUpperCase() === "PM" && h !== 12) h += 12;
+        if (m[3].toUpperCase() === "AM" && h === 12) h = 0;
+        const d = new Date(now); d.setHours(h, mn, 0, 0); return d;
+      };
+      const schedEvents = (profile?.classSchedule ?? [])
+        .filter((e) => e.days?.includes(todayDay10))
+        .map((e) => ({ title: e.className, startDate: parseT(e.startTime) }))
+        .filter((e) => e.startDate != null);
+      const calToday = (DEMO_MODE ? DEMO_CAL_EVENTS : calEvents).filter((e) => {
+        const start = e.startDate instanceof Date ? e.startDate : new Date(e.startDate);
+        return isToday(start);
+      });
+      const activeEvents = [...schedEvents, ...calToday];
+      if (activeEvents.length > 0) {
+        const sorted = [...activeEvents].sort((a, b) => {
+          const sa = a.startDate instanceof Date ? a.startDate : new Date(a.startDate);
+          const sb = b.startDate instanceof Date ? b.startDate : new Date(b.startDate);
+          return sa - sb;
+        });
+        const firstEvent = sorted[0];
+        const firstStart = firstEvent.startDate instanceof Date ? firstEvent.startDate : new Date(firstEvent.startDate);
+        const minsUntilFirst = Math.floor((firstStart - now) / 60000);
+
+        if (minsUntilFirst > 75 && minsUntilFirst < 360) {
+          const hStr = minsUntilFirst >= 120
+            ? `${Math.floor(minsUntilFirst / 60)}h ${minsUntilFirst % 60 > 0 ? `${minsUntilFirst % 60}min` : ""}`.trim()
+            : `${minsUntilFirst}min`;
+          parts.push(`You've got ${hStr} before ${firstEvent.title ?? "your first class"} — that's a real window. Use it.`);
+        } else if (activeEvents.length >= 3) {
+          parts.push(`Heavy day — ${activeEvents.length} classes or events. Find the gaps between them. That's where the work happens.`);
+        } else if (overdueTasks.length === 0 && todaysTasks.length === 0) {
+          parts.push(`${activeEvents.length === 1 ? "One thing" : `${activeEvents.length} things`} on the schedule today. Use the time around it to make progress.`);
+        }
+      }
+    }
+
+    return parts.filter(Boolean).join(" ") || null;
+  }, [loading, tasks, pendingTasks, todaysTasks, enrichedTasks, patterns, streak, now, calEvents, profile?.classSchedule]);
+
+  // ── Class schedule → today's events ──────────────────────────
+  const classScheduleEvents = useMemo(() => {
+    const schedule = profile?.classSchedule;
+    if (!schedule?.length) return [];
+    const DAY_MAP = ["Su", "M", "Tu", "W", "Th", "F", "Sa"];
+    const todayDay = DAY_MAP[now.getDay()];
+    const parseTime = (str) => {
+      if (!str) return null;
+      const m = str.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+      if (!m) return null;
+      let h = parseInt(m[1]), min = parseInt(m[2]);
+      if (m[3].toUpperCase() === "PM" && h !== 12) h += 12;
+      if (m[3].toUpperCase() === "AM" && h === 12) h = 0;
+      const d = new Date(now);
+      d.setHours(h, min, 0, 0);
+      return d;
+    };
+    return schedule
+      .filter((e) => e.days?.includes(todayDay))
+      .map((e) => ({
+        id: `sched-${e.id}`,
+        title: e.className,
+        startDate: parseTime(e.startTime),
+        endDate: parseTime(e.endTime),
+        color: colors.accent,
+        allDay: false,
+      }))
+      .filter((e) => e.startDate != null)
+      .sort((a, b) => a.startDate - b.startDate);
+  }, [profile?.classSchedule, now, colors.accent]);
+
+  // Today only: class schedule for today + cal events for today
+  const todayDisplayEvents = useMemo(() => {
+    if (DEMO_MODE) return DEMO_CAL_EVENTS;
+    const cal = (calEvents ?? []).filter((e) => {
+      const start = e.startDate instanceof Date ? e.startDate : new Date(e.startDate);
+      return isToday(start);
+    });
+    const all = [...classScheduleEvents, ...cal];
+    return all.sort((a, b) => {
+      const sa = a.startDate instanceof Date ? a.startDate : new Date(a.startDate);
+      const sb = b.startDate instanceof Date ? b.startDate : new Date(b.startDate);
+      return sa - sb;
+    });
+  }, [classScheduleEvents, calEvents]);
+
+  // Upcoming: class schedule + cal events for next 6 days (not today)
+  const upcomingDisplayEvents = useMemo(() => {
+    if (DEMO_MODE) return [];
+    const DAY_MAP = ["Su", "M", "Tu", "W", "Th", "F", "Sa"];
+    const schedule = profile?.classSchedule ?? [];
+    const parseTimeForDate = (str, date) => {
+      if (!str) return null;
+      const m = str.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+      if (!m) return null;
+      let h = parseInt(m[1]), min = parseInt(m[2]);
+      if (m[3].toUpperCase() === "PM" && h !== 12) h += 12;
+      if (m[3].toUpperCase() === "AM" && h === 12) h = 0;
+      const d = new Date(date);
+      d.setHours(h, min, 0, 0);
+      return d;
+    };
+    const upcomingClasses = [];
+    for (let i = 1; i <= 6; i++) {
+      const day = addDays(now, i);
+      const dayStr = DAY_MAP[day.getDay()];
+      schedule.filter(e => e.days?.includes(dayStr)).forEach(e => {
+        const startDate = parseTimeForDate(e.startTime, day);
+        const endDate   = parseTimeForDate(e.endTime, day);
+        if (startDate) upcomingClasses.push({ id: `sched-${e.id}-${i}`, title: e.className, startDate, endDate, color: colors.accent, allDay: false });
+      });
+    }
+    const cal = (calEvents ?? []).filter(e => {
+      const start = e.startDate instanceof Date ? e.startDate : new Date(e.startDate);
+      return !isToday(start) && start > now;
+    });
+    return [...upcomingClasses, ...cal].sort((a, b) => {
+      const sa = a.startDate instanceof Date ? a.startDate : new Date(a.startDate);
+      const sb = b.startDate instanceof Date ? b.startDate : new Date(b.startDate);
+      return sa - sb;
+    });
+  }, [calEvents, profile?.classSchedule, now, colors.accent]);
 
   const firstName = profile?.name?.split(" ")[0] ?? null;
   const isFirstTime =
@@ -1085,60 +1522,88 @@ const DashboardScreen = ({ navigation }) => {
     <View style={[styles.safe, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>
-            {greeting()}{firstName ? `, ${firstName}` : ""}
-          </Text>
-          <View style={styles.dateRow}>
-            <Text style={styles.date}>{format(now, "EEEE, MMMM d")}</Text>
-            {streak > 0 && (
-              <View style={styles.streakPill}>
-                <Text>🔥</Text>
-                <Text style={styles.streakText}>{streak}</Text>
-              </View>
-            )}
-          </View>
+        {/* Decorative background — sparkles + glow orb */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none" collapsable={false}>
+          <View style={[styles.decoOrb, { backgroundColor: "rgba(255,255,255,0.12)", right: -30, top: -30 }]} />
+          <View style={[styles.decoOrb, { width: 60, height: 60, backgroundColor: "rgba(255,255,255,0.07)", right: 60, top: 10 }]} />
+          <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.45)", top: 8, right: 100, fontSize: 10 }]}>✦</Text>
+          <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.28)", top: 22, right: 50, fontSize: 6 }]}>✦</Text>
+          <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.35)", top: 40, right: 120, fontSize: 7 }]}>✦</Text>
+          <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.25)", bottom: 20, right: 80, fontSize: 9 }]}>✦</Text>
+          <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.30)", bottom: 35, right: 30, fontSize: 5 }]}>✦</Text>
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+
+        {/* Row 1 — greeting + avatar */}
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greeting}>
+              {greeting()}{firstName ? `, ${firstName}` : ""}
+            </Text>
+            <View style={styles.dateRow}>
+              <Text style={styles.date}>{format(now, "EEEE, MMMM d")}</Text>
+              {streak > 0 && (
+                <Animated.View style={[styles.streakPill, { transform: [{ scale: streakScale }] }]}>
+                  <Text style={{ fontSize: 11 }}>🔥</Text>
+                  <Text style={styles.streakText}>{streak}</Text>
+                </Animated.View>
+              )}
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.profileAvatar}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              navigation.navigate("Profile");
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.profileAvatarText}>
+              {(profile?.name ?? user?.email ?? "?")[0].toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Bottom row — status badges (left) + action buttons (right) */}
+        <View style={styles.headerBottomRow}>
+          {buckets.overdue.length > 0 && (
+            <View style={[styles.statusChip, styles.statusChipOverdue]}>
+              <Feather name="alert-circle" size={11} color="#FF8080" />
+              <Text style={[styles.statusChipText, styles.statusChipTextOverdue]}>
+                {buckets.overdue.length} overdue
+              </Text>
+            </View>
+          )}
+          {buckets.dueToday.length > 0 && (
+            <View style={styles.statusChipToday}>
+              <Text style={styles.dueTodayBang}>!</Text>
+              <Text style={styles.dueTodayLabel}>{buckets.dueToday.length} due today</Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }} />
           <TouchableOpacity
             ref={studyPlanBtnRef}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
               navigation.navigate(isPro ? "StudyPlan" : "Paywall");
             }}
-            style={styles.importBtn}
+            style={styles.actionChip}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             onLayout={() => measureBtn(studyPlanBtnRef, "studyPlan")}
-          >
-            <Feather name="edit-3" size={15} color={colors.accent} />
-            <Text style={[styles.importBtnLabel, { color: colors.accent }]}>Plan</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            ref={calendarBtnRef}
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              setCalendarLoading(true);
-              setCalendarMode((m) => !m);
-              if (!calendarMode) setCalWeekOffset(0);
-              InteractionManager.runAfterInteractions(() => setCalendarLoading(false));
-            }}
-            style={[styles.importBtn, calendarMode && { backgroundColor: colors.accentGlow, borderColor: colors.accent }]}
             activeOpacity={0.7}
-            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-            onLayout={() => measureBtn(calendarBtnRef, "calendar")}
           >
-            <Feather name="calendar" size={15} color={colors.accent} />
-            <Text style={[styles.importBtnLabel, { color: colors.accent }]}>Week</Text>
+            <Feather name="edit-3" size={13} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.actionChipText}>Plan</Text>
           </TouchableOpacity>
           <TouchableOpacity
             ref={syllabusBtnRef}
             onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
-            style={styles.importBtn}
+            style={styles.actionChip}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            activeOpacity={0.7}
             onLayout={() => measureBtn(syllabusBtnRef, "syllabusImport")}
           >
-            <Feather name="upload-cloud" size={15} color={colors.accent} />
-            <Text style={[styles.importBtnLabel, { color: colors.accent }]}>Sync</Text>
+            <Feather name="upload-cloud" size={13} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.actionChipText}>Sync</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1158,36 +1623,64 @@ const DashboardScreen = ({ navigation }) => {
           />
         }
       >
-        <View style={styles.subGreetingBanner}>
-          <Text style={styles.subGreetingText}>{subGreeting()}</Text>
-        </View>
-        <View style={{ height: spacing.sm }} />
+        {/* All-done-today celebration */}
+        {showAllDoneToday && (
+          <Animated.View
+            style={[
+              styles.allDoneCard,
+              {
+                opacity: allDoneAnim,
+                transform: [{ scale: allDoneAnim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }],
+              },
+            ]}
+          >
+            <View style={[styles.allDoneIconWrap, { backgroundColor: colors.low + "22" }]}>
+              <Text style={{ fontSize: 18 }}>✓</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.allDoneTitle, { color: colors.low }]}>All done for today</Text>
+              <Text style={[styles.allDoneSub, { color: colors.textMuted }]}>Every task on your list — finished.</Text>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* ── Ace coaching card — full paragraph from client-side data ── */}
+        {aceBrief && (
+          <View
+            ref={insightStripRef}
+            collapsable={false}
+            style={styles.aceCard}
+            onLayout={() => setTimeout(() => measureBtn(insightStripRef, "insightStrip", 16), 150)}
+          >
+            <View style={styles.aceCardHeader}>
+              <Image source={require("../assets/logo.png")} style={styles.aceCardLogo} resizeMode="contain" />
+              <Text style={styles.aceCardName}>ACE</Text>
+              <Text style={styles.aceCardSparkle}>✦</Text>
+            </View>
+            <Text style={styles.aceCardMessage}>{aceBrief}</Text>
+          </View>
+        )}
+
+        {/* Stats bar */}
         <View
           ref={statsBarRef}
           collapsable={false}
+          style={{ marginTop: 12 }}
           onLayout={() => setTimeout(() => measureBtn(statsBarRef, "statsBar", 14), 150)}
         >
           <StatsBar
             todayCount={todaysTasks.length}
             pendingCount={pendingTasks.length}
-            completedCount={completedTasks.length}
+            completedCount={semesterCompletedCount}
           />
         </View>
 
-        {/* Today's calendar events */}
-        {!DEMO_MODE && (
-          <TodaySchedule
-            events={calEvents}
-            permission={calPermission}
-            onRequestPermission={() => setCalEnabled(true)}
-          />
-        )}
-
-        {/* Today's Focus — auto-loads, no button press needed */}
+        {/* Today's Focus — AI picks */}
         {tasks.length > 0 && (
           <View
             ref={todayFocusRef}
             collapsable={false}
+            style={{ marginTop: 12 }}
             onLayout={() => setTimeout(() => measureBtn(todayFocusRef, "todayFocus", 16), 150)}
           >
             <TodayFocusCard
@@ -1202,209 +1695,22 @@ const DashboardScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Behavioral insight strip */}
-        {behavioralInsight && (
+        {/* Today's / Upcoming schedule */}
+        {(todayDisplayEvents.length > 0 || upcomingDisplayEvents.length > 0) && (
           <View
-            ref={insightStripRef}
-            collapsable={false}
-            onLayout={() => setTimeout(() => measureBtn(insightStripRef, "insightStrip", 10), 150)}
+            style={{ marginTop: 12 }}
+            ref={todayScheduleRef}
+            onLayout={() => setTimeout(() => measureBtn(todayScheduleRef, "todaySchedule", 16), 200)}
           >
-            <InsightStrip
-              key={behavioralInsight.text}
-              insight={behavioralInsight}
-              styles={styles}
-              colors={colors}
+            <TodaySchedule
+              events={scheduleView === "today" ? todayDisplayEvents : upcomingDisplayEvents}
+              view={scheduleView}
+              onToggleView={setScheduleView}
+              onSeeAll={calStatus === "granted" ? () => navigation.navigate("Calendar") : undefined}
             />
           </View>
         )}
 
-        {calendarLoading ? (
-          calendarMode ? <CalendarSkeleton /> : <TaskListSkeleton />
-        ) : calendarMode ? (
-          /* ── Calendar view ──────────────────────────────────── */
-          <WeekCalendar
-            tasks={enrichedTasks}
-            onEditTask={handleEditTask}
-            weekOffset={calWeekOffset}
-            onWeekChange={setCalWeekOffset}
-            colors={colors}
-          />
-        ) : (
-          /* ── List view ──────────────────────────────────────── */
-          <>
-            {/* Tabs */}
-            <View
-              style={styles.segmentedControl}
-              onLayout={(e) => {
-                const w = e.nativeEvent.layout.width;
-                setTabContainerWidth(w);
-                tabIndicatorX.setValue(TABS.indexOf(activeTab) * ((w - 6) / TABS.length));
-              }}
-            >
-              {tabContainerWidth > 0 && (
-                <Animated.View
-                  style={[
-                    styles.segmentActivePill,
-                    {
-                      width: (tabContainerWidth - 6) / TABS.length,
-                      transform: [{ translateX: tabIndicatorX }],
-                    },
-                  ]}
-                />
-              )}
-              {TABS.map((tab) => {
-                const count =
-                  tab === "Today" ? todaysTasks.length :
-                  tab === "Done"  ? completedTasks.length : null;
-                return (
-                  <TouchableOpacity
-                    key={tab}
-                    onPress={() => { Haptics.selectionAsync().catch(() => {}); handleTabChange(tab); }}
-                    style={styles.segment}
-                  >
-                    <Text style={[styles.segmentText, activeTab === tab && styles.segmentTextActive]}>
-                      {tab}{count !== null && count > 0 ? ` · ${count}` : ""}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Task list */}
-            {tabLoading ? (
-              <TaskListSkeleton />
-            ) : loading && tasks.length === 0 ? (
-              <DashboardSkeleton />
-            ) : isFirstTime ? (
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyIcon}>
-                  <Feather name="zap" size={32} color={colors.accent} />
-                </View>
-                <Text style={styles.emptyTitle}>Let's get started 🚀</Text>
-                <Text style={styles.emptySubtitle}>
-                  Add your first task or import your whole semester in one tap.
-                </Text>
-                <TouchableOpacity
-                  style={[styles.emptyBtn, { width: "100%", justifyContent: "center" }]}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); openAddTask(); }}
-                >
-                  <Feather name="plus" size={15} color="#fff" />
-                  <Text style={styles.emptyBtnText}>Add your first task</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: spacing.sm }}
-                  onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
-                >
-                  <Feather name="upload-cloud" size={13} color={colors.textMuted} />
-                  <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: "Outfit-Medium" }}>Or import from Canvas / ICS</Text>
-                </TouchableOpacity>
-              </View>
-            ) : activeTab === "All" &&
-              displayedTasks.filter((t) => !t.completed).length === 0 &&
-              completedTasks.length > 0 ? (
-              <View style={styles.allDoneContainer}>
-                <View style={styles.allDoneIcon}>
-                  <Feather name="check-circle" size={32} color={colors.low} />
-                </View>
-                <Text style={styles.allDoneTitle}>Inbox zero 🎉</Text>
-                <Text style={styles.allDoneSubtitle}>
-                  You crushed it. Add something new or ask your coach what's next.
-                </Text>
-              </View>
-            ) : activeTab === "All" ? (
-              <>
-                {(focusBtnRegistered.current = false) || null}
-                {renderBucket("Overdue", buckets.overdue, colors.high)}
-                {renderBucket("Due Today", buckets.dueToday, colors.medium)}
-                {renderBucket("This Week", buckets.thisWeek, colors.accent)}
-                {renderBucket("Coming Up", buckets.later, colors.textMuted)}
-                {renderBucket("No Date", buckets.noDate, colors.textMuted)}
-                {buckets.completed.length > 0 && (
-                  <View style={{ marginTop: spacing.sm }}>
-                    <View style={styles.bucketHeader}>
-                      <View style={[styles.bucketDot, { backgroundColor: colors.low }]} />
-                      <Text style={[styles.bucketLabel, { color: colors.low }]}>Completed</Text>
-                      <Text style={[styles.bucketCount, { color: colors.low, backgroundColor: colors.low + "18" }]}>
-                        {buckets.completed.length}
-                      </Text>
-                    </View>
-                    {buckets.completed.slice(0, 5).map((task, idx) =>
-                      task ? (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          onToggle={handleToggle}
-                          onEdit={handleEditTask}
-                          onDelete={handleDeleteTask}
-                          onFocus={handleFocusTask}
-                          index={idx}
-                        />
-                      ) : null
-                    )}
-                    {buckets.completed.length > 5 && (
-                      <Text style={[styles.sectionLabel, { textAlign: "center", marginTop: spacing.xs }]}>
-                        + {buckets.completed.length - 5} more completed
-                      </Text>
-                    )}
-                    <TouchableOpacity style={styles.clearBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); handleClearCompleted(); }}>
-                      <Feather name="trash-2" size={13} color={colors.high} />
-                      <Text style={styles.clearBtnText}>Clear completed</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </>
-            ) : displayedTasks.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyIcon}>
-                  <Feather
-                    name={activeTab === "Done" ? "check-circle" : "inbox"}
-                    size={28}
-                    color={colors.accent}
-                  />
-                </View>
-                <Text style={styles.emptyTitle}>
-                  {activeTab === "Done"
-                    ? "Nothing yet"
-                    : activeTab === "Today"
-                    ? "Free day 🌿"
-                    : "All clear!"}
-                </Text>
-                <Text style={styles.emptySubtitle}>
-                  {activeTab === "Done"
-                    ? "Complete a task and it'll show up here."
-                    : activeTab === "Today"
-                    ? nextUpTask
-                      ? `Up next: "${nextUpTask.title}" — due ${format(safeDate(nextUpTask.dueDate), "MMM d")}`
-                      : "Nothing on the calendar. Enjoy it."
-                    : "Nothing pending. Tap + to add something."}
-                </Text>
-              </View>
-            ) : (
-              <>
-                {displayedTasks.map((task, idx) =>
-                  task ? (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      onToggle={handleToggle}
-                      onEdit={handleEditTask}
-                      onDelete={handleDeleteTask}
-                      onFocus={handleFocusTask}
-                      highlighted={task.id === highlightedTaskId}
-                      index={idx}
-                    />
-                  ) : null
-                )}
-                {activeTab === "Done" && displayedTasks.length > 0 && (
-                  <TouchableOpacity style={styles.clearBtn} onPress={handleClearCompleted}>
-                    <Feather name="trash-2" size={13} color={colors.high} />
-                    <Text style={styles.clearBtnText}>Clear completed</Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-          </>
-        )}
       </ScrollView>
 
       <NotificationPermissionPrompt

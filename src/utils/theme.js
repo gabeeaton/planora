@@ -4,7 +4,7 @@
 // ============================================================
 
 export const COLOR_THEMES = {
-  purple: { key: "purple", label: "Purple", accent: "#9060E8", accentLight: "#A87AEE", accentGlowDark: "rgba(144,96,232,0.18)", accentGlowLight: "rgba(144,96,232,0.22)", bgLight: "#EEEAF8", cardLight: "#F8F6FE" },
+  purple: { key: "purple", label: "Purple", accent: "#7C3AED", accentLight: "#A78BFA", accentGlowDark: "rgba(124,58,237,0.20)", accentGlowLight: "rgba(124,58,237,0.14)", bgLight: "#EDE8F8", cardLight: "#F5F1FE" },
   blue:   { key: "blue",   label: "Blue",   accent: "#3B82F6", accentLight: "#60A5FA", accentGlowDark: "rgba(59,130,246,0.18)",  accentGlowLight: "rgba(59,130,246,0.22)",  bgLight: "#EAF0FC", cardLight: "#F5F8FF" },
   green:  { key: "green",  label: "Green",  accent: "#10B981", accentLight: "#34D399", accentGlowDark: "rgba(16,185,129,0.18)",  accentGlowLight: "rgba(16,185,129,0.22)",  bgLight: "#E8F5F1", cardLight: "#F4FBF8" },
   pink:   { key: "pink",   label: "Pink",   accent: "#EC4899", accentLight: "#F472B6", accentGlowDark: "rgba(236,72,153,0.18)",  accentGlowLight: "rgba(236,72,153,0.22)",  bgLight: "#FAE9F3", cardLight: "#FEF4FA" },
