@@ -1661,20 +1661,6 @@ const DashboardScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Stats bar */}
-        <View
-          ref={statsBarRef}
-          collapsable={false}
-          style={{ marginTop: 12 }}
-          onLayout={() => setTimeout(() => measureBtn(statsBarRef, "statsBar", 14), 150)}
-        >
-          <StatsBar
-            todayCount={todaysTasks.length}
-            pendingCount={pendingTasks.length}
-            completedCount={semesterCompletedCount}
-          />
-        </View>
-
         {/* Today's Focus — AI picks */}
         {tasks.length > 0 && (
           <View
@@ -1694,6 +1680,20 @@ const DashboardScreen = ({ navigation }) => {
             />
           </View>
         )}
+
+        {/* Stats bar */}
+        <View
+          ref={statsBarRef}
+          collapsable={false}
+          style={{ marginTop: 12 }}
+          onLayout={() => setTimeout(() => measureBtn(statsBarRef, "statsBar", 14), 150)}
+        >
+          <StatsBar
+            todayCount={todaysTasks.length}
+            pendingCount={pendingTasks.length}
+            completedCount={semesterCompletedCount}
+          />
+        </View>
 
         {/* Today's / Upcoming schedule */}
         {(todayDisplayEvents.length > 0 || upcomingDisplayEvents.length > 0) && (
