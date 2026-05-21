@@ -10,7 +10,7 @@ const API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? "";
 // Product IDs must match App Store Connect exactly
 export const PRODUCT_IDS = {
   monthly:  "com.planoraapp.monthly",
-  semester: "com.planoraapp.semester",
+  semester: "com.planoraapp.6month",
   annual:   "com.planoraapp.annual",
 };
 

@@ -645,6 +645,7 @@ const DashboardScreen = ({ navigation }) => {
   const DEMO_TASKS = [
     { id: "d-1", title: "Discussion post — environmental policy", className: "POLS 200", dueDate: new Date(_dn - 2 * 86400000), completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },
     { id: "d0",  title: "Review lecture notes — today's quiz",    className: "BIOL 150", dueDate: new Date(_dn),                completed: false, priority: "HIGH",   aiPriority: "HIGH"   },
+    { id: "d0b", title: "POLS 200 — online discussion post",      className: "POLS 200", dueDate: new Date(_dn + 3600000),     completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },
     { id: "d1",  title: "Study for Organic Chemistry midterm",    className: "CHEM 201", dueDate: new Date(_dn + 86400000),     completed: false, priority: "HIGH",   aiPriority: "HIGH"   },
     { id: "d2",  title: "Write 5-page essay on the Civil War",    className: "HIST 110", dueDate: new Date(_dn + 2 * 86400000), completed: false, priority: "HIGH",   aiPriority: "HIGH"   },
     { id: "d3",  title: "Problem Set 4 — Linear Algebra",         className: "MATH 240", dueDate: new Date(_dn + 3 * 86400000), completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },

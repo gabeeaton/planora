@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert, Linking, Animated, PanResponder,
+  ScrollView, ActivityIndicator, Alert, Linking, Animated, PanResponder, Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -34,7 +34,6 @@ const TRUST_SIGNALS_TRIAL = [
 const TRUST_SIGNALS_NO_TRIAL = [
   { icon: "x-circle", label: "Cancel anytime" },
   { icon: "lock",     label: "Secure via App Store" },
-  { icon: "refresh-cw", label: "Restore purchases" },
 ];
 
 const PLANS = [
@@ -220,24 +219,10 @@ export default function PaywallScreen({ navigation }) {
             </View>
 
             <View style={styles.heroIconWrap}>
-              <Feather name="zap" size={28} color="#fff" />
+              <Image source={require("../../icon.png")} style={{ width: 68, height: 68, borderRadius: 16 }} resizeMode="contain" />
             </View>
             <Text style={styles.heroLabel}>SCHOLAR PLAN</Text>
             <Text style={styles.heroTitle}>Your AI academic{"\n"}coach, unlocked.</Text>
-
-            {/* Feature pills */}
-            <View style={styles.statsPillRow}>
-              {[
-                { icon: "cpu",         label: "AI Priority" },
-                { icon: "edit-3",      label: "Study Plans" },
-                { icon: "trending-up", label: "Insights" },
-              ].map((s) => (
-                <View key={s.label} style={styles.statsPill}>
-                  <Feather name={s.icon} size={11} color={colors.accent} />
-                  <Text style={styles.statsPillText}>{s.label}</Text>
-                </View>
-              ))}
-            </View>
 
             {/* Trust signals — honest, verifiable */}
             <View style={styles.trustRow}>
@@ -415,13 +400,13 @@ const makeStyles = (colors, insets) => StyleSheet.create({
     backgroundColor: colors.accent + "18", top: 10, left: -20,
   },
   heroIconWrap: {
-    width: 68, height: 68, borderRadius: 22,
-    backgroundColor: colors.accent,
+    width: 68, height: 68, borderRadius: 16,
     alignItems: "center", justifyContent: "center",
     marginBottom: 14,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45, shadowRadius: 20, elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18, shadowRadius: 12, elevation: 10,
+    overflow: "hidden",
   },
   heroLabel: {
     fontSize: 10, fontFamily: "Outfit-ExtraBold",
@@ -430,14 +415,14 @@ const makeStyles = (colors, insets) => StyleSheet.create({
   heroTitle: {
     fontSize: 28, fontFamily: "Outfit-ExtraBold",
     color: colors.textPrimary, textAlign: "center",
-    letterSpacing: -0.5, lineHeight: 34, marginBottom: 14,
+    letterSpacing: -0.5, lineHeight: 34, marginBottom: 20,
   },
   statsPillRow: {
     flexDirection: "row", gap: 8, marginBottom: 16, flexWrap: "wrap", justifyContent: "center",
   },
   trustRow: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 0, flexWrap: "wrap",
+    gap: 0, flexWrap: "wrap", marginTop: 14,
   },
   trustItem: {
     flexDirection: "row", alignItems: "center", gap: 4,
@@ -561,7 +546,7 @@ const makeStyles = (colors, insets) => StyleSheet.create({
     marginTop: 3, fontFamily: "Outfit-Medium",
   },
 
-  restoreBtn: { alignItems: "center", paddingVertical: 8 },
+  restoreBtn: { alignItems: "center", paddingVertical: 8, marginTop: 10 },
   restoreBtnText: { fontSize: 13, color: colors.textMuted, fontFamily: "Outfit-Regular" },
   freePlanBtn: { alignItems: "center", paddingVertical: 10 },
   freePlanText: {
