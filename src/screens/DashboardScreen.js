@@ -818,11 +818,11 @@ const DashboardScreen = ({ navigation }) => {
     checkAndScheduleAvoidanceAlerts(patterns.avoidanceScores, patterns?.productiveTimeOfDay?.bestTime, user?.uid);
   }, [isPro, patterns?.avoidanceScores]);
 
-  // Streak reminder — reschedule whenever streak or productive time changes
+  // Streak reminder — reschedule whenever streak, tasks, or productive time changes
   useEffect(() => {
     const bestTime = patterns?.productiveTimeOfDay?.bestTime ?? "evening";
-    scheduleStreakReminder(streak, bestTime, user?.uid);
-  }, [streak, patterns?.productiveTimeOfDay?.bestTime, user?.uid]);
+    scheduleStreakReminder(streak, bestTime, user?.uid, tasks);
+  }, [streak, tasks, patterns?.productiveTimeOfDay?.bestTime, user?.uid]);
 
   const loadTodayPlanSessions = useCallback(() => {
     AsyncStorage.getItem("@planora_study_plan_cache").then((raw) => {

@@ -574,9 +574,14 @@ const PRODUCTIVE_TIME_HOURS = {
  * @param {string} bestTime  "morning" | "afternoon" | "evening" | "night"
  * @param {string} uid       Firebase user ID (keeps keys user-specific)
  */
-export const scheduleStreakReminder = async (streak, bestTime, uid) => {
+export const scheduleStreakReminder = async (streak, bestTime, uid, tasks = []) => {
   if (!uid || FEATURE_FLAGS.DEMO_MODE) return;
   if (!streak || streak <= 0) {
+    await cancelStreakReminder(uid);
+    return;
+  }
+  const hasIncompleteTasks = tasks.some((t) => !t.completed);
+  if (!hasIncompleteTasks) {
     await cancelStreakReminder(uid);
     return;
   }
@@ -587,23 +592,19 @@ export const scheduleStreakReminder = async (streak, bestTime, uid) => {
     await cancelStreakReminder(uid);
 
     const hour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 18;
-    const fire = new Date();
-    fire.setHours(hour, 0, 0, 0);
-    if (fire <= new Date()) {
-      fire.setDate(fire.getDate() + 1);
-    }
 
     try {
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: `🔥 ${streak} day streak — keep it going!`,
-          body: "Complete a task today so you don't lose your streak.",
+          body: "Complete a task today to keep your streak going.",
           data: { type: "streak-reminder" },
           sound: true,
         },
         trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: fire,
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour,
+          minute: 0,
         },
       });
       await AsyncStorage.setItem(streakNotifKey(uid), id).catch(() => {});
