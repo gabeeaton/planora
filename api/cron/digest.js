@@ -13,6 +13,7 @@
 //   FIREBASE_PRIVATE_KEY
 // ============================================================
 
+import crypto from "crypto";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth }      from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
@@ -132,7 +133,7 @@ function digestHtml(name, tasks, uid) {
         <tr><td style="padding:20px 40px;background:#f9f9f9;border-top:1px solid #eee;text-align:center;">
           <p style="margin:0 0 6px;font-size:11px;color:#aaa;">Planora · planoraapp.net</p>
           <p style="margin:0;font-size:11px;">
-            <a href="https://taskflow-mocha-theta.vercel.app/api/unsubscribe?uid=${uid}" style="color:#aaa;">Unsubscribe from daily emails</a>
+            <a href="https://taskflow-mocha-theta.vercel.app/api/unsubscribe?uid=${uid}&sig=${crypto.createHmac("sha256", process.env.CRON_SECRET ?? "").update(uid).digest("hex").slice(0, 32)}" style="color:#aaa;">Unsubscribe from daily emails</a>
           </p>
         </td></tr>
 

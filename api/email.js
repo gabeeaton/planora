@@ -2,20 +2,29 @@
 // api/email.js — Vercel serverless function
 //
 // Sends transactional emails via Resend.
-// Currently handles: welcome email on signup.
+// Currently handles: welcome, verify, reset.
+//
+// Security:
+//  - Per-email rate limit: 3 sends per type per hour (Firestore)
+//  - No client secret needed — rate limiting is server-enforced
 //
 // Required env vars:
-//   RESEND_API_KEY      — from resend.com dashboard
-//   EMAIL_API_SECRET    — shared secret, sent by app as x-api-secret header
-//   VERCEL_API_URL      — used to build unsubscribe links (optional)
+//   RESEND_API_KEY
+//   FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
+//   VERCEL_API_URL — used to build unsubscribe links (optional)
 // ============================================================
 
+import crypto from "crypto";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
 const RESEND_URL  = "https://api.resend.com/emails";
 const FROM        = "Planora <hello@planoraapp.net>";
 const LOGO_URL    = "https://taskflow-mocha-theta.vercel.app/logo.jpg";
+
+// Max sends per email address per type per hour
+const RATE_LIMIT = 3;
 
 function getAdminApp() {
   if (getApps().length > 0) return getApps()[0];
@@ -27,6 +36,35 @@ function getAdminApp() {
     }),
   });
 }
+
+// ── Rate limiting ─────────────────────────────────────────────
+// Stores counts in Firestore: emailRateLimits/{sha256(email:type)}
+// Fields: count (int), windowStart (ISO date-hour string)
+
+async function checkRateLimit(email, type) {
+  const db  = getFirestore(getAdminApp());
+  const key = crypto.createHash("sha256").update(`${email}:${type}`).digest("hex");
+  const ref = db.collection("emailRateLimits").doc(key);
+
+  const hourWindow = new Date().toISOString().slice(0, 13); // e.g. "2026-05-21T14"
+
+  const snap = await ref.get();
+  const data = snap.data() ?? {};
+
+  if (data.windowStart === hourWindow && (data.count ?? 0) >= RATE_LIMIT) {
+    return false; // rate limited
+  }
+
+  await ref.set(
+    data.windowStart === hourWindow
+      ? { count: FieldValue.increment(1) }
+      : { count: 1, windowStart: hourWindow },
+    { merge: true }
+  );
+  return true;
+}
+
+// ── Resend helper ─────────────────────────────────────────────
 
 async function sendEmail({ to, subject, html }) {
   const res = await fetch(RESEND_URL, {
@@ -83,7 +121,7 @@ const emailWrapper = (content) => `
 // ── Email templates ───────────────────────────────────────────
 
 function welcomeHtml(name) {
-  const first = name?.split(" ")[0] ?? "there";
+  const first = (name?.split(" ")[0] ?? "there").replace(/[<>"'&]/g, "");
   return emailWrapper(`
     <tr><td style="padding:36px 40px;">
       <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#1a1a2e;">
@@ -176,16 +214,31 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Verify shared secret
-  const secret = req.headers["x-api-secret"];
-  if (!secret || secret !== process.env.EMAIL_API_SECRET) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
   const { type, email, name } = req.body ?? {};
 
   if (!type || !email) {
     return res.status(400).json({ error: "Missing type or email" });
+  }
+
+  // Basic email format check
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "Invalid email address" });
+  }
+
+  const allowed = ["welcome", "verify", "reset"];
+  if (!allowed.includes(type)) {
+    return res.status(400).json({ error: `Unknown email type: ${type}` });
+  }
+
+  // Rate limit: max 3 sends per email+type per hour
+  try {
+    const allowed = await checkRateLimit(email, type);
+    if (!allowed) {
+      return res.status(429).json({ error: "Too many requests. Try again later." });
+    }
+  } catch (err) {
+    // Fail open — don't block the user if rate limit check errors
+    console.error("Rate limit check failed:", err);
   }
 
   try {
@@ -223,8 +276,6 @@ export default async function handler(req, res) {
       });
       return res.status(200).json({ ok: true });
     }
-
-    return res.status(400).json({ error: `Unknown email type: ${type}` });
   } catch (err) {
     console.error("Email send failed:", err);
     return res.status(500).json({ error: "Failed to send email" });

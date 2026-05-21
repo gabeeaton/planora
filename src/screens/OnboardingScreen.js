@@ -1328,10 +1328,7 @@ const OnboardingScreen = ({ navigation }) => {
       if (!isEditing && !DEMO_MODE && !FEATURE_FLAGS.FORCE_ONBOARDING && !profile?.welcomeEmailSent && user?.email) {
         fetch(`${VERCEL_API_URL}/api/email`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-secret": process.env.EXPO_PUBLIC_EMAIL_API_SECRET ?? "",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: "welcome", email: user.email, name: null }),
         }).catch(() => {});
       }

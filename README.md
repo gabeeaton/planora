@@ -4,9 +4,9 @@
 
 **Who built it:** Gabe Eaton, 22-year-old college student, solo founder. No business background. Building and learning at the same time.
 
-**Primary goal:** $10k MRR. Financial freedom. iOS App Store launch imminent (Android after).
+**Primary goal:** $10k MRR. Financial freedom. iOS App Store launch targeting August/September 2026 (orientation week). Android launch shortly after.
 
-**Current status:** Pre-revenue. In active development with `DEMO_MODE: true` and `FORCE_ONBOARDING: true` for testing. `BETA_PRO_UNLOCKED: false`. No analytics installed yet.
+**Current status:** Pre-revenue, pre-launch. Not yet on App Store or Google Play. Active development with dev flags enabled for testing. `BETA_PRO_UNLOCKED: false`. No analytics installed yet — PostHog needed before launch.
 
 ---
 
@@ -177,9 +177,11 @@ Contribute genuinely to r/college (3.5M members), r/GetStudying (500k), r/produc
 - Keywords: `student,planner,homework,canvas,assignment,tracker,gpa,college,study,ai,grade,scheduler`
 - Screenshots: lead with outcome ("Never miss a deadline again"), not feature list
 
-### Team being assembled
-- Student digital marketing operator (summer, content creation)
-- Campus growth partners (target: 3–5 schools for fall)
+### Team
+- **Founder**: Gabe Eaton (engineering, product)
+- **Summer 2026**: 1 content creator intern (current college student, already makes study content on TikTok/Instagram — this is the highest-leverage non-engineering hire before launch)
+- **Campus growth partners**: 3–5 student reps at different schools (not employees — free Scholar + referral link + small stipend)
+- **Graphic design**: one-time freelance contract for App Store screenshot frames and social templates (Fiverr/Upwork); not a recurring hire at this stage
 
 ### Content pillars for social
 1. Study smarter tips (no Planora mention — builds audience trust)
@@ -327,17 +329,48 @@ SENTRY_DISABLE_AUTO_UPLOAD=true
 
 ## Pre-Launch Checklist
 
-- [ ] Flip `DEMO_MODE` → `false` and `FORCE_ONBOARDING` → `false` in `src/config.js`
-- [ ] Flip `BETA_PRO_UNLOCKED` → `false` (already false — verify before submission)
-- [ ] Install PostHog or Mixpanel analytics
-- [ ] Re-enable GPA card in StatsScreen (commented out, line ~1349)
-- [ ] App Store title → "Planora – AI Student Planner"
-- [ ] App Store keywords → `student,planner,homework,canvas,assignment,tracker,gpa,college,study,ai,grade`
-- [ ] App Store screenshots leading with outcome, not features (use DEMO_MODE for screenshots)
-- [ ] Add student testimonial to paywall screen
+### Code / Config — must do before any production build
+- [ ] `src/config.js`: Flip `FORCE_ONBOARDING` → `false`
+- [ ] `src/config.js`: Flip `FORCE_WALKTHROUGH` → `false`
+- [ ] `src/config.js`: Verify `DEMO_MODE` → `false` and `BETA_PRO_UNLOCKED` → `false`
+- [ ] Re-enable GPA card in StatsScreen (commented out, line ~1349 — code is complete)
+- [ ] Swap RevenueCat test key → production key in `.env`
+- [ ] Install analytics — PostHog free tier is the fastest path
+
+### App Store Connect (iOS)
+- [ ] Create app listing in App Store Connect
+- [ ] Create subscription products: `com.planoraapp.monthly` ($4.99), `com.planoraapp.semester` ($17.99), `com.planoraapp.annual` ($29.99)
+- [ ] Enable 7-day free trial on all three products
+- [ ] App icon: 1024×1024 PNG, no transparency, no rounded corners (Apple applies them)
+- [ ] Screenshots: 6.7" iPhone (required), 6.5" fallback, 5.5" fallback — 3–10 per size — lead with outcome not UI
+- [ ] App title: "Planora – AI Student Planner"
+- [ ] Subtitle (30 chars): "Manage Classes, Track Grades"
+- [ ] Keywords (100 chars): `student,planner,homework,canvas,assignment,tracker,gpa,college,study,ai,grade,scheduler`
+- [ ] Privacy policy URL (required — host a simple page, must be live)
+- [ ] App privacy labels (data types collected: email, usage data, identifiers)
+- [ ] Add student testimonial to paywall screen before screenshots
+- [ ] TestFlight beta first → 10–20 real students → fix issues → public release
+- [ ] Build + submit: `eas build --platform ios` then `eas submit --platform ios`
+- [ ] Optional but high-value: set up Apple Pre-Order (up to 180 days before release — builds wishlist before launch day)
+
+### Google Play (Android)
+- [ ] Google Play Console account ($25 one-time fee)
+- [ ] Add `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` to `.env`
+- [ ] Add `google-services.json` to project root (from Firebase Console → Project Settings → Android)
+- [ ] Configure FCM for push notifications (Firebase → Cloud Messaging)
+- [ ] Create Play billing subscription products (matching iOS SKUs)
+- [ ] Notification icon: white silhouette PNG on transparent background (already in android/app/src/main/res)
+- [ ] Store listing: description (4000 chars), screenshots (2–8 per form factor), 1024×500 feature graphic
+- [ ] Data safety form (equivalent to Apple privacy labels — required)
+- [ ] Content rating questionnaire
+- [ ] Build + submit: `eas build --platform android` then `eas submit --platform android`
+- [ ] Note: Play review takes 7–14 days for first submission; plan accordingly
+
+### Marketing (before launch day)
+- [ ] Recruit 3–5 campus reps for orientation week (free Scholar + referral link + $25–50 at 20 signups)
+- [ ] DM 15 student TikTok/Instagram creators (5k–80k followers) — offer free Scholar, no pressure to post
+- [ ] App Store screenshots + preview video using `DEMO_MODE: true`
 - [ ] Verify completion share card works end-to-end (triggers at streak 3+)
-- [ ] Recruit 3–5 campus reps for orientation week
-- [ ] DM 15 student TikTok/Instagram creators (5k–80k followers)
-- [ ] Notification icon verified as white silhouette (Android requirement)
-- [ ] google-services.json added for Android push notifications
-- [ ] Add `SENTRY_DISABLE_AUTO_UPLOAD=true` to `.env` (or configure Sentry org/project)
+
+### Infrastructure
+- [ ] Add `SENTRY_DISABLE_AUTO_UPLOAD=true` to `.env` (or configure Sentry org/project in `app.json`)

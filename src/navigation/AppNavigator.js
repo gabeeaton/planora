@@ -61,7 +61,7 @@ const Tab   = createBottomTabNavigator();
 
 const COACH_NAME = "Ace"; // ← change to rename the AI character everywhere
 
-const TAB_ICONS  = { Dashboard: "home", Chat: "message-circle", Tasks: "check-square", Calendar: "calendar", Focus: "zap" };
+const TAB_ICONS  = { Dashboard: "home", Chat: "message-circle", Tasks: "check-square", Calendar: "calendar", Focus: "target" };
 const TAB_LABELS = { Dashboard: "Home", Chat: COACH_NAME, Tasks: "Tasks", Calendar: "Calendar", Focus: "Focus" };
 
 const TAB_TARGET_NAMES = { Dashboard: "homeTab", Chat: "chatTab", Tasks: "tasksTab", Calendar: "calendarTab", Focus: "focusTab" };
@@ -437,7 +437,7 @@ const MainTabsWithModal = () => {
         />
 
         {/* Floating Planora FAB — hidden on Chat tab */}
-        {!onChatTab && (
+        {!onChatTab && !showWalkthrough && (
           <AceFabInner
             bottom={aceBtnBottom}
             aceBtnScale={aceBtnScale}

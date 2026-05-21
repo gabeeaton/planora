@@ -1,10 +1,13 @@
 // ============================================================
 // api/unsubscribe.js
 // One-click unsubscribe from daily digest emails.
-// GET /api/unsubscribe?uid=XXX
+// GET /api/unsubscribe?uid=XXX&sig=YYY
+//
+// sig = HMAC-SHA256(uid, CRON_SECRET) — generated in cron/digest.js
 // Sets digestOptOut: true on the user's Firestore profile.
 // ============================================================
 
+import crypto from "crypto";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
@@ -19,11 +22,29 @@ function getAdminApp() {
   });
 }
 
-export default async function handler(req, res) {
-  const { uid } = req.query;
+function expectedSig(uid) {
+  return crypto
+    .createHmac("sha256", process.env.CRON_SECRET ?? "")
+    .update(uid)
+    .digest("hex")
+    .slice(0, 32);
+}
 
-  if (!uid) {
-    return res.status(400).send("Missing uid.");
+export default async function handler(req, res) {
+  const { uid, sig } = req.query;
+
+  if (!uid || !sig) {
+    return res.status(400).send("Invalid unsubscribe link.");
+  }
+
+  // Verify HMAC — prevents arbitrary users from being unsubscribed
+  const valid = crypto.timingSafeEqual(
+    Buffer.from(sig),
+    Buffer.from(expectedSig(uid))
+  );
+
+  if (!valid) {
+    return res.status(403).send("Invalid unsubscribe link.");
   }
 
   try {

@@ -139,7 +139,7 @@ export default function FocusScreen() {
             <View style={s.blobTL} pointerEvents="none" />
 
             <Animated.View style={[s.bigStartIcon, { transform: [{ scale: pulseAnim }] }]}>
-              <Feather name="zap" size={30} color={colors.accent} />
+              <Feather name="target" size={28} color={colors.accent} />
             </Animated.View>
             <Text style={s.bigStartTitle}>Start Focus Session</Text>
             <Text style={s.bigStartSub} numberOfLines={2}>
@@ -226,7 +226,7 @@ const FocusTaskRow = ({ task, index, isLast, onPress, colors, pColors, s }) => {
           )}
         </View>
         <Animated.View style={[s.focusChip, { transform: [{ scale: scaleAnim }] }]}>
-          <Feather name="zap" size={12} color={colors.accent} />
+          <Feather name="target" size={12} color={colors.accent} />
           <Text style={s.focusChipText}>Focus</Text>
         </Animated.View>
       </TouchableOpacity>
@@ -384,13 +384,13 @@ const makeStyles = (colors) => StyleSheet.create({
   emptyTitle: { fontSize: 20, fontFamily: "Outfit-Bold", color: colors.textPrimary, marginBottom: 6 },
   emptySub: { fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textMuted, textAlign: "center", lineHeight: 20 },
 
-  musicPills: { flexDirection: "column", gap: 5, alignItems: "flex-end" },
+  musicPills: { flexDirection: "column", gap: 8, alignItems: "flex-end" },
   musicPill: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderRadius: 20, paddingVertical: 5, paddingHorizontal: 8,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.22)",
+    flexDirection: "row", alignItems: "center", gap: 7,
+    backgroundColor: "rgba(255,255,255,0.20)",
+    borderRadius: 22, paddingVertical: 7, paddingHorizontal: 11,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.30)",
   },
-  musicPillLogo: { width: 14, height: 14, borderRadius: 4, flexShrink: 0 },
-  musicPillLabel: { fontSize: 11, fontFamily: "Outfit-SemiBold", color: "rgba(255,255,255,0.92)" },
+  musicPillLogo: { width: 20, height: 20, borderRadius: 6, flexShrink: 0 },
+  musicPillLabel: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: "rgba(255,255,255,0.95)" },
 });

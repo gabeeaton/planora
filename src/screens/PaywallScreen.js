@@ -13,6 +13,7 @@ import { setProStatus } from "../services/firebase";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { FEATURE_FLAGS } from "../config";
 import * as Haptics from "expo-haptics";
+import { getTrialInfo } from "../utils/trialHelpers";
 
 const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
@@ -25,10 +26,15 @@ const FEATURES = [
   { icon: "cloud",          label: "Cloud Sync",            desc: "Your data backed up and synced across devices." },
 ];
 
-const TRUST_SIGNALS = [
+const TRUST_SIGNALS_TRIAL = [
   { icon: "shield",   label: "No charge today" },
   { icon: "x-circle", label: "Cancel anytime" },
   { icon: "lock",     label: "Secure via App Store" },
+];
+const TRUST_SIGNALS_NO_TRIAL = [
+  { icon: "x-circle", label: "Cancel anytime" },
+  { icon: "lock",     label: "Secure via App Store" },
+  { icon: "refresh-cw", label: "Restore purchases" },
 ];
 
 const PLANS = [
@@ -170,7 +176,8 @@ export default function PaywallScreen({ navigation }) {
     }
   };
 
-  const activePlan = PLANS.find((p) => p.key === selectedPlan);
+  const activePlan             = PLANS.find((p) => p.key === selectedPlan);
+  const { hasTrial, trialDays } = getTrialInfo(packages[selectedPlan]);
 
   return (
     <Animated.View style={[styles.overlay, { opacity: overlayFade }]}>
@@ -234,11 +241,11 @@ export default function PaywallScreen({ navigation }) {
 
             {/* Trust signals — honest, verifiable */}
             <View style={styles.trustRow}>
-              {TRUST_SIGNALS.map((t, i) => (
+              {(hasTrial ? TRUST_SIGNALS_TRIAL : TRUST_SIGNALS_NO_TRIAL).map((t, i) => (
                 <View key={t.label} style={styles.trustItem}>
                   <Feather name={t.icon} size={11} color={colors.accent} />
                   <Text style={styles.trustText}>{t.label}</Text>
-                  {i < TRUST_SIGNALS.length - 1 && (
+                  {i < (hasTrial ? TRUST_SIGNALS_TRIAL : TRUST_SIGNALS_NO_TRIAL).length - 1 && (
                     <View style={styles.trustDivider} />
                   )}
                 </View>
@@ -319,9 +326,13 @@ export default function PaywallScreen({ navigation }) {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Text style={styles.ctaBtnText}>Start Free Trial</Text>
+                  <Text style={styles.ctaBtnText}>
+                    {hasTrial ? `Start ${trialDays}-Day Free Trial` : "Get Scholar"}
+                  </Text>
                   <Text style={styles.ctaBtnSub}>
-                    7 days free · then {activePlan?.price}{activePlan?.per} · cancel anytime
+                    {hasTrial
+                      ? `${trialDays} days free · then ${activePlan?.price}${activePlan?.per} · cancel anytime`
+                      : `${activePlan?.price}${activePlan?.per} · ${activePlan?.billing?.toLowerCase()} · cancel anytime`}
                   </Text>
                 </>
               )}
@@ -337,7 +348,7 @@ export default function PaywallScreen({ navigation }) {
           </TouchableOpacity>
 
           <Text style={styles.legal}>
-            Free trial ends after 7 days. {activePlan?.billing?.toLowerCase()}.{" "}
+            {hasTrial ? `Free trial ends after ${trialDays} days. ` : ""}{activePlan?.billing?.toLowerCase()}.{" "}
             Subscription renews automatically unless cancelled at least 24 hours before the end of the period.{" "}
             <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/terms")}>Terms</Text>
             {" "}·{" "}

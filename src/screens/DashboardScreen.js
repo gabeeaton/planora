@@ -76,8 +76,8 @@ const makeStyles = (colors, insets) =>
     safe: { flex: 1, backgroundColor: colors.bg },
     header: {
       paddingHorizontal: spacing.lg,
-      paddingTop: 8,
-      paddingBottom: 12,
+      paddingTop: 14,
+      paddingBottom: 18,
       backgroundColor: colors.accent,
       borderBottomLeftRadius: 26,
       borderBottomRightRadius: 26,
@@ -91,11 +91,11 @@ const makeStyles = (colors, insets) =>
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      marginBottom: 2,
+      marginBottom: 6,
     },
     headerLeft: { flex: 1, marginRight: 10 },
     profileAvatar: {
-      width: 38, height: 38, borderRadius: 19,
+      width: 40, height: 40, borderRadius: 20,
       alignItems: "center", justifyContent: "center",
       backgroundColor: "rgba(255,255,255,0.22)",
       borderWidth: 1.5,
@@ -104,11 +104,11 @@ const makeStyles = (colors, insets) =>
     },
     profileAvatarText: { fontSize: 15, fontFamily: "Outfit-Bold", color: "#fff" },
     greeting: {
-      fontFamily: "Outfit-ExtraBold", fontSize: 22,
-      color: "#fff", letterSpacing: -0.3, lineHeight: 26,
+      fontFamily: "Outfit-ExtraBold", fontSize: 24,
+      color: "#fff", letterSpacing: -0.3, lineHeight: 30,
     },
-    dateRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 1 },
-    date: { fontSize: 12, color: "rgba(255,255,255,0.70)", fontFamily: "Outfit-Medium" },
+    dateRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+    date: { fontSize: 13, color: "rgba(255,255,255,0.70)", fontFamily: "Outfit-Medium" },
     // streak pill on same line as date
     streakPill: {
       flexDirection: "row", alignItems: "center", gap: 3,
@@ -121,7 +121,7 @@ const makeStyles = (colors, insets) =>
     // Combined bottom row — status info + action buttons
     headerBottomRow: {
       flexDirection: "row", alignItems: "center",
-      gap: 6, marginTop: 10,
+      gap: 6, marginTop: 12,
     },
     statusChip: {
       flexDirection: "row", alignItems: "center", gap: 5,

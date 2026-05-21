@@ -286,10 +286,7 @@ const AuthScreen = ({ navigation }) => {
         // Send branded verification email via Resend — non-blocking
         fetch(`${VERCEL_API_URL}/api/email`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-secret": process.env.EXPO_PUBLIC_EMAIL_API_SECRET ?? "",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: "verify", email: email.trim() }),
         }).catch(() => {});
         navigation.navigate("EmailVerification", { email: email.trim() });
@@ -522,10 +519,7 @@ export const EmailVerificationScreen = ({ navigation, route }) => {
     try {
       await fetch(`${VERCEL_API_URL}/api/email`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-secret": process.env.EXPO_PUBLIC_EMAIL_API_SECRET ?? "",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "verify", email }),
       });
       setResent(true);

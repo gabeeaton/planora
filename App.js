@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Text, TextInput } from "react-native";
+import { Text, TextInput, View, Appearance } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTasks } from "./src/hooks/useTasks";
 import CompletionShareSheet from "./src/components/CompletionShareSheet";
@@ -19,7 +19,16 @@ import { ThemeProvider } from "./src/utils/ThemeContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { configurePurchases } from "./src/services/purchases";
+import { Asset } from "expo-asset";
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold } from "@expo-google-fonts/outfit";
+
+// Kick off asset preloading immediately at module load — before any component renders
+Asset.loadAsync([
+  require("./src/assets/logo.png"),
+  require("./src/assets/planora-brand.jpg"),
+  require("./src/assets/spotify-logo.png"),
+  require("./src/assets/apple-music-logo.jpg"),
+]).catch(() => {});
 
 // Configure RevenueCat early — before any purchase calls
 configurePurchases(null);
@@ -80,7 +89,16 @@ function App() {
     "Outfit-Bold":      Outfit_700Bold,
     "Outfit-ExtraBold": Outfit_800ExtraBold,
   });
-  if (!ready || !fontsLoaded) return null;
+  // Timeout fallback: if fonts hang for >4s in production, proceed anyway
+  const [fontTimeout, setFontTimeout] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setFontTimeout(true), 4000);
+    return () => clearTimeout(t);
+  }, []);
+  if (!ready || (!fontsLoaded && !fontTimeout)) {
+    const bg = Appearance.getColorScheme() === "dark" ? "#0A0A0F" : "#F7F7F9";
+    return <View style={{ flex: 1, backgroundColor: bg }} />;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
