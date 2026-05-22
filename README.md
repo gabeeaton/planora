@@ -248,7 +248,7 @@ Analytics (PostHog or Mixpanel) must be installed before launch. Currently zero 
 ## Product Roadmap
 
 ### P0 — Before launch
-1. Install analytics (PostHog free tier)
+1. Activate PostHog — code is installed, just add `EXPO_PUBLIC_POSTHOG_KEY` to `.env` before first real users (posthog.com → free account → Project Settings → API key)
 2. Verify all feature flags are `false` in `src/config.js` before production build
 3. Update App Store metadata (title, keywords, screenshots)
 4. Add student testimonial quote to paywall
