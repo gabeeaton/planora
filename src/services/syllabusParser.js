@@ -17,6 +17,7 @@
 
 import { APP_CONFIG, VERCEL_API_URL } from "../config";
 import { auth } from "./firebase";
+import { getSemesterStart } from "../utils/termHelpers";
 
 const callProxy = async ({ model, messages, temperature = 0.1, max_tokens = 3000 }) => {
   const user = auth.currentUser;
@@ -66,17 +67,10 @@ const todayString = () =>
  * returns a best-guess Date for the first day of that semester.
  * Used so the AI can convert "Week 8" → actual calendar dates.
  */
-const getSemesterStartDate = (semesterLabel) => {
-  if (!semesterLabel) return null;
-  const lower = semesterLabel.toLowerCase();
-  const yearMatch = semesterLabel.match(/\d{4}/);
-  const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
-
-  if (lower.includes("spring")) return new Date(year, 0, 13);  // ~Jan 13
-  if (lower.includes("summer")) return new Date(year, 4, 19);  // ~May 19
-  if (lower.includes("fall"))   return new Date(year, 7, 25);  // ~Aug 25
-  return null;
-};
+// Delegates to the shared termHelpers so all semester dates stay in sync.
+// syllabusParser doesn't know the schoolSystem, so it defaults to "semester";
+// quarter students get slightly different starts but it's close enough for AI context.
+const getSemesterStartDate = (semesterLabel) => getSemesterStart(semesterLabel, "semester");
 
 /**
  * Format a Date as "Monday, January 13, 2025" for the AI prompt

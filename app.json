@@ -11,7 +11,7 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.planoraapp",
       "icon": "./icon.png",
       "infoPlist": {
@@ -19,7 +19,6 @@
           "remote-notification",
           "fetch"
         ],
-        "NSUserTrackingUsageDescription": "Planora does not track you across other apps or websites.",
         "NSCameraUsageDescription": "Planora uses your camera to scan and import your course syllabus.",
         "NSPhotoLibraryUsageDescription": "Planora accesses your photo library so you can import a syllabus image.",
         "NSRemindersUsageDescription": "Planora uses Reminders to help you stay on top of your assignments.",

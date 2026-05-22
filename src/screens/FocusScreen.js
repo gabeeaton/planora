@@ -33,8 +33,8 @@ const MUSIC_APPS = [
   {
     key: "apple",
     label: "Apple Music",
-    url: "https://music.apple.com/us/playlist/pl.f4d106fed2bd41149fffb86d56414c07",
-    appUrl: "music://",
+    url: "https://music.apple.com/us/playlist/lo-fi-sunday/pl.7525e7e5e04f44269ce48ae05d39d209",
+    appUrl: "https://music.apple.com/us/playlist/lo-fi-sunday/pl.7525e7e5e04f44269ce48ae05d39d209",
     color: "#FC3C44",
     logo: require("../assets/apple-music-logo.jpg"),
   },
@@ -42,10 +42,7 @@ const MUSIC_APPS = [
 
 const openMusic = (app) => {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-  // music:// is iOS-only; on Android canOpenURL returns false and we fall back to web
-  Linking.canOpenURL(app.appUrl)
-    .then((can) => Linking.openURL(can ? app.appUrl : app.url))
-    .catch(() => Linking.openURL(app.url).catch(() => {}));
+  Linking.openURL(app.appUrl).catch(() => Linking.openURL(app.url).catch(() => {}));
 };
 
 export default function FocusScreen() {

@@ -6,7 +6,7 @@
 
 **Primary goal:** $10k MRR. Financial freedom. iOS App Store launch targeting August/September 2026 (orientation week). Android launch shortly after.
 
-**Current status:** Pre-revenue, pre-launch. Not yet on App Store or Google Play. Active development with dev flags enabled for testing. `BETA_PRO_UNLOCKED: false`. No analytics installed yet — PostHog needed before launch.
+**Current status:** Pre-revenue, pre-launch. Build 30 submitted to App Store Connect (pending review). All dev flags off. `BETA_PRO_UNLOCKED: false`. No analytics installed yet — PostHog needed before launch. Target release: August 17, 2026.
 
 ---
 
@@ -27,9 +27,9 @@ Students open Planora when they're overwhelmed and don't know where to start. Th
 - Task list with AI priority badges (HIGH/MEDIUM/LOW) — ranks change as deadlines approach
 - "Focus today" card — AI picks the 2–3 tasks to tackle right now, explains why
 - Behavioral insight strip — notices patterns: "You have 3 things due Thursday and you usually finish the day before"
-- Week calendar view — visual layout of all deadlines
+- Apple Calendar integration — today's events shown inline on dashboard in a vertical schedule card
 - Streak tracker — consecutive days of completing tasks
-- Stats bar — today's tasks, pending count, completed count
+- Stats strip in header — today / pending / done counts, always visible above scroll content
 
 **Study Plan (flagship Scholar feature)**
 - Student sets available study hours for each day of the week
@@ -63,11 +63,9 @@ Students open Planora when they're overwhelmed and don't know where to start. Th
 
 **Grade Tracking**
 - Student logs grades per assignment per class via task edit (no auto-prompt on completion)
-- GPA calculated — term GPA + cumulative GPA
 - Completion patterns per class tracked
 - Grade context fed to AI so coach knows if student is struggling in a specific subject
 - Recently completed tasks (last 14 days, with or without grades) included in AI chat context
-- *(GPA card on Stats screen is currently commented out — code is written and ready, needs to be re-enabled before launch)*
 
 **Notifications (smarter than every competitor)**
 - 24h reminder before every task due date
@@ -104,7 +102,7 @@ Students open Planora when they're overwhelmed and don't know where to start. Th
 | Plan | Price | What you get |
 |---|---|---|
 | Free | $0 | Tasks, AI priority (5/day), notifications, import, basic stats |
-| Scholar Monthly | $4.99/mo | Everything: Study Plan, unlimited AI, avoidance alerts, grade analytics |
+| Scholar Monthly | $4.99/mo | Everything: Study Plan, unlimited AI, avoidance alerts, grade tracking |
 | Scholar 6-Month | $17.99 | Same (~$3/mo effective) — aligns with a semester |
 | Scholar Annual | $29.99/yr | Same (~$2.50/mo effective) |
 
@@ -151,7 +149,6 @@ One viral TikTok from a creator with 100k+ followers can compress this timeline 
 - No viral loop — completion share card exists but share sheet only triggers at streak 3+ (removed streak-1 trigger intentionally)
 - Paywall only fires reactively when hitting a gate, not at peak desire moments
 - Stats screen shows counts but doesn't tell a narrative story
-- GPA card is built but commented out — major value prop feature that's invisible to users
 
 ---
 
@@ -174,7 +171,7 @@ Contribute genuinely to r/college (3.5M members), r/GetStudying (500k), r/produc
 **4. App Store optimization (free)**
 - Title: "Planora – AI Student Planner"
 - Subtitle: "Manage Classes, Track Grades"
-- Keywords: `student,planner,homework,canvas,assignment,tracker,gpa,college,study,ai,grade,scheduler`
+- Keywords: `student,planner,homework,canvas,assignment,tracker,college,study,ai,grade,scheduler`
 - Screenshots: lead with outcome ("Never miss a deadline again"), not feature list
 
 ### Team
@@ -194,7 +191,7 @@ Contribute genuinely to r/college (3.5M members), r/GetStudying (500k), r/produc
 | Aug 15 – Sep 1, 2026 | Launch: campus reps active, TikTok push, App Store update live |
 | Oct 15 – Nov 1 | Midterms: in-app upsell push, "Finals are coming" messaging |
 | Nov 15 – Dec 5 | Finals: highest conversion window. Stress = motivation to pay |
-| Jan 1 – Jan 15 | New semester spike. "New semester, new GPA" campaign |
+| Jan 1 – Jan 15 | New semester spike. "New semester, fresh start" campaign |
 | Jun–Aug | Worst time to market. Use summer to build, not acquire |
 
 ---
@@ -252,11 +249,11 @@ Analytics (PostHog or Mixpanel) must be installed before launch. Currently zero 
 
 ### P0 — Before launch
 1. Install analytics (PostHog free tier)
-2. Flip `DEMO_MODE` and `FORCE_ONBOARDING` to `false` before App Store submission
-3. Re-enable GPA card in StatsScreen (commented out at line ~1349, code is complete)
-4. Update App Store metadata (title, keywords, screenshots)
-5. Add student testimonial quote to paywall
-6. Completion share card already built — verify it works end-to-end
+2. Verify all feature flags are `false` in `src/config.js` before production build
+3. Update App Store metadata (title, keywords, screenshots)
+4. Add student testimonial quote to paywall
+5. Completion share card already built — verify it works end-to-end
+6. Verify RevenueCat Paid Apps Agreement is active (required for IAP)
 
 ### P1 — First 2 months post-launch
 7. Show productive time of day explicitly on dashboard (already computed, never displayed to user)
@@ -314,10 +311,11 @@ EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY=  # Android (when Android launches)
 
 Feature flags in `src/config.js`:
 ```js
-BETA_PRO_UNLOCKED: false  // flip to true to give everyone Scholar (TestFlight soft launch)
-FORCE_ONBOARDING:  false  // run onboarding every launch (dev testing)
-FORCE_WALKTHROUGH: false  // run walkthrough every launch (dev testing)
-DEMO_MODE:         false  // canned data, skip real API/notification/email calls (App Store screenshots)
+BETA_PRO_UNLOCKED:     false  // flip to true to give everyone Scholar (TestFlight soft launch)
+FORCE_ONBOARDING:      false  // run onboarding every launch (dev testing)
+FORCE_WALKTHROUGH:     false  // run walkthrough every launch (dev testing)
+FORCE_SEMESTER_PROMPT: false  // show new-semester prompt every launch (dev testing)
+DEMO_MODE:             false  // canned data, skip real API/notification/email calls (App Store screenshots)
 ```
 
 Add to `.env` to suppress Sentry source map upload errors during local builds:
@@ -333,7 +331,6 @@ SENTRY_DISABLE_AUTO_UPLOAD=true
 - [ ] `src/config.js`: Flip `FORCE_ONBOARDING` → `false`
 - [ ] `src/config.js`: Flip `FORCE_WALKTHROUGH` → `false`
 - [ ] `src/config.js`: Verify `DEMO_MODE` → `false` and `BETA_PRO_UNLOCKED` → `false`
-- [ ] Re-enable GPA card in StatsScreen (commented out, line ~1349 — code is complete)
 - [ ] Swap RevenueCat test key → production key in `.env`
 - [ ] Install analytics — PostHog free tier is the fastest path
 
@@ -345,7 +342,7 @@ SENTRY_DISABLE_AUTO_UPLOAD=true
 - [ ] Screenshots: 6.7" iPhone (required), 6.5" fallback, 5.5" fallback — 3–10 per size — lead with outcome not UI
 - [ ] App title: "Planora – AI Student Planner"
 - [ ] Subtitle (30 chars): "Manage Classes, Track Grades"
-- [ ] Keywords (100 chars): `student,planner,homework,canvas,assignment,tracker,gpa,college,study,ai,grade,scheduler`
+- [ ] Keywords (100 chars): `student,planner,homework,canvas,assignment,tracker,college,study,ai,grade,scheduler`
 - [ ] Privacy policy URL (required — host a simple page, must be live)
 - [ ] App privacy labels (data types collected: email, usage data, identifiers)
 - [ ] Add student testimonial to paywall screen before screenshots

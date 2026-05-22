@@ -72,9 +72,9 @@ const safeParseJSON = (raw, type = "object") => {
   }
 };
 
-// System message applied to every call — prevents [ID:xxx] echoing
+// System message applied to every call — defines Ace's character + prevents [ID:xxx] echoing
 const BASE_SYSTEM =
-  "You are a helpful academic coach. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output. These are internal only and must never appear in recommendations, coaching lines, or any user-facing text.";
+  "You are Ace, a direct and warm academic coach inside Planora. Your tone is like a sharp, caring friend who actually knows the student's situation — honest when things are tight, encouraging when they're ahead, never preachy or generic. You always reference the student's real classes, grades, and deadlines rather than giving advice that could apply to anyone. You use plain language. You do not motivational-poster students. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output — these are internal only.";
 
 /**
  * Maps proxy/network errors to user-friendly messages.
@@ -300,10 +300,12 @@ Rules:
 - STRICT priority order: overdue first, then due today, then due this week, then HIGH priority tasks, then MEDIUM — NEVER pick a LOW priority task or a task due more than 2 weeks away if there are HIGH priority or sooner-due tasks available
 - Factor in assumed complexity using this order: final exam / midterm > major project / paper / presentation > quiz / discussion post > reading / participation — readings should almost never appear unless nothing more important exists
 - Use EXACT task IDs from the list above
+- insight: 1 sentence (max 18 words) in Ace's voice explaining the real stakes right now. Name something specific — a grade, a deadline, a pattern. Bad examples: "Stay focused, you've got this." / "These tasks will help you succeed." Good examples: "Your Chem exam is Thursday and it's not on your radar yet." / "Two things past due — pick the shorter one and get off zero."
 
 Respond ONLY with this JSON, no markdown:
 {
-  "taskIds": ["id1", "id2"]
+  "taskIds": ["id1", "id2"],
+  "insight": "One specific sentence naming the actual stakes."
 }`;
 
   try {
@@ -313,8 +315,8 @@ Respond ONLY with this JSON, no markdown:
         { role: "system", content: BASE_SYSTEM },
         { role: "user", content: prompt },
       ],
-      temperature: 0.3,
-      max_tokens: 200,
+      temperature: 0.4,
+      max_tokens: 350,
     });
     const result = safeParseJSON(content.trim());
     const now = Date.now();
@@ -363,7 +365,7 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
     .join(", ") ?? "Not specified";
 
   const WHAT_DO_I_DO_SYSTEM =
-    "You are a blunt academic coach. You do not hedge. You name the exact task, name the exact deadline, and tell the student what to do in the first 10 minutes. No generic encouragement. Reference the student's actual patterns and deadlines. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output.";
+    "You are Ace, a direct academic coach. You don't hedge or soften. Name the exact task, name the exact deadline, tell the student what to do in the first 10 minutes. No generic encouragement — reference what's actually in front of them. Warm but zero fluff. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output.";
 
   const wdidStyleMap = { "on-top": "stays on top of things", "procrastinator": "tends to procrastinate", "structured": "needs structure and reminders" };
   const wdidWorkStyle = userProfile?.learningStyle ? `Work style: ${wdidStyleMap[userProfile.learningStyle] ?? userProfile.learningStyle}` : null;
@@ -416,7 +418,7 @@ Respond ONLY with this JSON, no markdown:
 // ── 3. Academic Coach Chat ───────────────────────────────────
 
 const CHAT_SYSTEM = (contextBlock) =>
-  `You are the student's academic sidekick inside Planora — part study buddy, part coach. You know their actual classes, grades, and deadlines. Your tone is warm, a little casual, and direct — like a sharp friend who happens to be really on top of their schedule. You use "we" not "you should." You're honest when things are tight but never preachy. One emoji per response max, only when it fits naturally. Keep responses concise (2-4 sentences) unless they ask for something detailed. Never be generic — always reference their actual situation.
+  `You are Ace, the student's AI coach inside Planora. You know their actual classes, grades, and deadlines. Your tone is warm, direct, and a little casual — like a sharp friend who's genuinely paying attention to their situation. You use "we" not "you should." You're honest when things are tight but never preachy or generic. One emoji per response max, only when it fits naturally. Keep responses concise (2-4 sentences) unless they ask for something detailed. Always reference their actual situation — never give advice that could apply to any student.
 
 CLASS vs TASK rule (read this first): when the student asks about a CLASS (e.g. "which class should I worry about?"), answer with the class name (e.g. "HIST 101"), not a task title. When they ask about a specific task, use the task title. Never mix these up.
 

@@ -29,7 +29,8 @@ import { useCalendarEvents } from "../hooks/useCalendarEvents";
 import { spacing, radius, typography } from "../utils/theme";
 import * as Haptics from "expo-haptics";
 
-const HISTORY_KEY     = (uid) => `@planora_chat_${uid}`;
+const ACE_LOGO    = require("../assets/logo.png");
+const HISTORY_KEY = (uid) => `@planora_chat_${uid}`;
 const MAX_STORED      = 60; // messages kept in AsyncStorage
 const FREE_DAILY_LIMIT = 10;
 const todayKey        = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -148,7 +149,7 @@ const MessageBubble = React.memo(({ item, styles, colors }) => {
   return (
     <Animated.View style={[styles.bubbleRow, isUser && styles.bubbleRowUser, { opacity, transform: [{ translateY }] }]}>
       {!isUser && (
-        <Image source={require("../assets/logo.png")} style={styles.avatar} />
+        <Image source={ACE_LOGO} style={styles.avatar} />
       )}
       <View style={[
         styles.bubble,
@@ -469,7 +470,7 @@ export default function ChatScreen() {
       .slice(0, 3)
       .map((c) => c.name || c.className || c)
       .filter(Boolean);
-    const capLine = "I can add tasks, reschedule deadlines, prioritize your workload, and log grades — just tell me what you need.";
+    const capLine = "Ask me anything about your week, or just tell me what you need — I can add tasks, move deadlines, break things down, and log grades.";
     if (firstName && classes.length > 0) {
       const overflow = (profile?.classes?.length ?? 0) - classes.length;
       const list =
@@ -543,7 +544,7 @@ export default function ChatScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerAvatar}>
-          <Image source={require("../assets/logo.png")} style={{ width: 44, height: 44 }} resizeMode="contain" />
+          <Image source={ACE_LOGO} style={{ width: 44, height: 44 }} resizeMode="contain" />
         </View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{COACH_NAME}</Text>
@@ -607,7 +608,7 @@ export default function ChatScreen() {
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           ListFooterComponent={typing ? (
             <View style={styles.bubbleRow}>
-              <Image source={require("../assets/logo.png")} style={styles.avatar} />
+              <Image source={ACE_LOGO} style={styles.avatar} />
               <View style={[styles.bubble, styles.bubbleAI, styles.typingBubble]}>
                 <TypingDots color={colors.accent} />
               </View>
@@ -677,7 +678,6 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   headerAvatar: {
     width: 54, height: 54, borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center", justifyContent: "center",
   },
   backBtn:      { padding: 4 },

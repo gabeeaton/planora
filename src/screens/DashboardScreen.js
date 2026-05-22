@@ -31,7 +31,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTasks } from "../hooks/useTasks";
 import { useAuth } from "../hooks/useAuth";
 import { useUserProfile } from "../hooks/useUserProfile";
@@ -45,6 +45,8 @@ import { invalidateTodayFocusCache } from "../services/openai";
 import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../services/notifications";
 import * as Notifications from "expo-notifications";
 import { typography, spacing, radius, shadows, getClassColor } from "../utils/theme";
+import { getSemesterStart } from "../utils/termHelpers";
+const ACE_LOGO = require("../assets/logo.png");
 import { useTheme } from "../utils/ThemeContext";
 import CompletionBurst from "../components/CompletionBurst";
 import TodaySchedule from "../components/TodaySchedule";
@@ -107,7 +109,7 @@ const makeStyles = (colors, insets) =>
       fontFamily: "Outfit-ExtraBold", fontSize: 24,
       color: "#fff", letterSpacing: -0.3, lineHeight: 30,
     },
-    dateRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+    dateRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
     date: { fontSize: 13, color: "rgba(255,255,255,0.70)", fontFamily: "Outfit-Medium" },
     // streak pill on same line as date
     streakPill: {
@@ -121,7 +123,7 @@ const makeStyles = (colors, insets) =>
     // Combined bottom row — status info + action buttons
     headerBottomRow: {
       flexDirection: "row", alignItems: "center",
-      gap: 6, marginTop: 12,
+      gap: 6, marginTop: 8,
     },
     statusChip: {
       flexDirection: "row", alignItems: "center", gap: 5,
@@ -162,13 +164,13 @@ const makeStyles = (colors, insets) =>
       }),
     },
     aceCardHeader: {
-      flexDirection: "row", alignItems: "center", gap: 12,
-      paddingHorizontal: spacing.md, paddingTop: 16, paddingBottom: 6,
+      flexDirection: "row", alignItems: "center", gap: 10,
+      paddingHorizontal: spacing.md, paddingTop: 14, paddingBottom: 8,
     },
-    aceCardLogo: { width: 60, height: 60, flexShrink: 0 },
+    aceCardLogo: { width: 52, height: 52, flexShrink: 0 },
     aceCardName: {
-      fontSize: 13, fontFamily: "Outfit-ExtraBold",
-      color: colors.accent, letterSpacing: 1.4, flex: 1,
+      fontSize: 14, fontFamily: "Outfit-ExtraBold",
+      color: colors.accent, letterSpacing: 0.2, flex: 1,
     },
     aceCardSparkle: {
       fontSize: 15, color: colors.accent, opacity: 0.75,
@@ -257,6 +259,20 @@ const makeStyles = (colors, insets) =>
     },
     clearBtnText: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.high },
 
+    headerStatsStrip: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-around",
+      borderTopWidth: 1,
+      borderTopColor: "rgba(255,255,255,0.15)",
+      marginTop: 10,
+      paddingTop: 8,
+      paddingBottom: 4,
+    },
+    headerStatItem:   { flex: 1, alignItems: "center" },
+    headerStatNum:    { fontFamily: "Outfit-ExtraBold", fontSize: 17, color: "#fff", letterSpacing: -0.3 },
+    headerStatLabel:  { fontFamily: "Outfit-Medium", fontSize: 10, color: "rgba(255,255,255,0.65)", marginTop: 1, textTransform: "uppercase", letterSpacing: 0.4 },
+    headerStatDivider: { width: 1, height: 22, backgroundColor: "rgba(255,255,255,0.18)" },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: spacing.lg, paddingTop: 12, paddingBottom: insets.bottom + 90 },
 
@@ -890,22 +906,13 @@ const DashboardScreen = ({ navigation }) => {
 
   // Completed count filtered to current semester — keeps StatsBar number contextually accurate
   const semesterCompletedCount = useMemo(() => {
-    const sem = profile?.semester;
-    if (!sem) return completedTasks.length;
-    const lower = sem.toLowerCase();
-    const m = sem.match(/\d{4}/);
-    const year = m ? parseInt(m[0]) : new Date().getFullYear();
-    const start = lower.includes("winter") ? new Date(year, 0, 6)
-                : lower.includes("spring") ? new Date(year, 0, 13)
-                : lower.includes("summer") ? new Date(year, 4, 15)
-                : lower.includes("fall")   ? new Date(year, 7, 20)
-                : null;
+    const start = getSemesterStart(profile?.semester, profile?.schoolSystem);
     if (!start) return completedTasks.length;
     return completedTasks.filter(t => {
       const d = safeDate(t.completedAt);
       return d && d >= start;
     }).length;
-  }, [completedTasks, profile?.semester]);
+  }, [completedTasks, profile?.semester, profile?.schoolSystem]);
 
   const enrichedTasks = useMemo(() => {
     const gradeMap = {};
@@ -1184,6 +1191,7 @@ const DashboardScreen = ({ navigation }) => {
     const h = now.getHours();
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon ... 6=Sat
+    const name = profile?.name?.split(" ")[0] ?? null;
 
     const overdueTasks = pendingTasks.filter((t) => {
       const d = safeDate(t.dueDate);
@@ -1266,8 +1274,8 @@ const DashboardScreen = ({ navigation }) => {
       }
     } else if (todaysTasks.length === 0 && weekTotal === 0) {
       parts.push(streak >= 3
-        ? `Nothing due. Nothing coming. Clear board, ${streak}-day streak — that's what staying ahead actually looks like.`
-        : `Nothing urgent, nothing overdue. Enjoy the quiet — or use it to get ahead of next week before the pressure builds.`
+        ? `Nothing due. Nothing coming. Clear board${name ? `, ${name}` : ""}, ${streak}-day streak — that's what staying ahead actually looks like.`
+        : `Nothing urgent, nothing overdue${name ? `, ${name}` : ""}. That's actually the best place to be — enjoy it or use the breathing room to get ahead.`
       );
     } else if (todaysTasks.length === 1) {
       const timeCtx = h < 12 ? "Morning's your best window — knock it out before the day gets complicated."
@@ -1280,9 +1288,9 @@ const DashboardScreen = ({ navigation }) => {
                     : `Tonight's the window and it's closing.`;
       parts.push(`${todaysTasks.length} things due today — ${timeCtx} Don't try to think about all of them at once; pick one and actually start.`);
     } else if (dayOfWeek === 1 && h < 12 && weekTotal > 0) {
-      parts.push(`Fresh week. Nothing due today, but ${weekTotal} thing${weekTotal === 1 ? "" : "s"} coming up. How you start Monday sets the whole week — worth mapping it out now.`);
+      parts.push(`Fresh week${name ? `, ${name}` : ""}. Nothing due today, but ${weekTotal} thing${weekTotal === 1 ? "" : "s"} coming up. How you start Monday sets the whole week — worth mapping it out now.`);
     } else if (dayOfWeek === 0 && weekTotal > 0) {
-      parts.push(`${weekTotal} thing${weekTotal === 1 ? "" : "s"} coming up this week. Sunday's a good time to look at the list before it turns into Monday scramble.`);
+      parts.push(`${weekTotal} thing${weekTotal === 1 ? "" : "s"} coming up this week${name ? `, ${name}` : ""}. Sunday's a good time to look at the list before it turns into Monday scramble.`);
     } else if (weekTotal > 0) {
       parts.push(`Clear today, but ${weekTotal > 1 ? `${weekTotal} things are` : "something's"} coming up this week. Good time to get ahead of one of them before you have to.`);
     }
@@ -1293,20 +1301,20 @@ const DashboardScreen = ({ navigation }) => {
       const alreadyNamed = (todaysTasks.length === 1 && todaysTasks[0]?.id === highestPending.id)
                         || (overdueTasks.length === 1 && overdueTasks[0]?.id === highestPending.id);
       if (!alreadyNamed && (isHigh || todaysTasks.length > 1)) {
-        parts.push(`If you're deciding where to start: "${highestPending.title}" is the highest-priority thing on your list right now.`);
+        parts.push(`If you're deciding where to start${name ? `, ${name}` : ""}: "${highestPending.title}" is the highest-priority thing on your list right now.`);
       }
     }
 
     // ── PART 3: Low grade + imminent deadline ──────────────────────
     if (lowGradeUrgent && overdueTasks.length === 0) {
-      parts.push(`Heads up — "${lowGradeUrgent.title}" is due soon and your grade in ${lowGradeUrgent.className} needs the points. Make this one count.`);
+      parts.push(`"${lowGradeUrgent.title}" is due soon and your grade in ${lowGradeUrgent.className} needs the points — this one has real grade impact.`);
     }
 
     // ── PART 4: Urgent task that hasn't been opened yet ────────────
     if (urgentBlind && !lowGradeUrgent && overdueTasks.length === 0) {
       const daysOut = differenceInCalendarDays(safeDate(urgentBlind.dueDate) ?? today, today);
       const when = daysOut === 0 ? "today" : daysOut === 1 ? "tomorrow" : `in ${daysOut} days`;
-      parts.push(`"${urgentBlind.title}" is due ${when} and it looks like you haven't started. That one needs your attention.`);
+      parts.push(`"${urgentBlind.title}" is due ${when} and it doesn't look like you've touched it yet. Worth opening today.`);
     }
 
     // ── PART 5: Task being avoided ────────────────────────────────
@@ -1344,7 +1352,7 @@ const DashboardScreen = ({ navigation }) => {
 
     // ── PART 9: Streak ────────────────────────────────────────────
     if (streak >= 7 && overdueTasks.length === 0) {
-      parts.push(`${streak} days in a row. That's not luck at this point — that's a real habit.`);
+      parts.push(`${streak} days in a row${name ? `, ${name}` : ""}. That's not luck at this point — that's a real habit.`);
     } else if (streak >= 3 && streak < 7 && overdueTasks.length === 0 && parts.length <= 1) {
       parts.push(`${streak}-day streak. Consistency is the part most people underestimate — keep the thread going.`);
     }
@@ -1386,9 +1394,9 @@ const DashboardScreen = ({ navigation }) => {
           const hStr = minsUntilFirst >= 120
             ? `${Math.floor(minsUntilFirst / 60)}h ${minsUntilFirst % 60 > 0 ? `${minsUntilFirst % 60}min` : ""}`.trim()
             : `${minsUntilFirst}min`;
-          parts.push(`You've got ${hStr} before ${firstEvent.title ?? "your first class"} — that's a real window. Use it.`);
+          parts.push(`You've got ${hStr} before ${firstEvent.title ?? "your first class"} — that's a real window right now.`);
         } else if (activeEvents.length >= 3) {
-          parts.push(`Heavy day — ${activeEvents.length} classes or events. Find the gaps between them. That's where the work happens.`);
+          parts.push(`Heavy schedule today — ${activeEvents.length} things on the calendar. The gaps between classes are where you'll actually get things done.`);
         } else if (overdueTasks.length === 0 && todaysTasks.length === 0) {
           parts.push(`${activeEvents.length === 1 ? "One thing" : `${activeEvents.length} things`} on the schedule today. Use the time around it to make progress.`);
         }
@@ -1396,7 +1404,7 @@ const DashboardScreen = ({ navigation }) => {
     }
 
     return parts.filter(Boolean).join(" ") || null;
-  }, [loading, tasks, pendingTasks, todaysTasks, enrichedTasks, patterns, streak, now, calEvents, profile?.classSchedule]);
+  }, [loading, tasks, pendingTasks, todaysTasks, enrichedTasks, patterns, streak, now, calEvents, profile?.classSchedule, profile?.name]);
 
   // ── Class schedule → today's events ──────────────────────────
   const classScheduleEvents = useMemo(() => {
@@ -1534,22 +1542,11 @@ const DashboardScreen = ({ navigation }) => {
           <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.30)", bottom: 35, right: 30, fontSize: 5 }]}>✦</Text>
         </View>
 
-        {/* Row 1 — greeting + avatar */}
+        {/* Row 1 — greeting + avatar on same line */}
         <View style={styles.headerTopRow}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>
-              {greeting()}{firstName ? `, ${firstName}` : ""}
-            </Text>
-            <View style={styles.dateRow}>
-              <Text style={styles.date}>{format(now, "EEEE, MMMM d")}</Text>
-              {streak > 0 && (
-                <Animated.View style={[styles.streakPill, { transform: [{ scale: streakScale }] }]}>
-                  <Text style={{ fontSize: 11 }}>🔥</Text>
-                  <Text style={styles.streakText}>{streak}</Text>
-                </Animated.View>
-              )}
-            </View>
-          </View>
+          <Text style={[styles.greeting, { flex: 1 }]}>
+            {greeting()}{firstName ? `, ${firstName}` : ""}
+          </Text>
           <TouchableOpacity
             style={styles.profileAvatar}
             onPress={() => {
@@ -1564,21 +1561,14 @@ const DashboardScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Bottom row — status badges (left) + action buttons (right) */}
-        <View style={styles.headerBottomRow}>
-          {buckets.overdue.length > 0 && (
-            <View style={[styles.statusChip, styles.statusChipOverdue]}>
-              <Feather name="alert-circle" size={11} color="#FF8080" />
-              <Text style={[styles.statusChipText, styles.statusChipTextOverdue]}>
-                {buckets.overdue.length} overdue
-              </Text>
-            </View>
-          )}
-          {buckets.dueToday.length > 0 && (
-            <View style={styles.statusChipToday}>
-              <Text style={styles.dueTodayBang}>!</Text>
-              <Text style={styles.dueTodayLabel}>{buckets.dueToday.length} due today</Text>
-            </View>
+        {/* Row 2 — date + streak (left) · Plan + Sync (right) */}
+        <View style={styles.dateRow}>
+          <Text style={styles.date}>{format(now, "EEE, MMM d")}</Text>
+          {streak > 0 && (
+            <Animated.View style={[styles.streakPill, { transform: [{ scale: streakScale }] }]}>
+              <MaterialCommunityIcons name="fire" size={16} color="#FF6B2C" />
+              <Text style={styles.streakText}>{streak}</Text>
+            </Animated.View>
           )}
           <View style={{ flex: 1 }} />
           <TouchableOpacity
@@ -1588,24 +1578,67 @@ const DashboardScreen = ({ navigation }) => {
               navigation.navigate(isPro ? "StudyPlan" : "Paywall");
             }}
             style={styles.actionChip}
-            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             onLayout={() => measureBtn(studyPlanBtnRef, "studyPlan")}
             activeOpacity={0.7}
           >
-            <Feather name="edit-3" size={13} color="rgba(255,255,255,0.9)" />
+            <Feather name="edit-3" size={12} color="rgba(255,255,255,0.9)" />
             <Text style={styles.actionChipText}>Plan</Text>
           </TouchableOpacity>
           <TouchableOpacity
             ref={syllabusBtnRef}
             onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
             style={styles.actionChip}
-            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             activeOpacity={0.7}
             onLayout={() => measureBtn(syllabusBtnRef, "syllabusImport")}
           >
-            <Feather name="upload-cloud" size={13} color="rgba(255,255,255,0.9)" />
+            <Feather name="upload-cloud" size={12} color="rgba(255,255,255,0.9)" />
             <Text style={styles.actionChipText}>Sync</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Status row — only renders when there are alerts */}
+        {(buckets.overdue.length > 0 || buckets.dueToday.length > 0) && (
+          <View style={styles.headerBottomRow}>
+            {buckets.overdue.length > 0 && (
+              <View style={[styles.statusChip, styles.statusChipOverdue]}>
+                <Feather name="alert-circle" size={11} color="#FF8080" />
+                <Text style={[styles.statusChipText, styles.statusChipTextOverdue]}>
+                  {buckets.overdue.length} overdue
+                </Text>
+              </View>
+            )}
+            {buckets.dueToday.length > 0 && (
+              <View style={styles.statusChipToday}>
+                <Text style={styles.dueTodayBang}>!</Text>
+                <Text style={styles.dueTodayLabel}>{buckets.dueToday.length} due today</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Thin stats strip — fused to bottom of header */}
+        <View
+          ref={statsBarRef}
+          collapsable={false}
+          style={styles.headerStatsStrip}
+          onLayout={() => setTimeout(() => measureBtn(statsBarRef, "statsBar", 0), 150)}
+        >
+          <View style={styles.headerStatItem}>
+            <Text style={[styles.headerStatNum, { color: todaysTasks.length > 0 ? "#FFD166" : "#fff" }]}>{todaysTasks.length}</Text>
+            <Text style={styles.headerStatLabel}>Today</Text>
+          </View>
+          <View style={styles.headerStatDivider} />
+          <View style={styles.headerStatItem}>
+            <Text style={[styles.headerStatNum, { color: "#fff" }]}>{pendingTasks.length}</Text>
+            <Text style={styles.headerStatLabel}>Pending</Text>
+          </View>
+          <View style={styles.headerStatDivider} />
+          <View style={styles.headerStatItem}>
+            <Text style={[styles.headerStatNum, { color: semesterCompletedCount > 0 ? "#6EFFA8" : "#fff" }]}>{semesterCompletedCount}</Text>
+            <Text style={styles.headerStatLabel}>Done</Text>
+          </View>
         </View>
       </View>
 
@@ -1654,8 +1687,8 @@ const DashboardScreen = ({ navigation }) => {
             onLayout={() => setTimeout(() => measureBtn(insightStripRef, "insightStrip", 16), 150)}
           >
             <View style={styles.aceCardHeader}>
-              <Image source={require("../assets/logo.png")} style={styles.aceCardLogo} resizeMode="contain" />
-              <Text style={styles.aceCardName}>ACE</Text>
+              <Image source={ACE_LOGO} style={styles.aceCardLogo} resizeMode="contain" />
+              <Text style={styles.aceCardName}>Ace's Brief</Text>
               <Text style={styles.aceCardSparkle}>✦</Text>
             </View>
             <Text style={styles.aceCardMessage}>{aceBrief}</Text>
@@ -1683,7 +1716,7 @@ const DashboardScreen = ({ navigation }) => {
         )}
 
         {/* Stats bar */}
-        <View
+        {/* <View
           ref={statsBarRef}
           collapsable={false}
           style={{ marginTop: 12 }}
@@ -1694,7 +1727,7 @@ const DashboardScreen = ({ navigation }) => {
             pendingCount={pendingTasks.length}
             completedCount={semesterCompletedCount}
           />
-        </View>
+        </View> */}
 
         {/* Today's / Upcoming schedule */}
         {(todayDisplayEvents.length > 0 || upcomingDisplayEvents.length > 0) && (

@@ -16,6 +16,7 @@ import CompletionBurst from "../components/CompletionBurst";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { TaskListSkeleton } from "../components/SkeletonLoader";
 import { FEATURE_FLAGS } from "../config";
+import { getSemesterStart } from "../utils/termHelpers";
 const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
 const _n = Date.now();
@@ -44,17 +45,6 @@ const toDate = (val) => {
 };
 
 // Returns semester start date from a label like "Spring 2025"
-const getSemesterStart = (sem) => {
-  if (!sem) return null;
-  const lower = sem.toLowerCase();
-  const yearMatch = sem.match(/\d{4}/);
-  const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
-  if (lower.includes("winter")) return new Date(year, 0, 6);
-  if (lower.includes("spring")) return new Date(year, 0, 13);
-  if (lower.includes("summer")) return new Date(year, 4, 15);
-  if (lower.includes("fall"))   return new Date(year, 7, 20);
-  return null;
-};
 
 export default function TasksScreen() {
   const { colors } = useTheme();
@@ -81,8 +71,8 @@ export default function TasksScreen() {
 
   // Semester start — gates what shows in the Done tab
   const semesterStart = useMemo(
-    () => getSemesterStart(DEMO_MODE ? "Spring 2025" : profile?.semester),
-    [profile?.semester]
+    () => getSemesterStart(DEMO_MODE ? "Spring 2025" : profile?.semester, profile?.schoolSystem),
+    [profile?.semester, profile?.schoolSystem]
   );
 
   // Done tab: only show this semester's completed tasks

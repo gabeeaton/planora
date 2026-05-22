@@ -309,7 +309,7 @@ const AuthScreen = ({ navigation }) => {
             <View style={styles.brand}>
               <View style={styles.logoHalo}>
                 <View style={styles.logoMark}>
-                  <Image source={require("../assets/logo.png")} style={styles.logoImg} resizeMode="cover" />
+                  <Image source={require("../../icon.png")} style={styles.logoImg} resizeMode="cover" />
                 </View>
               </View>
               <Text style={styles.brandName}>Planora</Text>
@@ -342,7 +342,7 @@ const AuthScreen = ({ navigation }) => {
           <View style={styles.brand}>
             <View style={styles.logoHalo}>
               <View style={styles.logoMark}>
-                <Image source={require("../assets/logo.png")} style={styles.logoImg} resizeMode="cover" />
+                <Image source={require("../../icon.png")} style={styles.logoImg} resizeMode="cover" />
               </View>
             </View>
             <Text style={styles.brandName}>Planora</Text>

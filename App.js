@@ -22,8 +22,8 @@ import { configurePurchases } from "./src/services/purchases";
 import { Asset } from "expo-asset";
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold } from "@expo-google-fonts/outfit";
 
-// Kick off asset preloading immediately at module load — before any component renders
-Asset.loadAsync([
+// Preload critical assets — promise held so App can block on it
+const assetsReady = Asset.loadAsync([
   require("./src/assets/logo.png"),
   require("./src/assets/planora-brand.jpg"),
   require("./src/assets/spotify-logo.png"),
@@ -40,7 +40,7 @@ Sentry.init({
   _experiments: { profilesSampleRate: 0.1 },
 });
 
-// Load saved theme prefs before first render to avoid flash
+// Load saved theme prefs + critical assets before first render to avoid flash
 const useInitialTheme = () => {
   const [ready,      setReady]      = useState(false);
   const [savedTheme, setSavedTheme] = useState("purple");
@@ -50,16 +50,15 @@ const useInitialTheme = () => {
     Promise.all([
       AsyncStorage.getItem("@tf_accent"),
       AsyncStorage.getItem("@tf_color_mode"),
-      AsyncStorage.getItem("@tf_dark"), // legacy key for migration
+      AsyncStorage.getItem("@tf_dark"),
+      assetsReady,
     ]).then(([accent, colorMode, legacyDark]) => {
       if (accent) setSavedTheme(accent);
       if (colorMode) {
         setSavedMode(colorMode);
       } else if (legacyDark !== null) {
-        // Migrate old boolean key → explicit mode (never "system" — they opted in)
         setSavedMode(legacyDark !== "0" ? "dark" : "light");
       }
-      // else: no saved pref → default "system" stays
       setReady(true);
     }).catch(() => setReady(true));
   }, []);

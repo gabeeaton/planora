@@ -1,9 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
-import { format, isWithinInterval } from "date-fns";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { format, isWithinInterval, differenceInMinutes } from "date-fns";
 import * as Haptics from "expo-haptics";
+import { Feather } from "@expo/vector-icons";
 import { useTheme } from "../utils/ThemeContext";
-import { spacing } from "../utils/theme";
+import { spacing, radius } from "../utils/theme";
+
+const MAX_VISIBLE = 4;
 
 const fmtTime = (d) => {
   try { return format(new Date(d), "h:mm a").replace(":00 ", " "); }
@@ -11,7 +14,7 @@ const fmtTime = (d) => {
 };
 
 const fmtDate = (d) => {
-  try { return format(new Date(d), "EEE, MMM d"); }
+  try { return format(new Date(d), "M/d"); }
   catch { return ""; }
 };
 
@@ -20,141 +23,214 @@ const isNow = (ev) => {
   catch { return false; }
 };
 
-const EventPill = ({ ev, showDate }) => {
-  const { colors } = useTheme();
-  const s = makeStyles(colors);
-  const live = isNow(ev);
-  const pillColor = ev.color ?? colors.accent;
+const getDuration = (ev) => {
+  try {
+    const mins = differenceInMinutes(new Date(ev.endDate), new Date(ev.startDate));
+    if (mins <= 0 || mins > 60 * 24) return null;
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  } catch { return null; }
+};
 
-  const timeLabel = ev.allDay
+const EventRow = ({ ev, showDate, isLast }) => {
+  const { colors } = useTheme();
+  const live = isNow(ev);
+  const dotColor = ev.color ?? colors.accent;
+  const duration = getDuration(ev);
+
+  const timeStr = ev.allDay
     ? (showDate ? fmtDate(ev.startDate) : "All day")
     : showDate
-      ? `${fmtDate(ev.startDate)} · ${fmtTime(ev.startDate)}`
+      ? fmtDate(ev.startDate)
       : fmtTime(ev.startDate);
 
   return (
-    <View style={[s.pill, live && { borderColor: pillColor, backgroundColor: colors.isDark ? pillColor + "14" : pillColor + "10" }]}>
-      <View style={[s.pillStrip, { backgroundColor: pillColor }]} />
-      <View style={s.pillContent}>
-        <Text style={[s.pillTitle, live && { color: pillColor }]} numberOfLines={1}>{ev.title}</Text>
-        <Text style={[s.pillTime, live && { color: pillColor, opacity: 0.8 }]} numberOfLines={1}>{timeLabel}</Text>
+    <View style={[s.row, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+      {/* Time column */}
+      <View style={s.timeCol}>
+        <Text style={[s.timeText, { color: live ? dotColor : colors.textMuted }]} numberOfLines={1}>
+          {timeStr}
+        </Text>
+        {showDate && !ev.allDay && (
+          <Text style={[s.timeSmall, { color: colors.textMuted }]} numberOfLines={1}>
+            {fmtTime(ev.startDate)}
+          </Text>
+        )}
       </View>
-      {live && (
-        <View style={[s.liveTag, { backgroundColor: pillColor }]}>
-          <Text style={s.liveTagText}>NOW</Text>
+
+      {/* Color indicator */}
+      <View style={[s.dot, { backgroundColor: dotColor }]}>
+        {live && <View style={[s.dotPulse, { backgroundColor: dotColor }]} />}
+      </View>
+
+      {/* Content */}
+      <View style={s.content}>
+        <View style={s.titleRow}>
+          <Text style={[s.title, { color: colors.textPrimary }, live && { color: dotColor }]} numberOfLines={1}>
+            {ev.title}
+          </Text>
+          {live && (
+            <View style={[s.nowBadge, { backgroundColor: dotColor + "22", borderColor: dotColor + "55" }]}>
+              <Text style={[s.nowText, { color: dotColor }]}>NOW</Text>
+            </View>
+          )}
         </View>
-      )}
+        {(ev.calendar || duration) && (
+          <Text style={[s.meta, { color: colors.textMuted }]} numberOfLines={1}>
+            {[ev.calendar, duration].filter(Boolean).join(" · ")}
+          </Text>
+        )}
+      </View>
     </View>
   );
 };
 
 export default function TodaySchedule({ events = [], view = "today", onToggleView, onSeeAll }) {
   const { colors } = useTheme();
-  const s = makeStyles(colors);
-
-  const hasToday    = view === "today";
-  const showEmpty   = events.length === 0;
+  const hasToday  = view === "today";
+  const visible   = events.slice(0, MAX_VISIBLE);
+  const overflow  = events.length - MAX_VISIBLE;
 
   return (
-    <View style={s.wrap}>
-      <View style={s.headerRow}>
-        {/* Toggle */}
-        {onToggleView && (
-          <View style={[s.toggle, { backgroundColor: colors.isDark ? colors.bgCard : "#F0F0F6", borderColor: colors.border }]}>
-            {["today", "upcoming"].map((v) => {
-              const active = view === v;
-              return (
-                <TouchableOpacity
-                  key={v}
-                  style={[s.toggleBtn, active && { backgroundColor: colors.accent }]}
-                  onPress={() => { Haptics.selectionAsync().catch(() => {}); onToggleView(v); }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[s.toggleText, { color: active ? "#fff" : colors.textMuted }]}>
-                    {v === "today" ? "Today" : "Upcoming"}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        {onSeeAll && !onToggleView && (
-          <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); onSeeAll(); }} activeOpacity={0.7}>
-            <Text style={[s.seeAll, { color: colors.accent }]}>See all →</Text>
-          </TouchableOpacity>
-        )}
+    <View style={[s.card, {
+      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+      borderColor: colors.isDark ? colors.border : "transparent",
+      ...(colors.isDark ? {} : {
+        shadowColor: "#6B6B8A",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.10,
+        shadowRadius: 10,
+        elevation: 4,
+      }),
+    }]}>
+      {/* Header */}
+      <View style={s.header}>
+        <View style={s.headerLeft}>
+          <Feather name="calendar" size={14} color={colors.accent} style={{ marginRight: 6 }} />
+          <Text style={[s.sectionTitle, { color: colors.textPrimary }]}>Schedule</Text>
+        </View>
+        <View style={s.headerRight}>
+          {onToggleView && (
+            <View style={[s.toggle, { backgroundColor: colors.isDark ? "rgba(255,255,255,0.07)" : "#F0F0F6", borderColor: colors.border }]}>
+              {["today", "upcoming"].map((v) => {
+                const active = view === v;
+                return (
+                  <TouchableOpacity
+                    key={v}
+                    style={[s.toggleBtn, active && { backgroundColor: colors.accent }]}
+                    onPress={() => { Haptics.selectionAsync().catch(() => {}); onToggleView(v); }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.toggleText, { color: active ? "#fff" : colors.textMuted }]}>
+                      {v === "today" ? "Today" : "Upcoming"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+          {onSeeAll && (
+            <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); onSeeAll(); }} activeOpacity={0.7} style={{ marginLeft: 8 }}>
+              <Text style={[s.seeAll, { color: colors.accent }]}>See all</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {showEmpty ? (
-        <Text style={[s.empty, { color: colors.textMuted }]}>
-          {hasToday ? "Nothing scheduled for today." : "No upcoming events in the next week."}
-        </Text>
+      {/* Events */}
+      {events.length === 0 ? (
+        <View style={s.emptyWrap}>
+          <Feather name="calendar" size={20} color={colors.textMuted} style={{ opacity: 0.4, marginBottom: 6 }} />
+          <Text style={[s.emptyText, { color: colors.textMuted }]}>
+            {hasToday ? "Nothing scheduled today" : "Nothing coming up this week"}
+          </Text>
+        </View>
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.scrollRow}>
-          {events.slice(0, 12).map((ev) => (
-            <EventPill key={ev.id} ev={ev} showDate={!hasToday} />
+        <View>
+          {visible.map((ev, i) => (
+            <EventRow key={ev.id} ev={ev} showDate={!hasToday} isLast={i === visible.length - 1 && overflow <= 0} />
           ))}
-        </ScrollView>
+          {overflow > 0 && onSeeAll && (
+            <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); onSeeAll(); }} style={s.moreBtn} activeOpacity={0.7}>
+              <Text style={[s.moreText, { color: colors.accent }]}>+{overflow} more</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       )}
     </View>
   );
 }
 
-const makeStyles = (colors) => StyleSheet.create({
-  wrap: { marginBottom: 0 },
-  headerRow: {
+const s = StyleSheet.create({
+  card: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    overflow: "hidden",
+    marginBottom: 0,
+  },
+  header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
+  headerLeft:   { flexDirection: "row", alignItems: "center" },
+  headerRight:  { flexDirection: "row", alignItems: "center" },
+  sectionTitle: { fontSize: 15, fontFamily: "Outfit-Bold", letterSpacing: 0.2 },
   toggle: {
     flexDirection: "row",
     borderRadius: 10,
     borderWidth: 1,
     overflow: "hidden",
-    padding: 2,
-    gap: 2,
+    padding: 3,
+    gap: 3,
   },
-  toggleBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  toggleText: {
-    fontSize: 12,
-    fontFamily: "Outfit-SemiBold",
-  },
-  seeAll: { fontSize: 13, fontFamily: "Outfit-SemiBold" },
-  empty: {
-    fontSize: 13,
-    fontFamily: "Outfit-Regular",
-    paddingVertical: 8,
-  },
-  scrollRow: { gap: 10, paddingRight: 8 },
-  pill: {
+  toggleBtn:  { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
+  toggleText: { fontSize: 13, fontFamily: "Outfit-SemiBold" },
+  seeAll:     { fontSize: 13, fontFamily: "Outfit-SemiBold" },
+
+  // Event rows
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.isDark ? colors.bgCard : "#fff",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.isDark ? colors.border : "#EBEBF2",
-    overflow: "hidden",
-    minWidth: 140,
-    maxWidth: 220,
-    ...(colors.isDark ? {} : {
-      shadowColor: "#6B6B8A",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.10,
-      shadowRadius: 6,
-      elevation: 3,
-    }),
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 10,
   },
-  pillStrip: { width: 4, alignSelf: "stretch", minHeight: 56 },
-  pillContent: { flex: 1, paddingHorizontal: 11, paddingVertical: 12 },
-  pillTitle: { fontSize: 14, fontFamily: "Outfit-Bold", color: colors.textPrimary, marginBottom: 3 },
-  pillTime:  { fontSize: 12, fontFamily: "Outfit-Medium", color: colors.textMuted },
-  liveTag: { paddingHorizontal: 6, paddingVertical: 3, marginRight: 8, borderRadius: 5, flexShrink: 0 },
-  liveTagText: { fontSize: 10, fontFamily: "Outfit-Bold", color: "#fff", letterSpacing: 0.6 },
+  timeCol: { width: 52, alignItems: "flex-end" },
+  timeText: { fontSize: 13, fontFamily: "Outfit-SemiBold", textAlign: "right" },
+  timeSmall: { fontSize: 11, fontFamily: "Outfit-Regular", textAlign: "right", marginTop: 1 },
+  dot: {
+    width: 9, height: 9, borderRadius: 5,
+    flexShrink: 0,
+    position: "relative",
+  },
+  dotPulse: {
+    position: "absolute",
+    width: 16, height: 16, borderRadius: 8,
+    top: -3.5, left: -3.5,
+    opacity: 0.25,
+  },
+  content:  { flex: 1 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  title:    { fontSize: 15, fontFamily: "Outfit-SemiBold", flex: 1 },
+  meta:     { fontSize: 12, fontFamily: "Outfit-Regular", marginTop: 2 },
+  nowBadge: {
+    borderWidth: 1, borderRadius: 4,
+    paddingHorizontal: 5, paddingVertical: 1,
+    flexShrink: 0,
+  },
+  nowText: { fontSize: 9, fontFamily: "Outfit-Bold", letterSpacing: 0.6 },
+
+  // Empty
+  emptyWrap: { alignItems: "center", paddingVertical: 22 },
+  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular" },
+
+  // Overflow
+  moreBtn: { paddingHorizontal: 14, paddingVertical: 10 },
+  moreText: { fontSize: 12, fontFamily: "Outfit-SemiBold" },
 });

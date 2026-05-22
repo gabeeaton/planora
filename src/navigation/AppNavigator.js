@@ -36,11 +36,14 @@ import { useTheme } from "../utils/ThemeContext";
 import TaskModal from "../components/TaskModal";
 import AcePopup from "../components/AcePopup";
 import WalkthroughOverlay from "../components/WalkthroughOverlay";
+import NewSemesterPrompt  from "../components/NewSemesterPrompt";
+import { getSemesterEnd }  from "../utils/termHelpers";
 import { WalkthroughProvider, useSetWalkthroughTarget } from "../utils/WalkthroughContext";
 import { useTasks } from "../hooks/useTasks";
 import { useSubscription } from "../hooks/useSubscription";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { FEATURE_FLAGS } from "../config";
+const ACE_LOGO = require("../assets/logo.png");
 
 export const AddTaskContext = React.createContext({ openAddTask: () => {}, openQuickAdd: () => {} });
 
@@ -261,7 +264,7 @@ const AceFabInner = ({ bottom, aceBtnScale, acePulse, colors, onPress, onPressIn
             onPressOut={onPressOut}
             activeOpacity={1}
           >
-            <Image source={require("../assets/logo.png")} style={aceStyles.aceBtnLogo} resizeMode="contain" />
+            <Image source={ACE_LOGO} style={aceStyles.aceBtnLogo} resizeMode="contain" />
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -299,6 +302,8 @@ const MainTabsWithModal = () => {
   const { isPro } = useSubscription();
   const navigation = useNavigation();
   const walkthroughTriggered = useRef(false);
+  const [showNewSemester, setShowNewSemester] = useState(false);
+  const semesterChecked = useRef(false);
 
   // Subtle idle breathing pulse
   const acePulse = useRef(new Animated.Value(1)).current;
@@ -360,6 +365,28 @@ const MainTabsWithModal = () => {
       // Walkthrough already done — check for a paywall that was deferred from onboarding
       showPendingPaywall();
     }
+  }, [profile]);
+
+  // ── Semester-end prompt ───────────────────────────────────────
+  useEffect(() => {
+    if (semesterChecked.current || !profile?.semester || !profile?.walkthroughComplete) return;
+    semesterChecked.current = true;
+    const sem = profile.semester;
+    const end = getSemesterEnd(sem, profile.schoolSystem ?? "semester");
+    if (!end || Date.now() < end.getTime()) return;
+    // Semester has ended — check if already prompted or snoozed
+    if (FEATURE_FLAGS.FORCE_SEMESTER_PROMPT) {
+      setTimeout(() => setShowNewSemester(true), 1200);
+      return;
+    }
+    Promise.all([
+      AsyncStorage.getItem(`@planora_semester_prompted_${sem}`),
+      AsyncStorage.getItem(`@planora_semester_snooze_${sem}`),
+    ]).then(([prompted, snooze]) => {
+      if (prompted) return;
+      if (snooze && Date.now() < parseInt(snooze)) return;
+      setTimeout(() => setShowNewSemester(true), 1200);
+    }).catch(() => {});
   }, [profile]);
 
   const handleWalkthroughDone = useCallback(() => {
@@ -437,7 +464,7 @@ const MainTabsWithModal = () => {
         />
 
         {/* Floating Planora FAB — hidden on Chat tab */}
-        {!onChatTab && !showWalkthrough && (
+        {!onChatTab && (
           <AceFabInner
             bottom={aceBtnBottom}
             aceBtnScale={aceBtnScale}
@@ -458,7 +485,15 @@ const MainTabsWithModal = () => {
           onOpenFullChat={() => navigation.navigate("Chat")}
         />
 
-        {showWalkthrough && <WalkthroughOverlay onDone={handleWalkthroughDone} />}
+        {showWalkthrough && <WalkthroughOverlay onDone={handleWalkthroughDone} fabBottom={aceBtnBottom + 54 + 12} />}
+
+        <NewSemesterPrompt
+          visible={showNewSemester}
+          oldSemester={profile?.semester}
+          userId={user?.uid}
+          schoolSystem={profile?.schoolSystem}
+          onDone={() => setShowNewSemester(false)}
+        />
         </View>
       </AddTaskContext.Provider>
     </WalkthroughProvider>
@@ -487,7 +522,7 @@ const PlanoraSplash = ({ colors }) => {
       <View style={[splashStyles.orb1, { backgroundColor: colors.accent + "18" }]} />
       <View style={[splashStyles.orb2, { backgroundColor: colors.accent + "10" }]} />
       <Animated.View style={[splashStyles.logoWrap, { opacity: logoAnim, backgroundColor: colors.isDark ? colors.bgCard : "#fff", shadowColor: colors.accent }]}>
-        <Image source={require("../assets/planora-brand.jpg")} style={splashStyles.logo} />
+        <Image source={require("../assets/planora-brand.jpg")} style={splashStyles.logo} resizeMode="cover" />
       </Animated.View>
       <Animated.View style={{ opacity: textAnim, transform: [{ translateY: slideAnim }], alignItems: "center" }}>
         <Text style={[splashStyles.wordmark, { color: colors.textPrimary }]}>Planora</Text>

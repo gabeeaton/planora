@@ -4,6 +4,7 @@ import {
   Animated, ScrollView, useWindowDimensions, DeviceEventEmitter,
 } from "react-native";
 import * as Haptics from "expo-haptics";
+const ACE_LOGO = require("../assets/logo.png");
 import { Feather } from "@expo/vector-icons";
 import { useTheme } from "../utils/ThemeContext";
 import { useWalkthroughTargets } from "../utils/WalkthroughContext";
@@ -21,6 +22,7 @@ const STEPS = [
     desc:  "Every time you open the app, Ace scans your deadlines, grades, and patterns — then gives you a coaching note. No fluff, just what you need to hear.",
     tooltipSide: "below",
     pad: 4,
+    optional: true,
   },
   {
     key:   "statsBar",
@@ -29,6 +31,7 @@ const STEPS = [
     desc:  "See how many tasks are due today, how many are pending, and how many you've completed this semester.",
     tooltipSide: "below",
     pad: 4,
+    optional: true,
   },
   {
     key:   "todayFocus",
@@ -206,7 +209,7 @@ function IntroScreen({ colors, onNext, onDismiss }) {
             borderWidth: 1,
             borderColor: colors.accent + "45",
           }]}>
-            <Image source={require("../assets/logo.png")} style={intro.logo} resizeMode="contain" />
+            <Image source={ACE_LOGO} style={intro.logo} resizeMode="contain" />
           </View>
         </Animated.View>
 
@@ -259,7 +262,7 @@ function IntroScreen({ colors, onNext, onDismiss }) {
 }
 
 // ── Main overlay ─────────────────────────────────────────────────
-export default function WalkthroughOverlay({ onDone }) {
+export default function WalkthroughOverlay({ onDone, fabBottom = 0 }) {
   const { colors }                = useTheme();
   const { width: SW, height: SH } = useWindowDimensions();
   const targets = useWalkthroughTargets();
@@ -289,7 +292,7 @@ export default function WalkthroughOverlay({ onDone }) {
   // Skip optional steps if target not found after grace period
   useEffect(() => {
     if (!current.optional || tOnScreen) return;
-    const delay = current.key === "priorityBadge" ? 300 : current.key === "todayFocus" ? 600 : 120;
+    const delay = current.key === "priorityBadge" ? 300 : current.key === "todayFocus" ? 600 : current.key === "insightStrip" ? 800 : 120;
     const timer = setTimeout(() => {
       const tgt = targetsRef.current[current.key];
       const valid = tgt && tgt.w > 0 && tgt.h > 0 && tgt.cy >= 0 && tgt.cy <= SH;
@@ -421,7 +424,7 @@ export default function WalkthroughOverlay({ onDone }) {
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]} pointerEvents="auto">
         <View style={[StyleSheet.absoluteFill, { backgroundColor: DARK }]} pointerEvents="none" />
         <TouchableOpacity style={StyleSheet.absoluteFill} onPress={advance} activeOpacity={1} />
-        {renderCard({ bottom: 60 }, "above", Math.max(20, SW / 2 - CARD_MARGIN - 10))}
+        {renderCard({ bottom: Math.max(110, fabBottom) }, "above", Math.max(20, SW / 2 - CARD_MARGIN - 10))}
       </Animated.View>
     );
   }
@@ -440,7 +443,8 @@ export default function WalkthroughOverlay({ onDone }) {
   if (side === "below") {
     tooltipStyle = { top: Math.min(sy + sh + ARROW_H + 8, SH - CARD_H - CARD_MARGIN) };
   } else {
-    tooltipStyle = { bottom: Math.min(SH - sy + ARROW_H + 8, SH - CARD_H - CARD_MARGIN) };
+    const rawBottom = Math.min(SH - sy + ARROW_H + 8, SH - CARD_H - CARD_MARGIN);
+    tooltipStyle = { bottom: Math.max(rawBottom, fabBottom) };
   }
 
   const arrowLeft = Math.max(20, Math.min(t.cx - CARD_MARGIN - 10, SW - CARD_MARGIN * 2 - 40));

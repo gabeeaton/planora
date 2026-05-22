@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { spacing, radius, priorityColors } from "../utils/theme";
+const ACE_LOGO = require("../assets/logo.png");
 import { useTheme } from "../utils/ThemeContext";
 import { getTodayFocus, invalidateTodayFocusCache } from "../services/openai";
 import { isToday, isTomorrow, differenceInCalendarDays } from "date-fns";
@@ -126,7 +127,6 @@ const FocusTaskRow = ({ task, idx, isLast, onPress, styles, colors, PRIORITY_COL
 const makeStyles = (colors) => StyleSheet.create({
   card: {
     backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF", borderRadius: radius.lg,
-    borderColor: colors.isDark ? colors.border : "transparent",
     borderWidth: colors.cardBorderW, borderColor: colors.cardBorder,
     borderLeftWidth: 5, borderLeftColor: colors.accent,
     overflow: "visible",
@@ -144,10 +144,10 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 10,
     paddingHorizontal: spacing.md, paddingTop: 14, paddingBottom: 8,
   },
-  aceLogo: { width: 48, height: 48, flexShrink: 0 },
+  aceLogo: { width: 52, height: 52, flexShrink: 0 },
   headerLabel: {
-    fontSize: 11, fontFamily: "Outfit-ExtraBold", color: colors.accent,
-    textTransform: "uppercase", letterSpacing: 1.1, flex: 1,
+    fontSize: 14, fontFamily: "Outfit-ExtraBold", color: colors.accent,
+    letterSpacing: 0.2, flex: 1,
   },
   taskRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
@@ -194,7 +194,7 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: 9,
     borderTopWidth: 1, borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
   },
-  insightText: { fontSize: 12, fontFamily: "Outfit-Regular", color: colors.textSecondary, flex: 1, lineHeight: 17 },
+  insightText: { fontSize: 13, fontFamily: "Outfit-Medium", color: colors.textSecondary, flex: 1, lineHeight: 18 },
   sessionsRow: {
     flexDirection: "row", alignItems: "center", gap: 7,
     paddingHorizontal: spacing.md, paddingVertical: 10,
@@ -213,12 +213,15 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
   const [failed, setFailed]      = useState(false);
   const [limitReached, setLimit] = useState(false);
 
-  const fadeAnim  = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(10)).current;
+  const fadeAnim   = useRef(new Animated.Value(0)).current;
+  const slideAnim  = useRef(new Animated.Value(10)).current;
+  const inFlight   = useRef(false);
 
   const load = () => {
+    if (inFlight.current) return;
     const pending = tasks.filter((t) => !t.completed);
     if (pending.length === 0) return;
+    inFlight.current = true;
     setLoading(true);
     setFailed(false);
     getTodayFocus(tasks, userProfile, patterns)
@@ -235,7 +238,7 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
           setFailed(true);
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => { inFlight.current = false; setLoading(false); });
   };
 
   useEffect(() => { load(); }, []);
@@ -309,8 +312,8 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
   return (
     <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.header}>
-        <Image source={require("../assets/logo.png")} style={styles.aceLogo} resizeMode="contain" />
-        <Text style={styles.headerLabel}>Focus today</Text>
+        <Image source={ACE_LOGO} style={styles.aceLogo} resizeMode="contain" />
+        <Text style={styles.headerLabel}>Ace's picks</Text>
         <TouchableOpacity onPress={retry} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Feather name="refresh-cw" size={13} color={colors.textMuted} />
         </TouchableOpacity>
@@ -321,13 +324,20 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
           key={task.id}
           task={task}
           idx={idx}
-          isLast={idx === focusTasks.length - 1 && todaySessions.length === 0}
+          isLast={idx === focusTasks.length - 1 && !focus?.insight && todaySessions.length === 0}
           onPress={onTaskHighlight}
           styles={styles}
           colors={colors}
           PRIORITY_COLORS={PRIORITY_COLORS}
         />
       ))}
+
+      {focus?.insight ? (
+        <View style={styles.insightRow}>
+          <Feather name="zap" size={12} color={colors.accent} />
+          <Text style={styles.insightText}>{cleanText(focus.insight)}</Text>
+        </View>
+      ) : null}
 
       {todaySessions.length > 0 && (
         <TouchableOpacity style={styles.sessionsRow} onPress={() => navigation?.navigate("StudyPlan")} activeOpacity={0.7}>

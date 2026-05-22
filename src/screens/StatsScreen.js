@@ -28,6 +28,7 @@ import * as Haptics from "expo-haptics";
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
 import { differenceInCalendarDays, subDays, format } from "date-fns";
+import { getSemesterBounds, getSemesterProgress as calcSemesterProgress } from "../utils/termHelpers";
 
 // Counts up from 0 to `value` when the screen gains focus
 const CountingNumber = ({ value, color, style }) => {
@@ -57,27 +58,6 @@ const toDate = (val) => {
 
 const GRADE_POINTS = { A: 4.0, B: 3.0, C: 2.0, D: 1.0, F: 0.0 };
 
-const getSemesterProgress = (semester) => {
-  if (!semester) return 0;
-  const match = semester.match(/(Spring|Summer|Fall|Winter)\s+(\d{4})/i);
-  if (!match) return 0;
-  const season = match[1].toLowerCase();
-  const year   = parseInt(match[2]);
-  const ranges = {
-    spring: { start: [year, 0, 15],  end: [year, 4, 15] },  // Jan 15 – May 15
-    summer: { start: [year, 4, 15],  end: [year, 7, 15] },  // May 15 – Aug 15
-    fall:   { start: [year, 7, 20],  end: [year, 11, 20] }, // Aug 20 – Dec 20
-    winter: { start: [year, 11, 10], end: [year + 1, 1, 5] }, // Dec 10 – Feb 5
-  };
-  const r = ranges[season];
-  if (!r) return 0;
-  const start = new Date(...r.start);
-  const end   = new Date(...r.end);
-  const now   = new Date();
-  if (now <= start) return 0;
-  if (now >= end)   return 100;
-  return Math.round(((now - start) / (end - start)) * 100);
-};
 
 const HEALTH_ORDER = { "At risk": 0, Behind: 1, Okay: 2, "On track": 3 };
 
@@ -108,21 +88,6 @@ const getHealthRating = (pct, overdueCount, total, isDark = true) => {
   };
 };
 
-const getSemesterBounds = (label) => {
-  if (!label) return null;
-  const lower = label.toLowerCase();
-  const yearMatch = label.match(/\d{4}/);
-  const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
-  if (lower.includes("winter"))
-    return { start: new Date(year, 0, 6), end: new Date(year, 2, 21) };
-  if (lower.includes("spring"))
-    return { start: new Date(year, 0, 13), end: new Date(year, 4, 9) };
-  if (lower.includes("summer"))
-    return { start: new Date(year, 4, 19), end: new Date(year, 7, 8) };
-  if (lower.includes("fall"))
-    return { start: new Date(year, 7, 25), end: new Date(year, 11, 12) };
-  return null;
-};
 
 // ── Styles ────────────────────────────────────────────────────
 
@@ -942,7 +907,7 @@ const StatsScreen = ({ navigation }) => {
   };
 
   // Semester
-  const semBounds = getSemesterBounds(profile?.semester);
+  const semBounds = getSemesterBounds(profile?.semester, profile?.schoolSystem);
 
   // Filter completed tasks to the current semester so stats reflect this term only
   const semesterCompleted = useMemo(() => {
@@ -1055,7 +1020,7 @@ const StatsScreen = ({ navigation }) => {
       .slice(0, 8);
   }, [tasks, semesterCompleted]);
 
-  const semesterPct = getSemesterProgress(profile?.semester);
+  const semesterPct = calcSemesterProgress(profile?.semester, profile?.schoolSystem);
 
   const onTrackCount = byClass.filter(
     (c) => c.health.label === "On track" || c.health.label === "Okay"

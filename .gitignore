@@ -32,6 +32,7 @@ Thumbs.db
 *.p12
 *.key
 *.mobileprovision
-*.orig.*google-services.json
+*.orig.*
+google-services.json
 src/assets/logo_original_backup.png
 src/assets/apple-music-logo_backup.jpg

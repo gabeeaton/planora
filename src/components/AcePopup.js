@@ -16,6 +16,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+const ACE_LOGO = require("../assets/logo.png");
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../utils/ThemeContext";
 import { useAuth } from "../hooks/useAuth";
@@ -205,7 +206,7 @@ export default function AcePopup({ visible, onClose, onOpenFullChat }) {
           {/* Header */}
           <View style={s.header}>
             <View style={[s.aceBadge, { backgroundColor: colors.accent }]}>
-              <Image source={require("../assets/logo.png")} style={s.aceLogo} resizeMode="contain" />
+              <Image source={ACE_LOGO} style={s.aceLogo} resizeMode="contain" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.headerName}>{COACH_NAME}</Text>
