@@ -610,6 +610,7 @@ const ProfileScreen = ({ navigation }) => {
                 onChangeText={setNameInput}
                 placeholder="Your name"
                 placeholderTextColor={colors.textMuted}
+                maxLength={40}
                 autoFocus
               />
               <TouchableOpacity onPress={() => { tap(); handleSaveName(); }} style={[styles.nameSaveBtn, { backgroundColor: ac.accent }]}>

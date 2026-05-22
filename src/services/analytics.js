@@ -1,19 +1,16 @@
 import PostHog from "posthog-react-native";
 
-// Singleton — import { track, identify, posthog } anywhere in the app.
-// Fails silently if key is missing (local dev without .env key).
-export const posthog = new PostHog(
-  process.env.EXPO_PUBLIC_POSTHOG_KEY ?? "",
-  {
-    host: "https://us.i.posthog.com",
-    disabled: !process.env.EXPO_PUBLIC_POSTHOG_KEY,
-  }
-);
+const POSTHOG_KEY = process.env.EXPO_PUBLIC_POSTHOG_KEY;
+
+// Only instantiate when a real key exists — avoids PostHog's key-validation error in dev.
+export const posthog = POSTHOG_KEY
+  ? new PostHog(POSTHOG_KEY, { host: "https://us.i.posthog.com" })
+  : null;
 
 export const track = (event, props = {}) => {
-  try { posthog.capture(event, props); } catch {}
+  try { posthog?.capture(event, props); } catch {}
 };
 
 export const identify = (userId, traits = {}) => {
-  try { posthog.identify(userId, traits); } catch {}
+  try { posthog?.identify(userId, traits); } catch {}
 };

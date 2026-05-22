@@ -10,7 +10,7 @@ import { useTheme } from "../utils/ThemeContext";
 import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { spacing, getClassColor } from "../utils/theme";
-import { AddTaskContext } from "../navigation/AppNavigator";
+import { AddTaskContext } from "../contexts/AddTaskContext";
 import TaskCard from "../components/TaskCard";
 import CompletionBurst from "../components/CompletionBurst";
 import { invalidateTodayFocusCache } from "../services/openai";

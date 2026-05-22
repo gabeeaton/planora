@@ -101,8 +101,7 @@ function App() {
     return <View style={{ flex: 1, backgroundColor: bg }} />;
   }
 
-  return (
-    <PostHogProvider client={posthog}>
+  const inner = (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
     <ThemeProvider initialTheme={savedTheme} initialMode={savedMode}>
@@ -118,8 +117,9 @@ function App() {
     </ThemeProvider>
     </SafeAreaProvider>
     </GestureHandlerRootView>
-    </PostHogProvider>
   );
+
+  return posthog ? <PostHogProvider client={posthog}>{inner}</PostHogProvider> : inner;
 }
 
 export default Sentry.wrap(App);

@@ -17,7 +17,7 @@ import { useSubscription } from "../hooks/useSubscription";
 import { useNavigation } from "@react-navigation/native";
 import { spacing } from "../utils/theme";
 import * as Haptics from "expo-haptics";
-import { AddTaskContext } from "../navigation/AppNavigator";
+import { AddTaskContext } from "../contexts/AddTaskContext";
 import { FEATURE_FLAGS } from "../config";
 const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 

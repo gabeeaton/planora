@@ -45,7 +45,8 @@ import { invalidateTodayFocusCache } from "../services/openai";
 import { FEATURE_FLAGS } from "../config";
 const ACE_LOGO = require("../assets/logo.png");
 
-export const AddTaskContext = React.createContext({ openAddTask: () => {}, openQuickAdd: () => {} });
+import { AddTaskContext } from "../contexts/AddTaskContext";
+export { AddTaskContext };
 
 const linking = {
   prefixes: ["planora://"],

@@ -51,7 +51,7 @@ import { useTheme } from "../utils/ThemeContext";
 import CompletionBurst from "../components/CompletionBurst";
 import TodaySchedule from "../components/TodaySchedule";
 import { useCalendarEvents } from "../hooks/useCalendarEvents";
-import { AddTaskContext } from "../navigation/AppNavigator";
+import { AddTaskContext } from "../contexts/AddTaskContext";
 import { useSetWalkthroughTarget } from "../utils/WalkthroughContext";
 import { Share } from "react-native";
 import {

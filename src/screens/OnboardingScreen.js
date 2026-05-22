@@ -750,29 +750,29 @@ const LMS_OPTIONS = [
 ];
 
 const CANVAS_STEPS = () => [
-  "Open Canvas on your school's website and sign in with your school account",
-  "Tap Calendar in the left sidebar",
-  'Scroll to the bottom → tap "Calendar Feed" → copy the link',
-  "Replace webcal:// with https:// if needed, then tap Next",
+  "Open Canvas and sign in",
+  "Open Calendar from the sidebar or menu",
+  'Find "Calendar Feed" or "Subscribe to Calendar Feed" — check the right sidebar or scroll to the bottom',
+  "Copy the ICS/iCal URL and paste it below",
 ];
 const LMS_STEPS = {
   Brightspace: [
-    "Open Brightspace on your school's website and sign in",
-    "Tap your name (top-right) → Notifications → Subscribe to Calendar",
-    "Copy the iCal URL",
-    "Tap Next below and paste the link",
+    "Open Brightspace and sign in",
+    "Open Calendar (check the top navbar, homepage widget, or a Tools menu)",
+    "Tap Settings → check Enable Calendar Feeds → tap Save",
+    'Tap Subscribe → choose "All Calendars" → copy the ICS/iCal URL and paste it below',
   ],
   Blackboard: [
-    "Open Blackboard on your school's website and sign in",
-    "Go to Calendar → tap the gear icon → Subscribe to Calendar",
-    "Copy the calendar URL",
-    "Tap Next below and paste the link",
+    "Open Blackboard and sign in",
+    "Open Calendar from the left navigation bar",
+    "Tap the gear icon (Calendar Settings) in the upper-right",
+    "Tap the ··· menu next to Calendar Settings → choose Share Calendar → copy the URL and paste it below",
   ],
   Moodle: [
-    "Open Moodle on your school's website and sign in",
-    'Go to Calendar → scroll down → tap "Export or subscribe"',
-    'Tap "Get calendar URL" (not Export) → copy it',
-    "Tap Next below and paste the link",
+    "Open Moodle and sign in",
+    "Open Calendar (Dashboard or top navigation)",
+    'Scroll down and tap "Export calendar" or "Import or export calendars"',
+    'Tap "Get calendar URL" → copy the URL and paste it below',
   ],
 };
 
@@ -823,7 +823,7 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
   };
 
   const handleFetchUrl = async () => {
-    const url = icsUrl.trim();
+    const url = icsUrl.trim().replace(/^webcal:\/\//i, "https://");
     if (!url) return;
     setIcsLoading(true); setError(null);
     try {
@@ -832,7 +832,7 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
       const text = await res.text();
       if (!isValidIcs(text)) { setError("That URL didn't return a valid calendar. Make sure you copied the full feed URL."); return; }
       setIcsText(text); setLoadedFromUrl(url); parseAndSet(text);
-    } catch { setError("Couldn't load that URL. Make sure it starts with https:// — replace webcal:// if needed."); }
+    } catch { setError("Couldn't load that URL. Make sure you copied the full calendar feed URL."); }
     finally { setIcsLoading(false); }
   };
   const [icsText, setIcsText] = useState(null);
@@ -918,6 +918,10 @@ const ImportStep = ({ onImported, onClassDetected, onUrlSaved, styles, colors })
             </View>
           ))}
         </View>
+
+        <Text style={[styles.stepText, { color: colors.textMuted, marginTop: 8, fontSize: 12 }]}>
+          Don't see these options? Search your school's help site for "calendar feed" or "ICS URL".
+        </Text>
 
         <TouchableOpacity style={styles.parseBtn} onPress={() => { tap(); setSubStep(2); }}>
           <Text style={styles.parseBtnText}>I have the link</Text>
@@ -1202,7 +1206,7 @@ const OnboardingScreen = ({ navigation }) => {
   };
 
   const handleImportFetchUrl = async () => {
-    const url = importIcsUrl.trim();
+    const url = importIcsUrl.trim().replace(/^webcal:\/\//i, "https://");
     if (!url) return;
     setImportIcsLoading(true); setImportError(null);
     try {
@@ -1211,7 +1215,7 @@ const OnboardingScreen = ({ navigation }) => {
       const text = await res.text();
       if (!isValidIcs(text)) { setImportError("That URL didn't return a valid calendar. Make sure you copied the full feed URL."); return; }
       setImportIcsText(text); setImportLoadedFromUrl(url); importParseAndSet(text);
-    } catch { setImportError("Couldn't load that URL. Make sure it starts with https:// — replace webcal:// if needed."); }
+    } catch { setImportError("Couldn't load that URL. Make sure you copied the full calendar feed URL."); }
     finally { setImportIcsLoading(false); }
   };
 
@@ -1929,6 +1933,10 @@ const OnboardingScreen = ({ navigation }) => {
             </View>
           ))}
         </View>
+
+        <Text style={[styles.stepText, { color: colors.textMuted, marginTop: 8, fontSize: 12 }]}>
+          Don't see these options? Search your school's help site for "calendar feed" or "ICS URL".
+        </Text>
       </View>
     );
   };
