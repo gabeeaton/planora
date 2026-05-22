@@ -21,6 +21,7 @@ import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../hooks/useAuth";
 import { saveUserProfile } from "../services/firebase";
+import { track } from "../services/analytics";
 // ─────────────────────────────────────────────────────────────
 // LMS step content
 // ─────────────────────────────────────────────────────────────
@@ -411,6 +412,7 @@ const SyllabusParserScreen = ({ navigation }) => {
       const skipped = result?.skipped ?? 0;
       setImportCount(created);
       setSkippedCount(skipped);
+      track("import_completed", { task_count: created });
 
       if (loadedFromUrl) {
         await saveUserProfile(user.uid, { icsUrl: loadedFromUrl });

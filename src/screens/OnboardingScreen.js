@@ -49,6 +49,7 @@ import {
 } from "../services/icsImport";
 import { generateTerms, WORK_TIMES, GRADES, CREDIT_OPTS } from "../utils/termHelpers";
 import { searchCanvasSchools } from "../utils/canvasSchools";
+import { track, identify } from "../services/analytics";
 
 const ScalePressable = ({ onPress, style, children }) => {
   const scale = useRef(new Animated.Value(1)).current;
@@ -1323,6 +1324,10 @@ const OnboardingScreen = ({ navigation }) => {
 
       if (!DEMO_MODE) {
         await saveUserProfile(user.uid, data);
+        if (!isEditing && user?.uid) {
+          identify(user.uid, { semester: data.semester, year: data.studentYear, learningStyle: data.learningStyle });
+          track("onboarding_completed", { class_count: data.classes?.length ?? 0, has_import: !!(importParsedTasks?.length) });
+        }
       }
 
       if (!isEditing && !DEMO_MODE && !FEATURE_FLAGS.FORCE_ONBOARDING && !profile?.welcomeEmailSent && user?.email) {

@@ -10,6 +10,8 @@ Text.defaultProps.style = { fontFamily: "Outfit-Regular" };
 TextInput.defaultProps = TextInput.defaultProps || {};
 TextInput.defaultProps.style = { fontFamily: "Outfit-Regular" };
 import * as Sentry from "@sentry/react-native";
+import { PostHogProvider } from "posthog-react-native";
+import { posthog } from "./src/services/analytics";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "./src/hooks/useAuth";
@@ -100,6 +102,7 @@ function App() {
   }
 
   return (
+    <PostHogProvider client={posthog}>
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
     <ThemeProvider initialTheme={savedTheme} initialMode={savedMode}>
@@ -115,6 +118,7 @@ function App() {
     </ThemeProvider>
     </SafeAreaProvider>
     </GestureHandlerRootView>
+    </PostHogProvider>
   );
 }
 

@@ -14,6 +14,7 @@ import { invalidateTodayFocusCache } from "../services/openai";
 import { FEATURE_FLAGS } from "../config";
 import * as Haptics from "expo-haptics";
 import { getTrialInfo } from "../utils/trialHelpers";
+import { track } from "../services/analytics";
 
 const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
@@ -88,6 +89,7 @@ export default function PaywallScreen({ navigation }) {
   })).current;
 
   useEffect(() => {
+    track("paywall_viewed");
     getOfferings().then(setPackages).catch(() => {});
     Animated.parallel([
       Animated.timing(fadeAnim,  { toValue: 1, duration: 260, useNativeDriver: true }),
@@ -121,6 +123,7 @@ export default function PaywallScreen({ navigation }) {
     }
     setLoading(true);
     const succeed = () => {
+      track("subscription_started", { plan: selectedPlan });
       if (user?.uid) setProStatus(user.uid, true).catch(() => {});
       invalidateTodayFocusCache();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});

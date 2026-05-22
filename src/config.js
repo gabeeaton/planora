@@ -40,7 +40,7 @@ export const FEATURE_FLAGS = {
   BETA_PRO_UNLOCKED:  false,
   FORCE_ONBOARDING:   false, // flip to true to test onboarding repeatedly
   FORCE_WALKTHROUGH:        false, // flip to true to test walkthrough repeatedly
-  FORCE_SEMESTER_PROMPT:    false, // flip to true to test new-semester prompt every launch
+  FORCE_SEMESTER_PROMPT:    true, // flip to true to test new-semester prompt every launch
   // Flip to true for App Store screenshots / demo walkthroughs.
   // All screens show canned data; purchases are skipped; no real API calls.
   DEMO_MODE: false,

@@ -48,6 +48,7 @@ import {
   incrementStreak,
   checkAndResetStreak,
 } from "../utils/streakHelpers";
+import { track } from "../services/analytics";
 
 const TasksContext = createContext(null);
 const SHARE_KEY  = (uid) => `@planora_last_share_${uid}`;
@@ -252,6 +253,7 @@ export const TasksProvider = ({ children }) => {
     try {
       await toggleTask(task.id, task.completed);
       if (!task.completed) {
+        track("task_completed", { priority: task.aiPriority ?? task.priority ?? "MEDIUM" });
         // ── Completing ────────────────────────────────────────
         incrementStreak(user?.uid, tasksRef.current)
           .then((newStreak) => {
