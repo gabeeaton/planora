@@ -41,7 +41,7 @@ import StatsBar from "../components/StatsBar";
 import TodayFocusCard from "../components/TodayFocusCard";
 import NotificationPermissionPrompt, { NOTIF_PROMPT_KEY } from "../components/NotificationPermissionPrompt";
 import { DashboardSkeleton, TaskListSkeleton, CalendarSkeleton } from "../components/SkeletonLoader";
-import { invalidateTodayFocusCache } from "../services/openai";
+import { invalidateTodayFocusCache, polishAceBrief } from "../services/openai";
 import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../services/notifications";
 import * as Notifications from "expo-notifications";
 import { typography, spacing, radius, shadows, getClassColor } from "../utils/theme";
@@ -668,9 +668,9 @@ const DashboardScreen = ({ navigation }) => {
     { id: "d4",  title: "Read chapters 7–9 for lecture",          className: "PSYC 101", dueDate: new Date(_dn + 4 * 86400000), completed: false, priority: "MEDIUM", aiPriority: "MEDIUM" },
     { id: "d5",  title: "Lab report — titration experiment",      className: "CHEM 201", dueDate: new Date(_dn + 5 * 86400000), completed: false, priority: "LOW",    aiPriority: "LOW"    },
     { id: "d6",  title: "Spanish composition draft",              className: "SPAN 102", dueDate: new Date(_dn + 6 * 86400000), completed: false, priority: "LOW",    aiPriority: "LOW"    },
-    { id: "d7",  title: "Quiz review — macro economics",          className: "ECON 101", dueDate: new Date(_dn + 86400000),     completed: true,  priority: "MEDIUM", aiPriority: "MEDIUM" },
-    { id: "d8",  title: "Group project slides",                   className: "BUS 210",  dueDate: new Date(_dn - 86400000),     completed: true,  priority: "HIGH",   aiPriority: "HIGH"   },
-    { id: "d9",  title: "Annotated bibliography draft",           className: "HIST 110", dueDate: new Date(_dn - 3 * 86400000), completed: true,  priority: "MEDIUM", aiPriority: "MEDIUM" },
+    { id: "d7",  title: "Quiz review — macro economics",          className: "ECON 101", dueDate: new Date(_dn + 86400000),     completed: true,  priority: "MEDIUM", aiPriority: "MEDIUM", completedAt: new Date(_dn - 2 * 86400000) },
+    { id: "d8",  title: "Group project slides",                   className: "BUS 210",  dueDate: new Date(_dn - 86400000),     completed: true,  priority: "HIGH",   aiPriority: "HIGH",   completedAt: new Date(_dn - 5 * 86400000) },
+    { id: "d9",  title: "Annotated bibliography draft",           className: "HIST 110", dueDate: new Date(_dn - 3 * 86400000), completed: true,  priority: "MEDIUM", aiPriority: "MEDIUM", completedAt: new Date(_dn - 10 * 86400000) },
   ];
   const _tod = new Date();
   const _dh = (h, m) => { const d = new Date(_tod); d.setHours(h, m, 0, 0); return d; };
@@ -688,7 +688,20 @@ const DashboardScreen = ({ navigation }) => {
     avoidanceScores: [],
     overallStats: { totalPending: 8 },
   };
-  const DEMO_PROFILE = { name: "Alex Johnson", semester: "Spring 2025", classes: [], isPro: true };
+  const DEMO_PROFILE = {
+    name: "Alex Johnson",
+    semester: "Spring 2026",
+    schoolSystem: "semester",
+    isPro: true,
+    classes: [
+      { id: "dc1", name: "CHEM 201", creditHours: "3", grade: "C+" },
+      { id: "dc2", name: "BIOL 150", creditHours: "3", grade: "B+" },
+      { id: "dc3", name: "HIST 110", creditHours: "3", grade: "B"  },
+      { id: "dc4", name: "MATH 240", creditHours: "3", grade: "A-" },
+      { id: "dc5", name: "POLS 200", creditHours: "3", grade: "B-" },
+      { id: "dc6", name: "PSYC 101", creditHours: "3", grade: "A"  },
+    ],
+  };
 
   const profile       = DEMO_MODE ? DEMO_PROFILE : realProfile;
   const isPro         = DEMO_MODE ? true : realIsPro;
@@ -1262,37 +1275,37 @@ const DashboardScreen = ({ navigation }) => {
     if (overdueTasks.length === 1) {
       const t = overdueTasks[0];
       if (latePattern) {
-        parts.push(`"${t.title}" is past due — and honestly, this isn't the first time you've been here. That's the pattern. Today's a good day to actually break it.`);
+        parts.push(`${name ? `${name}, ` : ""}"${t.title}" is past due — you've been in this spot before, and you know how it plays out. Today's actually a great chance to flip the script. Let's get it done.`);
       } else {
-        parts.push(`One thing past due: "${t.title}". It's not going to sort itself out — fifteen minutes on it right now beats an hour tonight when everything else is piling up.`);
+        parts.push(`${name ? `${name}, ` : ""}one thing past due: "${t.title}". Fifteen minutes on it right now beats scrambling tonight — let's knock it out.`);
       }
     } else if (overdueTasks.length > 1) {
       if (latePattern) {
-        parts.push(`${overdueTasks.length} things are past due. Your history says you'll wait until it's urgent — it is. Don't try to do all of them. Pick the smallest one and get off zero.`);
+        parts.push(`${name ? `${name}, ` : ""}${overdueTasks.length} things are past due — and yeah, it's go-time. Don't try to tackle all of them at once. Pick the quickest one and get off zero. That first win changes the whole vibe.`);
       } else {
-        parts.push(`${overdueTasks.length} things past due. Don't overthink the order — start with whichever one takes the least mental load. Momentum is the goal right now, not perfection.`);
+        parts.push(`${name ? `${name}, ` : ""}${overdueTasks.length} things past due. Don't stress the order — grab whichever one is fastest to start and just go. Momentum beats perfect every time.`);
       }
     } else if (todaysTasks.length === 0 && weekTotal === 0) {
       parts.push(streak >= 3
-        ? `Nothing due. Nothing coming. Clear board${name ? `, ${name}` : ""}, ${streak}-day streak — that's what staying ahead actually looks like.`
-        : `Nothing urgent, nothing overdue${name ? `, ${name}` : ""}. That's actually the best place to be — enjoy it or use the breathing room to get ahead.`
+        ? `Clear board${name ? `, ${name}` : ""}! Nothing due, nothing coming, ${streak}-day streak — that's what staying ahead actually looks like. Seriously, nice work.`
+        : `Nothing urgent, nothing overdue${name ? `, ${name}` : ""} — honestly, enjoy it! Or use the breathing room to get ahead. Either way, you're in a great spot.`
       );
     } else if (todaysTasks.length === 1) {
-      const timeCtx = h < 12 ? "Morning's your best window — knock it out before the day gets complicated."
-                    : h < 17 ? "You've still got the afternoon. Don't wait until tonight."
-                    : "Evening is what you've got. Make it count.";
-      parts.push(`One thing due today: "${todaysTasks[0].title}". ${timeCtx}`);
+      const timeCtx = h < 12 ? "You've got the whole morning ahead — knock it out before things get busy."
+                    : h < 17 ? "Afternoon's still yours — get it done now and the rest of your day is free."
+                    : "Evening's your window — let's get it done.";
+      parts.push(`One thing on your plate today${name ? `, ${name}` : ""}: "${todaysTasks[0].title}". ${timeCtx}`);
     } else if (todaysTasks.length > 1) {
-      const timeCtx = h < 12 ? `Morning is your highest-leverage time — use it.`
-                    : h < 17 ? `Afternoon's not gone yet — don't waste it.`
-                    : `Tonight's the window and it's closing.`;
-      parts.push(`${todaysTasks.length} things due today — ${timeCtx} Don't try to think about all of them at once; pick one and actually start.`);
+      const timeCtx = h < 12 ? `Morning is prime time — let's lock in.`
+                    : h < 17 ? `Afternoon's not gone yet — you've still got time.`
+                    : `Tonight's your window and it's moving fast.`;
+      parts.push(`${todaysTasks.length} things due today${name ? `, ${name}` : ""}. ${timeCtx} Don't overthink it — pick one and go.`);
     } else if (dayOfWeek === 1 && h < 12 && weekTotal > 0) {
-      parts.push(`Fresh week${name ? `, ${name}` : ""}. Nothing due today, but ${weekTotal} thing${weekTotal === 1 ? "" : "s"} coming up. How you start Monday sets the whole week — worth mapping it out now.`);
+      parts.push(`Fresh week${name ? `, ${name}` : ""}! Nothing due today, but ${weekTotal} thing${weekTotal === 1 ? "" : "s"} coming up. How you start Monday sets the whole tone — worth taking 5 minutes to map it out now.`);
     } else if (dayOfWeek === 0 && weekTotal > 0) {
-      parts.push(`${weekTotal} thing${weekTotal === 1 ? "" : "s"} coming up this week${name ? `, ${name}` : ""}. Sunday's a good time to look at the list before it turns into Monday scramble.`);
+      parts.push(`${weekTotal} thing${weekTotal === 1 ? "" : "s"} coming up this week${name ? `, ${name}` : ""}. Sunday's the perfect time to look at the list before Monday hits — future you will thank you.`);
     } else if (weekTotal > 0) {
-      parts.push(`Clear today, but ${weekTotal > 1 ? `${weekTotal} things are` : "something's"} coming up this week. Good time to get ahead of one of them before you have to.`);
+      parts.push(`Clear today${name ? `, ${name}` : ""}! ${weekTotal > 1 ? `${weekTotal} things are` : "Something's"} coming up this week though — great chance to chip away at one before it becomes urgent.`);
     }
 
     // ── PART 2: Specific start recommendation ──────────────────────
@@ -1301,60 +1314,57 @@ const DashboardScreen = ({ navigation }) => {
       const alreadyNamed = (todaysTasks.length === 1 && todaysTasks[0]?.id === highestPending.id)
                         || (overdueTasks.length === 1 && overdueTasks[0]?.id === highestPending.id);
       if (!alreadyNamed && (isHigh || todaysTasks.length > 1)) {
-        parts.push(`If you're deciding where to start${name ? `, ${name}` : ""}: "${highestPending.title}" is the highest-priority thing on your list right now.`);
+        parts.push(`If you're picking where to start, go with "${highestPending.title}" — that's your highest-priority item right now.`);
       }
     }
 
     // ── PART 3: Low grade + imminent deadline ──────────────────────
     if (lowGradeUrgent && overdueTasks.length === 0) {
-      parts.push(`"${lowGradeUrgent.title}" is due soon and your grade in ${lowGradeUrgent.className} needs the points — this one has real grade impact.`);
+      parts.push(`Quick heads-up — "${lowGradeUrgent.title}" is due soon and your grade in ${lowGradeUrgent.className} needs those points. This one actually moves the needle.`);
     }
 
     // ── PART 4: Urgent task that hasn't been opened yet ────────────
     if (urgentBlind && !lowGradeUrgent && overdueTasks.length === 0) {
       const daysOut = differenceInCalendarDays(safeDate(urgentBlind.dueDate) ?? today, today);
       const when = daysOut === 0 ? "today" : daysOut === 1 ? "tomorrow" : `in ${daysOut} days`;
-      parts.push(`"${urgentBlind.title}" is due ${when} and it doesn't look like you've touched it yet. Worth opening today.`);
+      parts.push(`"${urgentBlind.title}" is due ${when} and it looks like it hasn't been started yet. Today's the day to get it open and moving.`);
     }
 
     // ── PART 5: Task being avoided ────────────────────────────────
     if (staleName && overdueTasks.length === 0 && !lowGradeUrgent && !urgentBlind) {
-      parts.push(`"${staleName}" keeps getting pushed. The longer you leave it, the bigger it feels — ten minutes today breaks that cycle.`);
+      parts.push(`Real talk — "${staleName}" keeps getting bumped. Ten minutes on it today breaks that cycle and it'll feel way less heavy.`);
     }
 
     // ── PART 6: Upcoming cluster warning ──────────────────────────
     if (busiestCount >= 2 && busiestDayName && busiestDaysAway != null && busiestDaysAway > 1) {
-      const closeCtx = latePattern
-        ? `Your habit is leaving things until the last window — ${busiestDayName} will be that window if you don't move something earlier.`
-        : `Getting even one thing done before then makes that day much more manageable.`;
-      parts.push(`${busiestDayName} has ${busiestCount} things due. ${closeCtx}`);
+      parts.push(`${busiestDayName} has ${busiestCount} things due. Start chipping away at one now and that day gets way more manageable.`);
     } else if (busiestCount >= 2 && busiestDayName === "tomorrow" && overdueTasks.length === 0 && todaysTasks.length === 0) {
-      parts.push(`Tomorrow has ${busiestCount} things due. Today's a low-pressure window to chip in early.`);
+      parts.push(`Tomorrow has ${busiestCount} things due — today's low-pressure, perfect time to chip away at one.`);
     }
 
     // ── PART 7: Behavioral pattern (≥5 data points) ───────────────
-    if (totalSamples >= 5) {
+    if (totalSamples >= 3) {
       if (latenessLabel === "plans ahead" && avgDaysBefore != null) {
-        parts.push(`Worth saying: you've been finishing about ${avgDaysBefore} day${avgDaysBefore !== 1 ? "s" : ""} ahead of deadline on average — across ${totalSamples} tasks. That buffer is exactly why things don't feel like a crisis.`);
+        parts.push(`By the way — you've been finishing ${avgDaysBefore} day${avgDaysBefore !== 1 ? "s" : ""} ahead of deadline on average. That buffer is exactly why nothing feels like a crisis right now. Keep that going.`);
       } else if (latenessLabel === "last minute" && avgDaysBefore != null && avgDaysBefore <= 0) {
-        parts.push(`One pattern worth knowing: you're finishing things the day they're due. It works — until it doesn't. One task done a day early completely changes how that due date feels.`);
+        parts.push(`Heads up — you've been finishing things the day they're due. It works until it doesn't. Even one task done a day early completely changes how those deadlines feel.`);
       } else if (latenessLabel === "last minute" && avgDaysBefore != null) {
-        parts.push(`Your average finish is about ${avgDaysBefore} day${avgDaysBefore !== 1 ? "s" : ""} before the deadline. That's closer than it sounds, especially when you've got a heavy week stacked.`);
+        parts.push(`Your average finish is about ${avgDaysBefore} day${avgDaysBefore !== 1 ? "s" : ""} before the deadline. That's tighter than it sounds on a heavy week — worth giving yourself a bigger buffer.`);
       } else if (latenessLabel === "often late") {
-        parts.push(`Looking at your history — there have been a few past-deadline submissions. One early finish, just one, can start breaking that pattern.`);
+        parts.push(`Looking at your history — a few things have slipped past deadline. Just one early finish this week can start turning that around. You've got this.`);
       }
     }
 
     // ── PART 8: Peak work time ─────────────────────────────────────
-    if (timeSamples >= 5 && bestTime && parts.length <= 2 && overdueTasks.length === 0) {
-      parts.push(`Your completions tend to land in the ${bestTime}. That's your real work window — the one where things actually get done. Protect it.`);
+    if (timeSamples >= 3 && bestTime && parts.length <= 2 && overdueTasks.length === 0) {
+      parts.push(`Your completions tend to pile up in the ${bestTime} — that's your real power window. Block it off and protect it.`);
     }
 
     // ── PART 9: Streak ────────────────────────────────────────────
     if (streak >= 7 && overdueTasks.length === 0) {
-      parts.push(`${streak} days in a row${name ? `, ${name}` : ""}. That's not luck at this point — that's a real habit.`);
+      parts.push(`${streak} days in a row! That's not luck — that's a real habit you've built. Keep the streak alive.`);
     } else if (streak >= 3 && streak < 7 && overdueTasks.length === 0 && parts.length <= 1) {
-      parts.push(`${streak}-day streak. Consistency is the part most people underestimate — keep the thread going.`);
+      parts.push(`${streak}-day streak! Consistency is the part most people underestimate. Keep that thread going.`);
     }
 
     // ── PART 10: Calendar + class schedule context ────────────────
@@ -1394,17 +1404,31 @@ const DashboardScreen = ({ navigation }) => {
           const hStr = minsUntilFirst >= 120
             ? `${Math.floor(minsUntilFirst / 60)}h ${minsUntilFirst % 60 > 0 ? `${minsUntilFirst % 60}min` : ""}`.trim()
             : `${minsUntilFirst}min`;
-          parts.push(`You've got ${hStr} before ${firstEvent.title ?? "your first class"} — that's a real window right now.`);
+          parts.push(`You've got ${hStr} before ${firstEvent.title ?? "class"} — that's a solid window. Use it.`);
         } else if (activeEvents.length >= 3) {
-          parts.push(`Heavy schedule today — ${activeEvents.length} things on the calendar. The gaps between classes are where you'll actually get things done.`);
+          parts.push(`Heavy schedule today — ${activeEvents.length} things on the calendar. The gaps between classes are your real windows. Use them.`);
         } else if (overdueTasks.length === 0 && todaysTasks.length === 0) {
-          parts.push(`${activeEvents.length === 1 ? "One thing" : `${activeEvents.length} things`} on the schedule today. Use the time around it to make progress.`);
+          parts.push(`${activeEvents.length === 1 ? "One thing" : `${activeEvents.length} things`} on the schedule today. Plenty of time around it — good day to make some progress.`);
         }
       }
     }
 
     return parts.filter(Boolean).join(" ") || null;
   }, [loading, tasks, pendingTasks, todaysTasks, enrichedTasks, patterns, streak, now, calEvents, profile?.classSchedule, profile?.name]);
+
+  // ── Polish aceBrief via AI — cached by content, falls back to raw on failure ──
+  const [polishedBrief, setPolishedBrief] = useState(null);
+  const briefPolishRef = useRef(false);
+  useEffect(() => {
+    if (!aceBrief) { setPolishedBrief(null); return; }
+    briefPolishRef.current = false;
+    setPolishedBrief(null);
+    const name = profile?.name?.split(" ")[0] ?? null;
+    polishAceBrief(aceBrief, name).then((result) => {
+      if (!briefPolishRef.current) setPolishedBrief(result);
+    });
+    return () => { briefPolishRef.current = true; };
+  }, [aceBrief]);
 
   // ── Class schedule → today's events ──────────────────────────
   const classScheduleEvents = useMemo(() => {
@@ -1691,7 +1715,7 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.aceCardName}>Ace's Brief</Text>
               <Text style={styles.aceCardSparkle}>✦</Text>
             </View>
-            <Text style={styles.aceCardMessage}>{aceBrief}</Text>
+            <Text style={styles.aceCardMessage}>{polishedBrief ?? aceBrief}</Text>
           </View>
         )}
 
@@ -1711,6 +1735,10 @@ const DashboardScreen = ({ navigation }) => {
               navigation={navigation}
               isPro={isPro}
               todaySessions={isPro ? todayPlanSessions : []}
+              focusOverride={DEMO_MODE ? {
+                taskIds: ["d0", "d1", "d2"],
+                insight: "Your Chem midterm is tomorrow and you have a quiz today — lecture notes first, they pull double duty.",
+              } : undefined}
             />
           </View>
         )}

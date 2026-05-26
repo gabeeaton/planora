@@ -122,9 +122,11 @@ export default function PaywallScreen({ navigation }) {
       return;
     }
     setLoading(true);
-    const succeed = () => {
+    const succeed = async () => {
       track("subscription_started", { plan: selectedPlan });
-      if (user?.uid) setProStatus(user.uid, true).catch(() => {});
+      // Await the Firestore write so the proxy sees isPro: true before the user
+      // hits any AI feature — without this there's a race condition on purchase.
+      if (user?.uid) await setProStatus(user.uid, true).catch(() => {});
       invalidateTodayFocusCache();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       Alert.alert("You're in! 🎉", "Scholar is now unlocked. Build your first study plan.", [
@@ -133,14 +135,14 @@ export default function PaywallScreen({ navigation }) {
     };
     try {
       await purchasePackage(pkg);
-      succeed();
+      await succeed();
     } catch (err) {
       if (err.userCancelled) return;
       const raw = (err.message ?? "").toLowerCase();
       // StoreKit accepted the payment but RevenueCat's backend hasn't synced yet
       // (very common in sandbox). Treat as success — Firestore flag is source of truth.
       if (raw.includes("entitlement not activated")) {
-        succeed();
+        await succeed();
         return;
       }
       const msg = (() => {
@@ -164,7 +166,7 @@ export default function PaywallScreen({ navigation }) {
     try {
       const restored = await restorePurchases();
       if (restored) {
-        if (user?.uid) setProStatus(user.uid, true).catch(() => {});
+        if (user?.uid) await setProStatus(user.uid, true).catch(() => {});
         Alert.alert("Restored!", "Your Scholar subscription has been restored.", [
           { text: "Let's go!", onPress: () => navigation.goBack() },
         ]);

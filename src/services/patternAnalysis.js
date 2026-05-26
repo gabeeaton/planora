@@ -223,7 +223,7 @@ export const buildPatternContext = (patterns, userProfile = null) => {
   const { latenessProfile, productiveTimeOfDay, overallStats, staleTasks, urgentUntouched } = patterns;
 
   // Report lateness tendency only with enough data; cross-reference with self-reported style
-  if (latenessProfile.totalSamples >= 6) {
+  if (latenessProfile.totalSamples >= 3) {
     const selfStyle = userProfile?.learningStyle;
     const selfLabel = selfStyle === "on-top" ? "early" : selfStyle === "procrastinator" ? "late" : null;
     const observed  = latenessProfile.label;
@@ -238,7 +238,7 @@ export const buildPatternContext = (patterns, userProfile = null) => {
   }
 
   // Only report productive time once we have enough completions to see a real pattern
-  if (productiveTimeOfDay.totalSamples >= 5) {
+  if (productiveTimeOfDay.totalSamples >= 3) {
     lines.push(`Most productive time: ${productiveTimeOfDay.bestTime}`);
   }
 
@@ -259,7 +259,7 @@ export const buildPatternContext = (patterns, userProfile = null) => {
   }
 
   // Only include per-class patterns for classes with enough history to be meaningful
-  const classPatterns = Object.values(patterns.completionByClass).filter((c) => c.completedCount >= 5);
+  const classPatterns = Object.values(patterns.completionByClass).filter((c) => c.completedCount >= 2);
   if (classPatterns.length > 0) {
     lines.push("Per-class patterns:");
     classPatterns.forEach((c) => {

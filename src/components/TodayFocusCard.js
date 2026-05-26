@@ -190,11 +190,10 @@ const makeStyles = (colors) => StyleSheet.create({
   errorText: { fontSize: 13, color: colors.textMuted, flex: 1 },
   retryText: { fontSize: 13, color: colors.accent, fontFamily: "Outfit-SemiBold" },
   insightRow: {
-    flexDirection: "row", alignItems: "center", gap: 7,
     paddingHorizontal: spacing.md, paddingVertical: 9,
     borderTopWidth: 1, borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
   },
-  insightText: { fontSize: 13, fontFamily: "Outfit-Medium", color: colors.textSecondary, flex: 1, lineHeight: 18 },
+  insightText: { fontSize: 13, fontFamily: "Outfit-Medium", color: colors.textSecondary, lineHeight: 18, fontStyle: "italic" },
   sessionsRow: {
     flexDirection: "row", alignItems: "center", gap: 7,
     paddingHorizontal: spacing.md, paddingVertical: 10,
@@ -203,22 +202,22 @@ const makeStyles = (colors) => StyleSheet.create({
   sessionsText: { fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.accent, flex: 1 },
 });
 
-const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigation, isPro, todaySessions = [] }) => {
+const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigation, isPro, todaySessions = [], focusOverride }) => {
   const { colors } = useTheme();
   const PRIORITY_COLORS = priorityColors(colors.isDark);
   const styles = makeStyles(colors);
 
-  const [focus, setFocus]        = useState(null);
+  const [focus, setFocus]        = useState(focusOverride ?? null);
   const [loading, setLoading]    = useState(false);
   const [failed, setFailed]      = useState(false);
   const [limitReached, setLimit] = useState(false);
 
-  const fadeAnim   = useRef(new Animated.Value(0)).current;
-  const slideAnim  = useRef(new Animated.Value(10)).current;
+  const fadeAnim   = useRef(new Animated.Value(focusOverride ? 1 : 0)).current;
+  const slideAnim  = useRef(new Animated.Value(focusOverride ? 0 : 10)).current;
   const inFlight   = useRef(false);
 
   const load = () => {
-    if (inFlight.current) return;
+    if (focusOverride || inFlight.current) return;
     const pending = tasks.filter((t) => !t.completed);
     if (pending.length === 0) return;
     inFlight.current = true;
@@ -332,12 +331,13 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
         />
       ))}
 
+      {/* insight strip hidden for now
       {focus?.insight ? (
         <View style={styles.insightRow}>
-          <Feather name="zap" size={12} color={colors.accent} />
           <Text style={styles.insightText}>{cleanText(focus.insight)}</Text>
         </View>
       ) : null}
+      */}
 
       {todaySessions.length > 0 && (
         <TouchableOpacity style={styles.sessionsRow} onPress={() => navigation?.navigate("StudyPlan")} activeOpacity={0.7}>

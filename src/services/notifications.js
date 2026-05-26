@@ -676,15 +676,34 @@ export const checkAndScheduleAvoidanceAlerts = async (
 
   const mapKey = uid ? avoidanceMapKey(uid) : "@planora_avoidance_alerted_anon";
 
-  // Load dedup map { taskId: "YYYY-MM-DD" }
+  // Map format: { taskId: { date: "YYYY-MM-DD", notifId: string } }
+  // Legacy format (pre-fix): { taskId: "YYYY-MM-DD" } — migrated on read
   let alerted = {};
   try {
     const raw = await AsyncStorage.getItem(mapKey);
-    if (raw) alerted = JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Migrate legacy string-value entries
+      for (const [k, v] of Object.entries(parsed)) {
+        alerted[k] = typeof v === "string" ? { date: v, notifId: null } : v;
+      }
+    }
   } catch {}
 
   const today = todayDateStr();
   let changed = false;
+
+  // Cancel alerts for tasks no longer being avoided (e.g., completed tasks)
+  const avoidedIds = new Set(
+    avoidanceScores.filter((s) => s.isBeingAvoided).map((s) => s.taskId)
+  );
+  for (const [taskId, entry] of Object.entries(alerted)) {
+    if (!avoidedIds.has(taskId) && entry.notifId) {
+      Notifications.cancelScheduledNotificationAsync(entry.notifId).catch(() => {});
+      delete alerted[taskId];
+      changed = true;
+    }
+  }
 
   for (const item of avoidanceScores) {
     const {
@@ -696,8 +715,8 @@ export const checkAndScheduleAvoidanceAlerts = async (
       daysUntilDue,
     } = item;
     if (!isBeingAvoided) continue;
-    if (daysUntilDue !== null && daysUntilDue > 4) continue; // only nudge when it matters
-    if (alerted[taskId] === today) continue; // already fired today
+    if (daysUntilDue !== null && daysUntilDue > 7) continue; // match isBeingAvoided detection threshold
+    if (alerted[taskId]?.date === today) continue; // already fired today
 
     const classLabel = className ? `${className} — ` : "";
     const dueLabel =
@@ -710,17 +729,14 @@ export const checkAndScheduleAvoidanceAlerts = async (
         : "";
 
     try {
-      // Fire at the user's productive hour (or 9am default) rather than
-      // 5 seconds after app open — more useful when the app is closed
       const alertHour = PRODUCTIVE_TIME_HOURS[bestTime] ?? 9;
       const fireTime = new Date();
       fireTime.setHours(alertHour, 0, 0, 0);
       if (fireTime <= new Date()) {
-        // Productive hour already passed today — schedule for same time tomorrow
         fireTime.setDate(fireTime.getDate() + 1);
       }
 
-      await Notifications.scheduleNotificationAsync({
+      const notifId = await Notifications.scheduleNotificationAsync({
         content: {
           title: "Don't forget this one 👀",
           body: `${classLabel}"${title}" hasn't been touched in ${daysSinceTouched} days.${dueLabel}`,
@@ -732,7 +748,7 @@ export const checkAndScheduleAvoidanceAlerts = async (
           date: fireTime,
         },
       });
-      alerted[taskId] = today;
+      alerted[taskId] = { date: today, notifId };
       changed = true;
     } catch (err) {
       console.warn("Failed to schedule avoidance alert:", err);
@@ -745,7 +761,7 @@ export const checkAndScheduleAvoidanceAlerts = async (
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
     const cutoff = twoDaysAgo.toISOString().slice(0, 10);
     Object.keys(alerted).forEach((k) => {
-      if (alerted[k] < cutoff) delete alerted[k];
+      if ((alerted[k]?.date ?? alerted[k]) < cutoff) delete alerted[k];
     });
     AsyncStorage.setItem(mapKey, JSON.stringify(alerted)).catch(() => {});
   }
@@ -793,7 +809,7 @@ export const scheduleWeeklySummary = async (tasks, history, uid) => {
 
     const dueBeforeMonday = (tasks ?? []).filter((t) => {
       if (t.completed || !t.dueDate) return false;
-      return new Date(t.dueDate) < nextMonday;
+      return _taskDueDate(t) < nextMonday;
     }).length;
 
     if (completedThisWeek === 0 && dueBeforeMonday === 0) return;
@@ -873,7 +889,7 @@ export const scheduleDailyDigest = async (tasks, bestTime, uid) => {
 
     const dueTomorrow = (tasks ?? []).filter((t) => {
       if (t.completed || !t.dueDate) return false;
-      const d = new Date(t.dueDate);
+      const d = _taskDueDate(t);
       return d >= tomorrow && d < dayAfter;
     });
 

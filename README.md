@@ -262,13 +262,16 @@ Analytics (PostHog or Mixpanel) must be installed before launch. Currently zero 
 10. Weekly performance card in-app (currently push-notification only)
 11. Grade impact math — "Skipping this lab (15% of grade) could drop your grade from B+ to B"
 12. Make chat actions more discoverable — students don't know it can create tasks, reschedule, log grades
+13. Overdue nudge re-alert — currently fires once and never again; decide re-fire frequency (weekly recommended)
+14. Surface urgentUntouched tasks higher in dashboard task list — tasks due soon that haven't been opened yet; small UI change with high signal value
 
 ### P2 — Later
-13. Android launch (technical work ~4 days; Google Play review takes 2–3 weeks)
-14. Referral program — "give a friend 1 month, get 1 month free"
-15. Canvas OAuth two-way sync
-16. Parent plan ($9.99/mo) — parents pay for academic tools; no competitor has this
-17. AI study guides — "Based on your CHEM tasks, here are 5 key review topics"
+15. Android launch (technical work ~4 days; Google Play review takes 2–3 weeks)
+16. Referral program — "give a friend 1 month, get 1 month free"
+17. Canvas OAuth two-way sync
+18. Parent plan ($9.99/mo) — parents pay for academic tools; no competitor has this
+19. AI study guides — "Based on your CHEM tasks, here are 5 key review topics"
+20. Day-of-week completion pattern tracking — detect that a student consistently completes tasks on certain days (e.g. always finishes on Sundays) and factor into coaching
 
 ---
 

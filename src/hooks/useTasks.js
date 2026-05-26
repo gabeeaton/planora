@@ -288,12 +288,16 @@ export const TasksProvider = ({ children }) => {
         })();
         const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: true } : t);
         scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+        scheduleOverdueNudges(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+        scheduleDailyDigest(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
         loadTaskHistory(user.uid, 100).then((fresh) => { setHistory(fresh); cacheTaskHistory(fresh); }).catch(() => {});
       } else {
         // ── Undoing completion ────────────────────────────────
         removeTaskHistory(task.id).catch(() => {}); // clean up pattern data
         const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: false } : t);
         scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+        scheduleOverdueNudges(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+        scheduleDailyDigest(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
         loadTaskHistory(user.uid, 100).then((fresh) => { setHistory(fresh); cacheTaskHistory(fresh); }).catch(() => {});
       }
     } catch (err) {
@@ -331,7 +335,9 @@ export const TasksProvider = ({ children }) => {
   const todaysTasks    = tasks.filter((t) => {
     if (!t.dueDate) return false;
     const today = new Date();
-    const due   = new Date(t.dueDate);
+    const raw = t.dueDate;
+    const due = raw?.toDate ? raw.toDate() : raw?.seconds ? new Date(raw.seconds * 1000) : new Date(raw);
+    if (isNaN(due?.getTime())) return false;
     return due.getDate() === today.getDate() && due.getMonth() === today.getMonth() && due.getFullYear() === today.getFullYear();
   });
 

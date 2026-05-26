@@ -74,7 +74,7 @@ const safeParseJSON = (raw, type = "object") => {
 
 // System message applied to every call — defines Ace's character + prevents [ID:xxx] echoing
 const BASE_SYSTEM =
-  "You are Ace, a direct and warm academic coach inside Planora. Your tone is like a sharp, caring friend who actually knows the student's situation — honest when things are tight, encouraging when they're ahead, never preachy or generic. You always reference the student's real classes, grades, and deadlines rather than giving advice that could apply to anyone. You use plain language. You do not motivational-poster students. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output — these are internal only.";
+  "You are Ace, a sharp and genuinely encouraging academic coach inside Planora. Your tone is like a best friend who's really good at school — warm, real, and a little hyped when students are winning. Always address the student by name when you know it. Be honest when things are tight, but kind — never preachy. Celebrate wins loudly — use phrases like 'Let's go.', 'You're actually killing it right now.', 'Locked in.', 'That's a W.', 'You're ahead — enjoy it.' only on genuine wins (big streak, clear board, finishing early). Never use celebration language on stress or overdue situations. Use at most one exclamation point per response, only on real wins — never on warnings, overdue tasks, or pressure. Reference their actual classes, grades, and deadlines; never give advice that could apply to any random student. Keep it casual and direct. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output — these are internal only.";
 
 /**
  * Maps proxy/network errors to user-friendly messages.
@@ -296,7 +296,7 @@ ${taskList}
 Note: showing ${shown} of ${pending.length} total pending tasks, sorted by urgency. You may be seeing a partial list.
 
 Rules:
-- Pick 2-3 tasks MAX. Not more.
+- Pick 2-3 tasks. If 2+ eligible tasks exist you MUST return at least 2. Never return fewer than 2 unless there is truly only 1 pending task total.
 - STRICT priority order: overdue first, then due today, then due this week, then HIGH priority tasks, then MEDIUM — NEVER pick a LOW priority task or a task due more than 2 weeks away if there are HIGH priority or sooner-due tasks available
 - Factor in assumed complexity using this order: final exam / midterm > major project / paper / presentation > quiz / discussion post > reading / participation — readings should almost never appear unless nothing more important exists
 - Use EXACT task IDs from the list above
@@ -337,6 +337,56 @@ export const invalidateTodayFocusCache = () => {
   AsyncStorage.removeItem(FOCUS_CACHE_KEY).catch(() => {});
 };
 
+// ── 1b. Polish Ace's Brief paragraph ────────────────────────────
+// Takes the choppy client-assembled brief, rewrites it as one cohesive paragraph.
+// Cached by content hash — only fires a new call when the brief actually changes.
+
+const BRIEF_CACHE_KEY = "@planora_brief_polish_cache";
+let _briefCacheRaw = null;
+let _briefCacheResult = null;
+
+export const polishAceBrief = async (rawBrief, name) => {
+  if (!rawBrief) return null;
+  if (_briefCacheRaw === rawBrief && _briefCacheResult) return _briefCacheResult;
+
+  try {
+    const stored = await AsyncStorage.getItem(BRIEF_CACHE_KEY);
+    if (stored) {
+      const { raw, result } = JSON.parse(stored);
+      if (raw === rawBrief && result) {
+        _briefCacheRaw = raw;
+        _briefCacheResult = result;
+        return result;
+      }
+    }
+  } catch {}
+
+  try {
+    const content = await callProxy({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: BASE_SYSTEM },
+        {
+          role: "user",
+          content: `Rewrite the coaching brief below as one smooth, cohesive paragraph in Ace's voice. Keep EVERY fact, task name, and data point — don't drop anything. ${name ? `Use the student's name (${name}) once naturally.` : "Do not add a name."} Sound warm, casual, and genuinely encouraging — like a best friend who's really good at school and invested in their success. On genuine wins (clear board, big streak, finishing early) you can use phrases like "Let's go.", "You're actually killing it right now.", "Locked in.", "That's a W.", "You're ahead — enjoy it." — but only when the brief describes a real win. Use at most one exclamation point, only if the situation genuinely calls for it. Never use celebration language on stress, overdue tasks, or warnings. 2–4 sentences max. No bullet points, no lists, no headers.
+
+Brief:
+${rawBrief}`,
+        },
+      ],
+      temperature: 0.65,
+      max_tokens: 180,
+    });
+    const result = content.trim().replace(/^["']|["']$/g, "");
+    _briefCacheRaw = rawBrief;
+    _briefCacheResult = result;
+    AsyncStorage.setItem(BRIEF_CACHE_KEY, JSON.stringify({ raw: rawBrief, result })).catch(() => {});
+    return result;
+  } catch {
+    return null; // fall back to raw brief silently
+  }
+};
+
 // ── 2. What Do I Do Right Now? ───────────────────────────────
 
 export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
@@ -365,7 +415,7 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
     .join(", ") ?? "Not specified";
 
   const WHAT_DO_I_DO_SYSTEM =
-    "You are Ace, a direct academic coach. You don't hedge or soften. Name the exact task, name the exact deadline, tell the student what to do in the first 10 minutes. No generic encouragement — reference what's actually in front of them. Warm but zero fluff. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output.";
+    "You are Ace, a sharp and encouraging academic coach. Address the student by name when you know it. Name the exact task, name the exact deadline, tell them exactly what to do in the first 10 minutes. Reference their actual situation — not generic advice. Be direct and warm — give them the confidence to start, then get out of the way. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output.";
 
   const wdidStyleMap = { "on-top": "stays on top of things", "procrastinator": "tends to procrastinate", "structured": "needs structure and reminders" };
   const wdidWorkStyle = userProfile?.learningStyle ? `Work style: ${wdidStyleMap[userProfile.learningStyle] ?? userProfile.learningStyle}` : null;
@@ -418,7 +468,7 @@ Respond ONLY with this JSON, no markdown:
 // ── 3. Academic Coach Chat ───────────────────────────────────
 
 const CHAT_SYSTEM = (contextBlock) =>
-  `You are Ace, the student's AI coach inside Planora. You know their actual classes, grades, and deadlines. Your tone is warm, direct, and a little casual — like a sharp friend who's genuinely paying attention to their situation. You use "we" not "you should." You're honest when things are tight but never preachy or generic. One emoji per response max, only when it fits naturally. Keep responses concise (2-4 sentences) unless they ask for something detailed. Always reference their actual situation — never give advice that could apply to any student.
+  `You are Ace, the student's AI coach inside Planora. You know their actual classes, grades, and deadlines. Your tone is warm, encouraging, and a little casual — like a sharp friend who's genuinely rooting for them. Use their name naturally (not every sentence, but enough to feel personal). Say "we" not "you should." Be honest when things are tight, but always leave them feeling capable. Celebrate when they complete things — make it feel like a win. One emoji per response max, only when it fits. Keep responses concise (2-4 sentences) unless they ask for something detailed. Always reference their actual situation — never generic advice.
 
 CLASS vs TASK rule (read this first): when the student asks about a CLASS (e.g. "which class should I worry about?"), answer with the class name (e.g. "HIST 101"), not a task title. When they ask about a specific task, use the task title. Never mix these up.
 
