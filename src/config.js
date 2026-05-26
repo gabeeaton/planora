@@ -42,7 +42,7 @@ export const FEATURE_FLAGS = {
   FORCE_WALKTHROUGH:        false, // flip to true to test walkthrough repeatedly
   FORCE_SEMESTER_PROMPT:    false, // flip to true to test new-semester prompt every launch
   // Flip to true for App Store screenshots / demo walkthroughs.
-  // All screens show canned data; purchases are skipped; no real
+  // All screens show cannedr data; purchases are skipped; no real
   // API calls.
   DEMO_MODE: false,
 };

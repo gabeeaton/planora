@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { loginUser, registerUser, logoutUser, onAuthChange } from "../services/firebase";
 import { cacheUserSession, loadCachedUser, clearCache } from "../services/offlineStorage";
+import * as Sentry from "@sentry/react-native";
+import { identify, posthog } from "../services/analytics";
 
 const AuthContext = createContext(null);
 
@@ -18,9 +20,13 @@ export const AuthProvider = ({ children }) => {
         const userData = { uid: firebaseUser.uid, email: firebaseUser.email };
         setUser(userData);
         cacheUserSession(userData);
+        Sentry.setUser({ id: firebaseUser.uid, email: firebaseUser.email });
+        identify(firebaseUser.uid, { email: firebaseUser.email });
       } else {
         setUser(null);
         cacheUserSession(null);
+        Sentry.setUser(null);
+        posthog?.reset();
       }
       setLoading(false);
     });

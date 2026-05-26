@@ -79,36 +79,35 @@ const makeStyles = (colors) =>
 
     scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: 32 },
 
-    // ── Sync card (saved URL) ──
-    syncCard: {
-      flexDirection: "row", alignItems: "center",
-      backgroundColor: colors.isDark
-      ? "rgba(92,255,143,0.07)"
-      : "rgba(22,101,52,0.08)",
-      borderColor: colors.isDark
-    ? "rgba(92,255,143,0.3)"
-    : "rgba(22,101,52,1)",
-      borderRadius: radius.lg, padding: spacing.md,
-      borderWidth: 1,
-      marginBottom: spacing.sm, gap: 12,
+    // ── Connected hero (saved URL) ──
+    connectedHero: {
+      alignItems: "center",
+      backgroundColor: colors.isDark ? "rgba(92,255,143,0.06)" : "rgba(22,101,52,0.05)",
+      borderRadius: 20, borderWidth: 1,
+      borderColor: colors.isDark ? "rgba(92,255,143,0.22)" : "rgba(22,101,52,0.18)",
+      padding: 28, marginBottom: spacing.md,
     },
-    syncIcon: {
-      width: 38, height: 38, borderRadius: 10,
-      backgroundColor: colors.isDark
-    ? "rgba(92,255,143,0.12)"
-    : "#fff",
-      alignItems: "center", justifyContent: "center",
+    connectedRing: {
+      width: 76, height: 76, borderRadius: 38,
+      backgroundColor: colors.isDark ? "rgba(92,255,143,0.1)" : "rgba(22,101,52,0.08)",
+      borderWidth: 2,
+      borderColor: colors.isDark ? "rgba(92,255,143,0.28)" : "rgba(22,101,52,0.22)",
+      alignItems: "center", justifyContent: "center", marginBottom: 14,
     },
-    syncInfo:     { flex: 1 },
-    syncTitle:    { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.textPrimary },
-    syncSub:      { fontSize: 11, color: colors.textMuted, marginTop: 2 },
-    syncBtn: {
-      backgroundColor: colors.accent, borderRadius: radius.md,
-      paddingHorizontal: 14, paddingVertical: 8,
+    connectedTitle: { fontSize: 20, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, marginBottom: 6 },
+    connectedUrl: {
+      fontSize: 11, color: colors.textMuted, textAlign: "center",
+      paddingHorizontal: 20, lineHeight: 16, marginBottom: 20,
     },
-    syncBtnText:  { color: "#fff", fontSize: 13, fontFamily: "Outfit-Bold" },
-    changeUrlBtn: { alignSelf: "flex-start", marginBottom: spacing.md, marginTop: 2 },
-    changeUrlText:{ fontSize: 12, color: colors.textMuted },
+    heroSyncBtn: {
+      backgroundColor: colors.accent, borderRadius: 14,
+      paddingVertical: 14, paddingHorizontal: 44,
+      flexDirection: "row", alignItems: "center", gap: 8,
+      marginBottom: 16, ...shadows.accent,
+    },
+    heroSyncBtnText: { color: "#fff", fontSize: 15, fontFamily: "Outfit-Bold" },
+    changeUrlBtn: { alignSelf: "center" },
+    changeUrlText: { fontSize: 13, color: colors.textMuted, fontFamily: "Outfit-Medium" },
 
     // ── Info card ──
     infoCard: {
@@ -120,10 +119,14 @@ const makeStyles = (colors) =>
     infoText: { ...typography.bodySmall, color: colors.textSecondary, flex: 1, lineHeight: 18 },
     infoLink: { color: colors.accent, fontFamily: "Outfit-Bold" },
 
-    // ── URL input ──
+    // ── Section labels ──
     label: {
       fontSize: 10, fontFamily: "Outfit-Bold", color: colors.textMuted,
       letterSpacing: 1, marginBottom: 8, textTransform: "uppercase",
+    },
+    sectionLabel: {
+      fontSize: 12, fontFamily: "Outfit-Bold", color: colors.textSecondary,
+      marginBottom: 10, letterSpacing: 0.2,
     },
     urlInputWrap: {
       flexDirection: "row", alignItems: "center",
@@ -581,35 +584,35 @@ const SyllabusParserScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
 
-        {/* ── Saved URL sync card ── */}
+        {/* ── Connected hero ── */}
         {savedUrl && !showChangeUrl ? (
           <>
-            <View style={styles.syncCard}>
-              <View style={styles.syncIcon}>
-              <Feather name="check-circle" size={18} color={colors.isDark ? "#5CFF8F" : "#16653A"} />
+            <View style={styles.connectedHero}>
+              <View style={styles.connectedRing}>
+                <Feather name="check-circle" size={32} color={colors.isDark ? "#5CFF8F" : "#16653A"} />
               </View>
-              <View style={styles.syncInfo}>
-                <Text style={styles.syncTitle}>Calendar connected</Text>
-                <Text style={styles.syncSub} numberOfLines={1}>{savedUrl}</Text>
-              </View>
+              <Text style={styles.connectedTitle}>Calendar Connected</Text>
+              <Text style={styles.connectedUrl} numberOfLines={3}>{savedUrl}</Text>
               <TouchableOpacity
-                style={[styles.syncBtn, syncing && { opacity: 0.6 }]}
+                style={[styles.heroSyncBtn, syncing && { opacity: 0.7 }]}
                 onPress={handleSyncNow}
                 disabled={syncing}
+                activeOpacity={0.8}
               >
                 {syncing
-                  ? <ActivityIndicator size={13} color="#fff" />
-                  : <Text style={styles.syncBtnText}>Sync</Text>}
+                  ? <ActivityIndicator size={16} color="#fff" />
+                  : <Feather name="refresh-cw" size={16} color="#fff" />}
+                <Text style={styles.heroSyncBtnText}>{syncing ? "Syncing..." : "Sync Now"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.changeUrlBtn} onPress={() => setShowChangeUrl(true)} activeOpacity={0.6}>
+                <Text style={styles.changeUrlText}>Use a different URL</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.changeUrlBtn} onPress={() => setShowChangeUrl(true)}>
-              <Text style={styles.changeUrlText}>Use a different URL</Text>
-            </TouchableOpacity>
           </>
         ) : (
           <>
             {/* Platform selector */}
-            <Text style={styles.label}>Which platform does your school use?</Text>
+            <Text style={styles.sectionLabel}>Your school's platform</Text>
             <View style={styles.lmsPlatformGrid}>
               {LMS_OPTIONS.map((lms) => {
                 const c = colors.isDark ? lms.darkColor : lms.color;
@@ -617,13 +620,13 @@ const SyllabusParserScreen = ({ navigation }) => {
                 return (
                   <TouchableOpacity
                     key={lms.key}
-                    style={[styles.lmsPlatformBtn, isActive && { borderColor: c, backgroundColor: c + "18" }]}
+                    style={[styles.lmsPlatformBtn, isActive && { borderColor: c, borderWidth: 2, backgroundColor: c + "18" }]}
                     onPress={() => setSelectedLms(lms.key)}
                     activeOpacity={0.75}
                   >
-                    <Image source={lms.logo} style={{ width: 26, height: 26, borderRadius: 6 }} resizeMode="contain" />
+                    <Image source={lms.logo} style={{ width: 28, height: 28, borderRadius: 6 }} resizeMode="contain" />
                     <Text style={[styles.lmsPlatformText, isActive && { color: c, fontFamily: "Outfit-Bold" }]}>{lms.key}</Text>
-                    {isActive && <Feather name="check" size={13} color={c} style={{ position: "absolute", top: 8, right: 8 }} />}
+                    {isActive && <Feather name="check-circle" size={14} color={c} style={{ position: "absolute", top: 8, right: 8 }} />}
                   </TouchableOpacity>
                 );
               })}
@@ -631,23 +634,23 @@ const SyllabusParserScreen = ({ navigation }) => {
 
             {/* Steps for selected platform */}
             <View style={styles.stepsCard}>
-              <Text style={styles.stepsTitle}>How to get your {selectedLms} link</Text>
-              {LMS_STEPS[selectedLms].map((text, i) => (
+              <Text style={styles.stepsTitle}>How to get your {selectedLms} feed URL</Text>
+              {LMS_STEPS[selectedLms].map((step, i) => (
                 <View key={i} style={styles.step}>
                   <View style={styles.stepNum}>
                     <Text style={styles.stepNumText}>{i + 1}</Text>
                   </View>
-                  <Text style={styles.stepText}>{text}</Text>
+                  <Text style={styles.stepText}>{step}</Text>
                 </View>
               ))}
               <View style={styles.tipRow}>
                 <Feather name="info" size={12} color={colors.textMuted} />
-                <Text style={styles.tipText}>Don't see these options? Search your school's help site for "calendar feed" or "ICS URL". Replace webcal:// with https:// if needed.</Text>
+                <Text style={styles.tipText}>{"Don't see these options? Search your school's help site for \"calendar feed\" or \"ICS URL\". If the URL starts with webcal://, replace it with https://"}</Text>
               </View>
             </View>
 
             {/* URL input */}
-            <Text style={styles.label}>Paste your calendar URL</Text>
+            <Text style={styles.sectionLabel}>Paste your calendar URL</Text>
             <View style={[styles.urlInputWrap, urlInputFocused && styles.urlInputWrapActive]}>
               <TextInput
                 style={styles.urlInput}
@@ -668,7 +671,7 @@ const SyllabusParserScreen = ({ navigation }) => {
               >
                 {icsLoading
                   ? <ActivityIndicator size={14} color="#fff" />
-                  : <Feather name="download-cloud" size={14} color="#fff" />}
+                  : <Feather name="arrow-right" size={14} color="#fff" />}
                 <Text style={styles.urlFetchBtnText}>{icsLoading ? "Loading..." : "Load"}</Text>
               </TouchableOpacity>
             </View>
@@ -678,7 +681,7 @@ const SyllabusParserScreen = ({ navigation }) => {
         {/* OR divider */}
         <View style={styles.orDivider}>
           <View style={styles.orLine} />
-          <Text style={styles.orText}>OR PICK A FILE</Text>
+          <Text style={styles.orText}>OR</Text>
           <View style={styles.orLine} />
         </View>
 
@@ -692,10 +695,10 @@ const SyllabusParserScreen = ({ navigation }) => {
           <View style={styles.dropIcon}>
             {icsLoading
               ? <ActivityIndicator size={20} color={colors.accent} />
-              : <Feather name="upload" size={22} color={colors.textMuted} />}
+              : <Feather name="file-text" size={22} color={colors.textMuted} />}
           </View>
-          <Text style={styles.dropTitle}>{icsLoading ? "Reading file..." : "Pick a .ics file"}</Text>
-          <Text style={styles.dropSub}>If you have an .ics file saved to your phone, pick it here</Text>
+          <Text style={styles.dropTitle}>{icsLoading ? "Reading file..." : "Import a .ics file"}</Text>
+          <Text style={styles.dropSub}>{"Already exported a .ics file from your school? Pick it here."}</Text>
           {!icsLoading && (
             <View style={styles.dropBtn}>
               <Feather name="folder" size={13} color="#fff" />

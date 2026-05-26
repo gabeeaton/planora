@@ -40,7 +40,8 @@ configurePurchases(null);
 
 Sentry.init({
   dsn: "https://692a36ec23dd2a1bffca312ca67131a3@o4511198085971968.ingest.us.sentry.io/4511199536676864",
-  tracesSampleRate: 0.2, // capture 20% of transactions for performance monitoring
+  environment: __DEV__ ? "development" : "production",
+  tracesSampleRate: 0.2,
   enableAutoSessionTracking: true,
   _experiments: { profilesSampleRate: 0.1 },
 });

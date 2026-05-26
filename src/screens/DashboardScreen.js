@@ -340,14 +340,32 @@ const makeStyles = (colors, insets) =>
     },
 
     icsResyncBanner: {
-      flexDirection: "row", alignItems: "center", gap: 10,
-      borderRadius: 14, borderWidth: 1,
-      borderColor: colors.accent + "40",
-      backgroundColor: colors.accentGlow,
-      padding: 12, marginTop: 6, marginBottom: spacing.sm,
+      borderRadius: 16, borderWidth: 1,
+      borderColor: colors.accent + "35",
+      backgroundColor: colors.isDark ? colors.accent + "14" : colors.accent + "0C",
+      padding: 14, marginTop: 6, marginBottom: spacing.sm,
     },
-    icsResyncText: { flex: 1, fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, lineHeight: 18 },
-    icsResyncSub:  { fontSize: 11, color: colors.textMuted, marginTop: 1 },
+    icsResyncTop: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+    icsResyncIconWrap: {
+      width: 36, height: 36, borderRadius: 10,
+      backgroundColor: colors.accent + "20",
+      alignItems: "center", justifyContent: "center",
+    },
+    icsResyncTitle: { flex: 1, fontSize: 14, fontFamily: "Outfit-Bold", color: colors.textPrimary },
+    icsResyncSub:   { fontSize: 12, color: colors.textSecondary, lineHeight: 17, marginBottom: 12 },
+    icsResyncActions: { flexDirection: "row", gap: 8 },
+    icsResyncBtn: {
+      flex: 1, backgroundColor: colors.accent, borderRadius: 10,
+      paddingVertical: 9, alignItems: "center", justifyContent: "center",
+      flexDirection: "row", gap: 6,
+    },
+    icsResyncBtnText: { color: "#fff", fontSize: 13, fontFamily: "Outfit-Bold" },
+    icsResyncDismiss: {
+      paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10,
+      borderWidth: 1, borderColor: colors.border,
+      alignItems: "center", justifyContent: "center",
+    },
+    icsResyncDismissText: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
 
     allDoneCard: {
       flexDirection: "row",
@@ -760,13 +778,16 @@ const DashboardScreen = ({ navigation }) => {
   const ICS_BANNER_KEY = `@planora_ics_banner_${profile?.semester ?? ""}`;
   useEffect(() => {
     if (!profile?.icsUrl || !profile?.semester) return;
+    if (FEATURE_FLAGS.FORCE_SEMESTER_PROMPT) { setShowIcsResyncBanner(true); return; }
     AsyncStorage.getItem(ICS_BANNER_KEY).then((val) => {
       if (!val) setShowIcsResyncBanner(true);
     }).catch(() => {});
   }, [profile?.icsUrl, profile?.semester]);
   const dismissIcsBanner = () => {
     setShowIcsResyncBanner(false);
-    AsyncStorage.setItem(ICS_BANNER_KEY, "1").catch(() => {});
+    if (!FEATURE_FLAGS.FORCE_SEMESTER_PROMPT) {
+      AsyncStorage.setItem(ICS_BANNER_KEY, "1").catch(() => {});
+    }
   };
 
   // ── All-done-today celebration ────────────────────────────────
@@ -1729,20 +1750,30 @@ const DashboardScreen = ({ navigation }) => {
 
         {/* ── ICS re-sync nudge ── */}
         {showIcsResyncBanner && (
-          <TouchableOpacity
-            style={styles.icsResyncBanner}
-            onPress={() => { dismissIcsBanner(); navigation.navigate("SyllabusParser"); }}
-            activeOpacity={0.8}
-          >
-            <Feather name="refresh-cw" size={16} color={colors.accent} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.icsResyncText}>Re-sync your calendar for {profile?.semester}</Text>
-              <Text style={styles.icsResyncSub}>Your Canvas feed has new assignments — tap to sync</Text>
+          <View style={styles.icsResyncBanner}>
+            <View style={styles.icsResyncTop}>
+              <View style={styles.icsResyncIconWrap}>
+                <Feather name="refresh-cw" size={16} color={colors.accent} />
+              </View>
+              <Text style={styles.icsResyncTitle}>Re-sync your calendar</Text>
             </View>
-            <TouchableOpacity onPress={dismissIcsBanner} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Feather name="x" size={14} color={colors.textMuted} />
-            </TouchableOpacity>
-          </TouchableOpacity>
+            <Text style={styles.icsResyncSub}>
+              {"You're in a new semester. Re-sync your calendar feed so Ace has your latest assignments and deadlines."}
+            </Text>
+            <View style={styles.icsResyncActions}>
+              <TouchableOpacity
+                style={styles.icsResyncBtn}
+                onPress={() => { dismissIcsBanner(); navigation.navigate("SyllabusParser"); }}
+                activeOpacity={0.8}
+              >
+                <Feather name="refresh-cw" size={13} color="#fff" />
+                <Text style={styles.icsResyncBtnText}>Sync Now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.icsResyncDismiss} onPress={dismissIcsBanner} activeOpacity={0.7}>
+                <Text style={styles.icsResyncDismissText}>Dismiss</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
 
         {/* ── Ace coaching card — full paragraph from client-side data ── */}

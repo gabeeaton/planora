@@ -64,13 +64,13 @@ export default function NewSemesterPrompt({ visible, oldSemester, userId, school
   };
 
   const handleLater = async () => {
-    const snoozeUntil = Date.now() + 3 * 86400000;
+    const snoozeUntil = Date.now() + 7 * 86400000; // 7 days
     await AsyncStorage.setItem(`@planora_semester_snooze_${oldSemester}`, String(snoozeUntil)).catch(() => {});
     onDone();
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={handleLater}>
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: sheetBg, paddingBottom: Math.max(insets.bottom, 20) }]}>
           <View style={[styles.handle, { backgroundColor: colors.isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />

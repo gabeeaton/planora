@@ -796,6 +796,17 @@ const ProfileScreen = ({ navigation }) => {
           />
         </View>
 
+        {/* Calendar */}
+        <SectionHeader title="Calendar" />
+        <View style={styles.card}>
+          <Row
+            icon="refresh-cw"
+            label="Sync Calendar"
+            value={profile?.icsUrl ? "Connected" : "Not connected"}
+            onPress={() => { tap(); navigation.navigate("SyllabusParser"); }}
+          />
+        </View>
+
         {/* Account */}
         <SectionHeader title="Account" />
         <View style={styles.card}>
@@ -806,7 +817,7 @@ const ProfileScreen = ({ navigation }) => {
         <View style={styles.card}>
           <Row
             icon="mail"
-            label="Contact Support"
+            label="Contact / Report Bug"
             value="hello@planoraapp.net"
             onPress={() => Linking.openURL("mailto:hello@planoraapp.net").catch(() => {})}
           />
