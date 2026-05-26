@@ -75,9 +75,11 @@ export default function TasksScreen() {
     [profile?.semester, profile?.schoolSystem]
   );
 
-  // Done tab: only show this semester's completed tasks
+  // Done tab: only show this semester's completed tasks.
+  // If the semester hasn't started yet (user set a future term), show all
+  // completed tasks so nothing disappears while they prep ahead of time.
   const semesterCompleted = useMemo(() => {
-    if (!semesterStart) return completedTasks;
+    if (!semesterStart || semesterStart > new Date()) return completedTasks;
     return completedTasks.filter(t => {
       const d = toDate(t.completedAt);
       return d && d >= semesterStart;

@@ -6,7 +6,7 @@
 
 **Primary goal:** $10k MRR. Financial freedom. iOS App Store launch targeting August/September 2026 (orientation week). Android launch shortly after.
 
-**Current status:** Pre-revenue, pre-launch. Build 30 submitted to App Store Connect (pending review). All dev flags off. `BETA_PRO_UNLOCKED: false`. No analytics installed yet — PostHog needed before launch. Target release: August 17, 2026.
+**Current status:** Pre-revenue, pre-launch. Submitted to TestFlight. All dev flags off. `BETA_PRO_UNLOCKED: false`. No analytics installed yet — PostHog needed before launch. Target release: August 17, 2026.
 
 ---
 
@@ -48,7 +48,7 @@ Students open Planora when they're overwhelmed and don't know where to start. Th
 **AI Coach (chat)**
 - GPT-4o-mini with full context: student's tasks, classes, grades, deadlines, behavioral patterns
 - Can take actions: create tasks, reschedule tasks, log grades, break assignments into subtasks, mark complete
-- Free users: 3 messages/day. Scholar: unlimited
+- Free users: 5 messages/day. Scholar: unlimited
 - Prompt suggestions on empty state: "Break down my term paper", "What's due this week?", "I'm overwhelmed — what do I do?"
 
 **"Where Should I Start?"**
@@ -68,11 +68,11 @@ Students open Planora when they're overwhelmed and don't know where to start. Th
 - Recently completed tasks (last 14 days, with or without grades) included in AI chat context
 
 **Notifications (smarter than every competitor)**
-- 24h reminder before every task due date
-- 2h warning for HIGH priority tasks (exact time, not approximate)
-- Overdue nudge if task passes due date uncompleted
-- Avoidance alert (Scholar only)
-- Weekly digest every Sunday: summary of the week ahead
+- 24h reminder before every task due date (free)
+- 2h warning for tasks with a specific due time — Scholar only
+- Overdue nudge if task passes due date uncompleted (free)
+- Avoidance alert — Scholar only
+- Weekly digest every Sunday: summary of the week ahead (free)
 - Study Plan session reminders
 
 **Stats Screen**
@@ -101,7 +101,7 @@ Students open Planora when they're overwhelmed and don't know where to start. Th
 
 | Plan | Price | What you get |
 |---|---|---|
-| Free | $0 | Tasks, AI priority (5/day), notifications, import, basic stats |
+| Free | $0 | Tasks, AI priority, 5 AI chat messages/day, notifications, import, basic stats |
 | Scholar Monthly | $4.99/mo | Everything: Study Plan, unlimited AI, avoidance alerts, grade tracking |
 | Scholar 6-Month | $17.99 | Same (~$3/mo effective) — aligns with a semester |
 | Scholar Annual | $29.99/yr | Same (~$2.50/mo effective) |
