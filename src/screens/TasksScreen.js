@@ -16,7 +16,7 @@ import CompletionBurst from "../components/CompletionBurst";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { TaskListSkeleton } from "../components/SkeletonLoader";
 import { FEATURE_FLAGS } from "../config";
-import { getSemesterStart } from "../utils/termHelpers";
+import { getSemesterStart, getSemesterEnd } from "../utils/termHelpers";
 const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
 const _n = Date.now();
@@ -69,22 +69,28 @@ export default function TasksScreen() {
   const [completingIds, setCompletingIds] = useState(new Set());
   const burstRef = useRef(null);
 
-  // Semester start — gates what shows in the Done tab
+  const semesterTerm = DEMO_MODE ? "Spring 2025" : profile?.semester;
+  const semesterSystem = profile?.schoolSystem;
+
   const semesterStart = useMemo(
-    () => getSemesterStart(DEMO_MODE ? "Spring 2025" : profile?.semester, profile?.schoolSystem),
-    [profile?.semester, profile?.schoolSystem]
+    () => getSemesterStart(semesterTerm, semesterSystem),
+    [semesterTerm, semesterSystem]
+  );
+  const semesterEnd = useMemo(
+    () => getSemesterEnd(semesterTerm, semesterSystem),
+    [semesterTerm, semesterSystem]
   );
 
-  // Done tab: only show this semester's completed tasks.
-  // If the semester hasn't started yet (user set a future term), show all
-  // completed tasks so nothing disappears while they prep ahead of time.
+  // Done tab: only show tasks completed within this semester's date range.
+  // If the semester hasn't started yet, show all completed tasks.
   const semesterCompleted = useMemo(() => {
-    if (!semesterStart || semesterStart > new Date()) return completedTasks;
+    const now = new Date();
+    if (!semesterStart || semesterStart > now) return completedTasks;
     return completedTasks.filter(t => {
       const d = toDate(t.completedAt);
-      return d && d >= semesterStart;
+      return d && d >= semesterStart && (!semesterEnd || d <= semesterEnd);
     });
-  }, [completedTasks, semesterStart]);
+  }, [completedTasks, semesterStart, semesterEnd]);
 
   // Once Firestore confirms a completion, remove from completingIds so the task
   // can land in the Done tab.
