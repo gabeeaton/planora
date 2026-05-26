@@ -468,13 +468,24 @@ const ProfileScreen = ({ navigation }) => {
       closeModal();
       Alert.alert(
         "New Semester",
-        `Switch to ${s}?\n\nWould you also like to clear all current tasks? This can't be undone.`,
+        `Switch to ${s}?`,
         [
-          { text: "Switch & Clear Tasks", style: "destructive", onPress: async () => {
-            await saveUserProfile(user.uid, { semester: s });
+          { text: "Clear Tasks + Classes", style: "destructive", onPress: async () => {
             const { invalidateTodayFocusCache } = await import("../services/openai");
             const { cancelStudyPlanReminders } = await import("../services/notifications");
             await Promise.all([
+              saveUserProfile(user.uid, { semester: s, classes: [] }),
+              clearIncompleteTasksForSemester(user.uid),
+              AsyncStorage.removeItem("@planora_study_plan_cache"),
+              cancelStudyPlanReminders(user.uid),
+              invalidateTodayFocusCache(),
+            ]).catch(() => {});
+          }},
+          { text: "Clear Tasks Only", style: "destructive", onPress: async () => {
+            const { invalidateTodayFocusCache } = await import("../services/openai");
+            const { cancelStudyPlanReminders } = await import("../services/notifications");
+            await Promise.all([
+              saveUserProfile(user.uid, { semester: s }),
               clearIncompleteTasksForSemester(user.uid),
               AsyncStorage.removeItem("@planora_study_plan_cache"),
               cancelStudyPlanReminders(user.uid),

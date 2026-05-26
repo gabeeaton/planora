@@ -49,16 +49,16 @@ export const generateTerms = (system = "semester") => {
 
 const BOUNDS = {
   semester: {
-    spring: { start: [0, 6],  end: [4, 22] },
-    summer: { start: [4, 1],  end: [7, 17] },
-    fall:   { start: [7, 14], end: [11, 22] },
-    winter: { start: [0, 1],  end: [2, 25] },
+    spring: { start: [0, 6],  end: [4, 17] },  // Jan 6  – May 17
+    summer: { start: [4, 18], end: [7, 13] },  // May 18 – Aug 13
+    fall:   { start: [7, 14], end: [11, 22] }, // Aug 14 – Dec 22
+    winter: { start: [0, 1],  end: [2, 25] },  // Jan 1  – Mar 25
   },
   quarter: {
-    winter: { start: [0, 1],  end: [2, 25] },
-    spring: { start: [2, 25], end: [5, 25] },
-    summer: { start: [5, 15], end: [8, 2]  },
-    fall:   { start: [8, 15], end: [11, 15] },
+    winter: { start: [0, 1],  end: [2, 24] },  // Jan 1  – Mar 24
+    spring: { start: [2, 25], end: [5, 14] },  // Mar 25 – Jun 14
+    summer: { start: [5, 15], end: [8, 14] },  // Jun 15 – Sep 14
+    fall:   { start: [8, 15], end: [11, 22] }, // Sep 15 – Dec 22
   },
 };
 

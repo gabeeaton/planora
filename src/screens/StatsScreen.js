@@ -912,11 +912,13 @@ const StatsScreen = ({ navigation }) => {
   // Filter completed tasks to the current semester so stats reflect this term only
   const semesterCompleted = useMemo(() => {
     if (!semBounds) return completedTasks;
+    const now = new Date();
+    if (semBounds.start > now) return completedTasks;
     return completedTasks.filter(t => {
       const d = toDate(t.completedAt);
-      return d && d >= semBounds.start;
+      return d && d >= semBounds.start && d <= semBounds.end;
     });
-  }, [completedTasks, semBounds?.start?.getTime()]);
+  }, [completedTasks, semBounds?.start?.getTime(), semBounds?.end?.getTime()]);
 
   const totalCompleted = semesterCompleted.length;
   const totalPending = tasks.filter((t) => !t.completed).length;

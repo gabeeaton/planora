@@ -339,6 +339,16 @@ const makeStyles = (colors, insets) =>
       lineHeight: 19,
     },
 
+    icsResyncBanner: {
+      flexDirection: "row", alignItems: "center", gap: 10,
+      borderRadius: 14, borderWidth: 1,
+      borderColor: colors.accent + "40",
+      backgroundColor: colors.accentGlow,
+      padding: 12, marginTop: 6, marginBottom: spacing.sm,
+    },
+    icsResyncText: { flex: 1, fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, lineHeight: 18 },
+    icsResyncSub:  { fontSize: 11, color: colors.textMuted, marginTop: 1 },
+
     allDoneCard: {
       flexDirection: "row",
       alignItems: "center",
@@ -744,6 +754,20 @@ const DashboardScreen = ({ navigation }) => {
   const tabIndicatorX = useRef(new Animated.Value(0)).current;
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
   const [now, setNow] = useState(new Date());
+
+  // ── ICS re-sync banner ────────────────────────────────────────
+  const [showIcsResyncBanner, setShowIcsResyncBanner] = useState(false);
+  const ICS_BANNER_KEY = `@planora_ics_banner_${profile?.semester ?? ""}`;
+  useEffect(() => {
+    if (!profile?.icsUrl || !profile?.semester) return;
+    AsyncStorage.getItem(ICS_BANNER_KEY).then((val) => {
+      if (!val) setShowIcsResyncBanner(true);
+    }).catch(() => {});
+  }, [profile?.icsUrl, profile?.semester]);
+  const dismissIcsBanner = () => {
+    setShowIcsResyncBanner(false);
+    AsyncStorage.setItem(ICS_BANNER_KEY, "1").catch(() => {});
+  };
 
   // ── All-done-today celebration ────────────────────────────────
   const [showAllDoneToday, setShowAllDoneToday] = useState(false);
@@ -1711,6 +1735,24 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={[styles.allDoneSub, { color: colors.textMuted }]}>Every task on your list — finished.</Text>
             </View>
           </Animated.View>
+        )}
+
+        {/* ── ICS re-sync nudge ── */}
+        {showIcsResyncBanner && (
+          <TouchableOpacity
+            style={styles.icsResyncBanner}
+            onPress={() => { dismissIcsBanner(); navigation.navigate("SyllabusParser"); }}
+            activeOpacity={0.8}
+          >
+            <Feather name="refresh-cw" size={16} color={colors.accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.icsResyncText}>Re-sync your calendar for {profile?.semester}</Text>
+              <Text style={styles.icsResyncSub}>Your Canvas feed has new assignments — tap to sync</Text>
+            </View>
+            <TouchableOpacity onPress={dismissIcsBanner} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Feather name="x" size={14} color={colors.textMuted} />
+            </TouchableOpacity>
+          </TouchableOpacity>
         )}
 
         {/* ── Ace coaching card — full paragraph from client-side data ── */}
