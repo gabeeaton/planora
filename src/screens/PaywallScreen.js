@@ -221,9 +221,11 @@ export default function PaywallScreen({ navigation }) {
               <View style={styles.heroOrb3} />
             </View>
 
-            <View style={styles.heroIconWrap}>
-              <Image source={require("../../icon.png")} style={{ width: 68, height: 68, borderRadius: 16 }} resizeMode="contain" />
-            </View>
+            <Image
+              source={require("../assets/logo-full-purple.png")}
+              style={{ width: 180, height: 50, marginBottom: 14 }}
+              resizeMode="contain"
+            />
             <Text style={styles.heroLabel}>SCHOLAR PLAN</Text>
             <Text style={styles.heroTitle}>Your AI academic{"\n"}coach, unlocked.</Text>
 

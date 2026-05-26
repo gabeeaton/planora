@@ -32,7 +32,8 @@ import * as FileSystem from "expo-file-system";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../hooks/useAuth";
 import { useTasks } from "../hooks/useTasks";
-import { spacing, radius, shadows, typography } from "../utils/theme";
+import { spacing, radius, shadows, typography, getClassColor, priorityColors, priorityGlow } from "../utils/theme";
+import ClassTag from "../components/ClassTag";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
 import * as Haptics from "expo-haptics";
@@ -646,52 +647,74 @@ const makeStyles = (colors) =>
       marginBottom: spacing.lg,
     },
     valuePropLogo: {
-      width: 78,
-      height: 78,
-      borderRadius: 18,
+      width: 112,
+      height: 112,
     },
     sampleTaskCard: {
       flexDirection: "row",
       backgroundColor: colors.isDark ? colors.bgCard : "#FFFFFF",
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.isDark ? colors.border : "#EBEBF5",
+      borderRadius: 20,
+      padding: spacing.md,
+      borderLeftWidth: 5,
+      borderLeftColor: colors.border,
+      borderWidth: colors.isDark ? 1 : 0,
+      borderColor: colors.isDark ? colors.border : "transparent",
       overflow: "hidden",
       ...(colors.isDark ? {} : {
-        shadowColor: "#6B6B8A",
-        shadowOffset: { width: 0, height: 2 },
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
-        shadowRadius: 6,
-        elevation: 2,
+        shadowRadius: 12,
+        elevation: 4,
       }),
     },
-    samplePriorityBar: {
-      width: 4,
-      alignSelf: "stretch",
-      marginRight: 12,
+    sampleCheckbox: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      borderWidth: 2,
+      borderColor: colors.textMuted,
+      marginRight: spacing.sm,
+      marginTop: 2,
     },
-    sampleTaskContent: {
-      flex: 1,
-      paddingVertical: 11,
-      justifyContent: "center",
+    sampleTaskContent: { flex: 1 },
+    sampleTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 4,
     },
     sampleTaskTitle: {
-      fontSize: 13,
+      fontSize: 14,
       fontFamily: "Outfit-SemiBold",
       color: colors.textPrimary,
-      marginBottom: 2,
+      flex: 1,
+      marginRight: spacing.sm,
     },
-    sampleTaskClass: {
-      fontSize: 11,
-      fontFamily: "Outfit-Medium",
-      color: colors.textMuted,
+    sampleBadge: {
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: radius.full,
+      borderWidth: 1,
     },
-    sampleTaskDate: {
-      fontSize: 11,
+    sampleBadgeText: {
+      fontSize: 9,
       fontFamily: "Outfit-SemiBold",
-      color: colors.textMuted,
-      paddingRight: 14,
-      alignSelf: "center",
+    },
+    sampleTaskMeta: { marginBottom: 6 },
+    sampleFooter: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.isDark ? colors.border : "#F0F0F5",
+    },
+    sampleDateText: {
+      fontSize: 12,
+      fontFamily: "Outfit-Medium",
+      color: colors.textSecondary,
+      marginLeft: 4,
     },
     lmsPlatformBtn: {
       width: "47%",
@@ -1728,10 +1751,12 @@ const OnboardingScreen = ({ navigation }) => {
 
   const renderValueProp = () => {
     const taskAnims = [vpTask1Anim, vpTask2Anim, vpTask3Anim];
+    const pColors = priorityColors(colors.isDark);
+    const pGlow = priorityGlow(colors.isDark);
     const sampleTasks = [
-      { title: "Research Paper Draft", class: "ENGL 301", date: "Apr 22", dotColor: colors.high },
-      { title: "Problem Set 7", class: "MATH 240", date: "Apr 25", dotColor: colors.medium },
-      { title: "Lab Report", class: "BIO 210", date: "Apr 28", dotColor: colors.accent },
+      { title: "Research Paper Draft", class: "ENGL 301", date: "Apr 22", priority: "HIGH" },
+      { title: "Problem Set 7",        class: "MATH 240", date: "Apr 25", priority: "MEDIUM" },
+      { title: "Lab Report",           class: "BIO 210",  date: "Apr 28", priority: "LOW" },
     ];
     return (
       <View style={styles.stepContainer}>
@@ -1740,7 +1765,11 @@ const OnboardingScreen = ({ navigation }) => {
           opacity: vpLogoAnim,
           transform: [{ scale: vpLogoAnim.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) }],
         }]}>
-          <Image source={require("../assets/planora-brand.jpg")} style={styles.valuePropLogo} resizeMode="cover" />
+          <Image
+            source={require("../assets/logo-purple.png")}
+            style={styles.valuePropLogo}
+            resizeMode="contain"
+          />
         </Animated.View>
 
         {/* Headline + subtitle */}
@@ -1757,21 +1786,37 @@ const OnboardingScreen = ({ navigation }) => {
           </Text>
         </Animated.View>
 
-        {/* Animated sample task cards */}
+        {/* Animated sample task cards — match actual TaskCard look */}
         <View style={{ gap: 8 }}>
-          {sampleTasks.map((task, i) => (
-            <Animated.View key={i} style={[styles.sampleTaskCard, {
-              opacity: taskAnims[i],
-              transform: [{ translateX: taskAnims[i].interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
-            }]}>
-              <View style={[styles.samplePriorityBar, { backgroundColor: task.dotColor }]} />
-              <View style={styles.sampleTaskContent}>
-                <Text style={styles.sampleTaskTitle} numberOfLines={1}>{task.title}</Text>
-                <Text style={styles.sampleTaskClass}>{task.class}</Text>
-              </View>
-              <Text style={styles.sampleTaskDate}>{task.date}</Text>
-            </Animated.View>
-          ))}
+          {sampleTasks.map((task, i) => {
+            const classColor = getClassColor(task.class, colors.isDark);
+            const pColor = pColors[task.priority];
+            const glow   = pGlow[task.priority];
+            return (
+              <Animated.View key={i} style={[styles.sampleTaskCard, {
+                opacity: taskAnims[i],
+                transform: [{ translateX: taskAnims[i].interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+                borderLeftColor: classColor,
+              }]}>
+                <View style={styles.sampleCheckbox} />
+                <View style={styles.sampleTaskContent}>
+                  <View style={styles.sampleTitleRow}>
+                    <Text style={styles.sampleTaskTitle} numberOfLines={1}>{task.title}</Text>
+                    <View style={[styles.sampleBadge, { borderColor: pColor, backgroundColor: glow }]}>
+                      <Text style={[styles.sampleBadgeText, { color: pColor }]}>{task.priority}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.sampleTaskMeta}>
+                    <ClassTag className={task.class} size="sm" />
+                  </View>
+                  <View style={styles.sampleFooter}>
+                    <Feather name="calendar" size={11} color={colors.textMuted} />
+                    <Text style={styles.sampleDateText}>{task.date}</Text>
+                  </View>
+                </View>
+              </Animated.View>
+            );
+          })}
         </View>
       </View>
     );
@@ -2104,8 +2149,11 @@ const OnboardingScreen = ({ navigation }) => {
 
         {/* Brand row */}
         <View style={styles.brandRow}>
-          <Image source={require("../assets/planora-brand.jpg")} style={{ width: 24, height: 24, borderRadius: 6 }} resizeMode="cover" />
-          <Text style={styles.brandName}>Planora</Text>
+          <Image
+            source={require("../assets/logo-full-purple.png")}
+            style={{ height: 26, width: 108 }}
+            resizeMode="contain"
+          />
           {isEditing ? (
             <TouchableOpacity
               onPress={() => {

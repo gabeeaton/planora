@@ -27,7 +27,10 @@ import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outf
 // Preload critical assets — promise held so App can block on it
 const assetsReady = Asset.loadAsync([
   require("./src/assets/logo.png"),
-  require("./src/assets/planora-brand.jpg"),
+  require("./src/assets/logo-purple.png"),
+  require("./src/assets/logo-white.png"),
+  require("./src/assets/logo-full-purple.png"),
+  require("./src/assets/logo-full-white.png"),
   require("./src/assets/spotify-logo.png"),
   require("./src/assets/apple-music-logo.jpg"),
 ]).catch(() => {});

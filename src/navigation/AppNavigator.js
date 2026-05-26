@@ -503,14 +503,20 @@ const MainTabsWithModal = () => {
 
 // ── Branded splash screen ─────────────────────────────────────
 
-const PlanoraSplash = ({ colors }) => {
-  const logoAnim = useRef(new Animated.Value(0)).current;
-  const textAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(16)).current;
+const PLANORA_LOGO = require("../assets/logo-full-white.png");
+
+const PlanoraSplash = () => {
+  const logoAnim  = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.82)).current;
+  const textAnim  = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(18)).current;
 
   useEffect(() => {
     Animated.sequence([
-      Animated.timing(logoAnim, { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(logoAnim,  { toValue: 1, duration: 460, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, speed: 18, bounciness: 5, useNativeDriver: true }),
+      ]),
       Animated.parallel([
         Animated.timing(textAnim,  { toValue: 1, duration: 300, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, speed: 22, bounciness: 4, useNativeDriver: true }),
@@ -519,15 +525,16 @@ const PlanoraSplash = ({ colors }) => {
   }, []);
 
   return (
-    <View style={[splashStyles.container, { backgroundColor: colors.bg }]}>
-      <View style={[splashStyles.orb1, { backgroundColor: colors.accent + "18" }]} />
-      <View style={[splashStyles.orb2, { backgroundColor: colors.accent + "10" }]} />
-      <Animated.View style={[splashStyles.logoWrap, { opacity: logoAnim, backgroundColor: colors.isDark ? colors.bgCard : "#fff", shadowColor: colors.accent }]}>
-        <Image source={require("../assets/planora-brand.jpg")} style={splashStyles.logo} resizeMode="cover" />
-      </Animated.View>
+    <View style={splashStyles.container}>
+      <View style={splashStyles.orb1} />
+      <View style={splashStyles.orb2} />
+      <Animated.Image
+        source={PLANORA_LOGO}
+        style={[splashStyles.logo, { opacity: logoAnim, transform: [{ scale: scaleAnim }] }]}
+        resizeMode="contain"
+      />
       <Animated.View style={{ opacity: textAnim, transform: [{ translateY: slideAnim }], alignItems: "center" }}>
-        <Text style={[splashStyles.wordmark, { color: colors.textPrimary }]}>Planora</Text>
-        <Text style={[splashStyles.tagline, { color: colors.textMuted }]}>Your AI study coach</Text>
+        <Text style={splashStyles.tagline}>Find your focus.</Text>
       </Animated.View>
     </View>
   );
@@ -538,29 +545,25 @@ const splashStyles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 20,
+    backgroundColor: "#5B21B6",
+    gap: 24,
   },
   orb1: {
     position: "absolute",
-    width: 280, height: 280, borderRadius: 140,
-    top: -60, right: -80,
+    width: 380, height: 380, borderRadius: 190,
+    top: -100, right: -120,
+    backgroundColor: "#7C3AED",
+    opacity: 0.55,
   },
   orb2: {
     position: "absolute",
-    width: 200, height: 200, borderRadius: 100,
-    bottom: -40, left: -60,
+    width: 280, height: 280, borderRadius: 140,
+    bottom: -70, left: -90,
+    backgroundColor: "#4C1D95",
+    opacity: 0.65,
   },
-  logoWrap: {
-    width: 84, height: 84, borderRadius: 24,
-    alignItems: "center", justifyContent: "center",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.22,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  logo: { width: 52, height: 52, borderRadius: 12 },
-  wordmark: { fontSize: 30, fontFamily: "Outfit-ExtraBold", letterSpacing: -0.5, marginTop: 4 },
-  tagline:  { fontSize: 14, fontFamily: "Outfit-Regular", marginTop: 4 },
+  logo: { width: 220, height: 62 },
+  tagline:  { fontSize: 14, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.65)", marginTop: 4 },
 });
 
 // ── Root navigator ────────────────────────────────────────────
@@ -600,7 +603,7 @@ const AppNavigator = () => {
     (FEATURE_FLAGS.FORCE_ONBOARDING || profile?.onboardingComplete !== true);
 
   if (loading || !splashDone) {
-    return <PlanoraSplash colors={colors} />;
+    return <PlanoraSplash />;
   }
 
   return (
