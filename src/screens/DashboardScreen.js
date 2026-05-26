@@ -1642,38 +1642,28 @@ const DashboardScreen = ({ navigation }) => {
             <Feather name="edit-3" size={12} color="rgba(255,255,255,0.9)" />
             <Text style={styles.actionChipText}>Plan</Text>
           </TouchableOpacity>
-          {!profile?.icsUrl && (
-            <TouchableOpacity
-              ref={syllabusBtnRef}
-              onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
-              style={styles.actionChip}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              activeOpacity={0.7}
-              onLayout={() => measureBtn(syllabusBtnRef, "syllabusImport")}
-            >
-              <Feather name="upload-cloud" size={12} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.actionChipText}>Sync</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            ref={syllabusBtnRef}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
+            style={styles.actionChip}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            activeOpacity={0.7}
+            onLayout={() => measureBtn(syllabusBtnRef, "syllabusImport")}
+          >
+            <Feather name="upload-cloud" size={12} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.actionChipText}>Sync</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Status row — only renders when there are alerts */}
-        {(buckets.overdue.length > 0 || buckets.dueToday.length > 0) && (
+        {/* Status row — only renders when there are overdue tasks */}
+        {buckets.overdue.length > 0 && (
           <View style={styles.headerBottomRow}>
-            {buckets.overdue.length > 0 && (
-              <View style={[styles.statusChip, styles.statusChipOverdue]}>
-                <Feather name="alert-circle" size={11} color="#FF8080" />
-                <Text style={[styles.statusChipText, styles.statusChipTextOverdue]}>
-                  {buckets.overdue.length} overdue
-                </Text>
-              </View>
-            )}
-            {buckets.dueToday.length > 0 && (
-              <View style={styles.statusChipToday}>
-                <Text style={styles.dueTodayBang}>!</Text>
-                <Text style={styles.dueTodayLabel}>{buckets.dueToday.length} due today</Text>
-              </View>
-            )}
+            <View style={[styles.statusChip, styles.statusChipOverdue]}>
+              <Feather name="alert-circle" size={11} color="#FF8080" />
+              <Text style={[styles.statusChipText, styles.statusChipTextOverdue]}>
+                {buckets.overdue.length} overdue
+              </Text>
+            </View>
           </View>
         )}
 

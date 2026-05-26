@@ -372,14 +372,15 @@ const MainTabsWithModal = () => {
   useEffect(() => {
     if (semesterChecked.current || !profile?.semester || !profile?.walkthroughComplete) return;
     semesterChecked.current = true;
-    const sem = profile.semester;
-    const end = getSemesterEnd(sem, profile.schoolSystem ?? "semester");
-    if (!end || Date.now() < end.getTime()) return;
-    // Semester has ended — check if already prompted or snoozed
+    // Force flag bypasses all date/snooze checks — for testing only
     if (FEATURE_FLAGS.FORCE_SEMESTER_PROMPT) {
       setTimeout(() => setShowNewSemester(true), 1200);
       return;
     }
+    const sem = profile.semester;
+    const end = getSemesterEnd(sem, profile.schoolSystem ?? "semester");
+    if (!end || Date.now() < end.getTime()) return;
+    // Semester has ended — check if already prompted or snoozed
     Promise.all([
       AsyncStorage.getItem(`@planora_semester_prompted_${sem}`),
       AsyncStorage.getItem(`@planora_semester_snooze_${sem}`),
