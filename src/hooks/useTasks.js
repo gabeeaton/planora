@@ -76,6 +76,11 @@ export const TasksProvider = ({ children }) => {
     bestTimeRef.current = patterns?.productiveTimeOfDay?.bestTime ?? null;
   }, [patterns?.productiveTimeOfDay?.bestTime]);
 
+  const isProRef = useRef(false);
+  useEffect(() => {
+    isProRef.current = profile?.isPro === true;
+  }, [profile?.isPro]);
+
   const streakChecked = useRef(false);
   useEffect(() => {
     if (!user?.uid || loading || streakChecked.current) return;
@@ -96,6 +101,8 @@ export const TasksProvider = ({ children }) => {
   // and silently updates them via the AI + Firestore.
   useEffect(() => {
     if (priorityRecalcDone.current || loading || !user?.uid || tasks.length === 0) return;
+    if (profile == null) return; // wait for profile to load
+    if (!profile?.isPro) { priorityRecalcDone.current = true; return; } // Scholar only
     const staleTasks = tasks.filter((t) => !t.completed && isPriorityStale(t));
     if (staleTasks.length === 0) { priorityRecalcDone.current = true; return; }
     priorityRecalcDone.current = true;
@@ -129,7 +136,7 @@ export const TasksProvider = ({ children }) => {
       }
     }, 12000);
     return () => clearTimeout(timer);
-  }, [loading, user?.uid, tasks.length]);
+  }, [loading, user?.uid, tasks.length, profile?.isPro]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -193,7 +200,7 @@ export const TasksProvider = ({ children }) => {
     if (!user?.uid || tasks.length === 0) return;
     const timer = setTimeout(() => {
       if (Date.now() - lastEditTimeRef.current < 15_000) return;
-      syncNotificationWindow(tasks, bestTimeRef.current, user.uid);
+      syncNotificationWindow(tasks, bestTimeRef.current, user.uid, isProRef.current);
     }, 12000);
     return () => clearTimeout(timer);
   }, [tasks, user?.uid]);
@@ -203,7 +210,7 @@ export const TasksProvider = ({ children }) => {
     try {
       const docRef = await addTask(user.uid, taskData);
       const optimistic = [...tasksRef.current, { ...taskData, id: docRef.id, completed: false }];
-      scheduleBatchReminders(optimistic, bestTimeRef.current, user.uid).catch(() => {});
+      scheduleBatchReminders(optimistic, bestTimeRef.current, user.uid, isProRef.current).catch(() => {});
       return docRef;
     } catch (err) {
       const msg = err.message?.includes("permission") ? "Permission denied. Please sign in again." : err.message || "Failed to create task.";
@@ -225,7 +232,7 @@ export const TasksProvider = ({ children }) => {
       const docRefs = await Promise.all(toCreate.map((t) => addTask(user.uid, t)));
       const newTasks = toCreate.map((t, i) => ({ ...t, id: docRefs[i].id, completed: false }));
       const optimistic = [...tasksRef.current, ...newTasks];
-      scheduleBatchReminders(optimistic, bestTimeRef.current, user.uid).catch(() => {});
+      scheduleBatchReminders(optimistic, bestTimeRef.current, user.uid, isProRef.current).catch(() => {});
       return { created: toCreate.length, skipped };
     } catch (err) {
       const msg = err.message || "Failed to import tasks.";
@@ -240,7 +247,7 @@ export const TasksProvider = ({ children }) => {
       if ("dueDate" in updates || "dueTime" in updates) {
         lastEditTimeRef.current = Date.now();
         const updatedTasks = tasksRef.current.map((t) => t.id === taskId ? { ...t, ...updates } : t);
-        scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+        scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid, isProRef.current).catch(() => {});
       }
     } catch (err) {
       const msg = err.message?.includes("permission") ? "Permission denied." : err.message || "Failed to update task.";
@@ -287,7 +294,7 @@ export const TasksProvider = ({ children }) => {
           } catch {}
         })();
         const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: true } : t);
-        scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+        scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid, isProRef.current).catch(() => {});
         scheduleOverdueNudges(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
         scheduleDailyDigest(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
         loadTaskHistory(user.uid, 100).then((fresh) => { setHistory(fresh); cacheTaskHistory(fresh); }).catch(() => {});
@@ -295,7 +302,7 @@ export const TasksProvider = ({ children }) => {
         // ── Undoing completion ────────────────────────────────
         removeTaskHistory(task.id).catch(() => {}); // clean up pattern data
         const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: false } : t);
-        scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+        scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid, isProRef.current).catch(() => {});
         scheduleOverdueNudges(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
         scheduleDailyDigest(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
         loadTaskHistory(user.uid, 100).then((fresh) => { setHistory(fresh); cacheTaskHistory(fresh); }).catch(() => {});
@@ -309,7 +316,7 @@ export const TasksProvider = ({ children }) => {
     try {
       await deleteTask(taskId);
       const updatedTasks = tasksRef.current.filter((t) => t.id !== taskId);
-      scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
+      scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid, isProRef.current).catch(() => {});
     } catch (err) {
       const msg = err.message || "Failed to delete task.";
       setError(msg);
@@ -322,7 +329,7 @@ export const TasksProvider = ({ children }) => {
     try {
       const result = await clearCompletedTasks(user.uid);
       const remaining = tasksRef.current.filter((t) => !t.completed);
-      scheduleBatchReminders(remaining, bestTimeRef.current, user.uid).catch(() => {});
+      scheduleBatchReminders(remaining, bestTimeRef.current, user.uid, isProRef.current).catch(() => {});
       return result;
     } catch (err) {
       setError(err.message || "Failed to clear completed tasks.");

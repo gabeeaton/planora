@@ -32,7 +32,7 @@ import * as Haptics from "expo-haptics";
 const ACE_LOGO    = require("../assets/logo.png");
 const HISTORY_KEY = (uid) => `@planora_chat_${uid}`;
 const MAX_STORED      = 60; // messages kept in AsyncStorage
-const FREE_DAILY_LIMIT = 10;
+const FREE_DAILY_LIMIT = 5;
 const todayKey        = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 const COUNT_KEY       = (uid) => `@planora_chat_count_${uid}_${todayKey()}`;
 

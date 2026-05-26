@@ -320,7 +320,7 @@ const _build2hContent = (tasks) => {
  * one "due in 2 hours" notification per unique due-time cluster.
  * Always cancels existing batch notifications first — safe to call any time.
  */
-export const scheduleBatchReminders = async (tasks, bestTime, uid) => {
+export const scheduleBatchReminders = async (tasks, bestTime, uid, isPro = false) => {
   if (!uid || FEATURE_FLAGS.DEMO_MODE) return;
   await _withLock(`batch-${uid}`, async () => {
     const granted = await checkNotificationPermissions();
@@ -363,25 +363,27 @@ export const scheduleBatchReminders = async (tasks, bestTime, uid) => {
         } catch (err) { console.warn("batch 24h failed:", err); }
       }
 
-      // ── 2-hour reminders — group only tasks with identical due times ─
-      const byExactTime = new Map();
-      for (const { task, due } of entries) {
-        const fireAt = new Date(due.getTime() - 2 * 60 * 60 * 1000);
-        if (fireAt < now) continue;
-        const key = fireAt.getTime();
-        if (!byExactTime.has(key)) byExactTime.set(key, { fireAt, tasks: [] });
-        byExactTime.get(key).tasks.push(task);
-      }
+      // ── 2-hour reminders — Scholar only ─────────────────────
+      if (isPro) {
+        const byExactTime = new Map();
+        for (const { task, due } of entries) {
+          const fireAt = new Date(due.getTime() - 2 * 60 * 60 * 1000);
+          if (fireAt < now) continue;
+          const key = fireAt.getTime();
+          if (!byExactTime.has(key)) byExactTime.set(key, { fireAt, tasks: [] });
+          byExactTime.get(key).tasks.push(task);
+        }
 
-      for (const { fireAt, tasks: group } of byExactTime.values()) {
-        const { title, body } = _build2hContent(group);
-        try {
-          const id = await Notifications.scheduleNotificationAsync({
-            content: { title, body, data: { type: "batch-2h", date: dateStr }, sound: true },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },
-          });
-          manifest.push({ id, label: `2h-${fireAt.getTime()}-${dateStr}` });
-        } catch (err) { console.warn("batch 2h failed:", err); }
+        for (const { fireAt, tasks: group } of byExactTime.values()) {
+          const { title, body } = _build2hContent(group);
+          try {
+            const id = await Notifications.scheduleNotificationAsync({
+              content: { title, body, data: { type: "batch-2h", date: dateStr }, sound: true },
+              trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },
+            });
+            manifest.push({ id, label: `2h-${fireAt.getTime()}-${dateStr}` });
+          } catch (err) { console.warn("batch 2h failed:", err); }
+        }
       }
     }
 
@@ -1020,8 +1022,8 @@ export const scheduleOverdueNudges = async (tasks, bestTime, uid) => {
  * Kept for backward-compat call sites in useTasks.
  * Simply calls scheduleBatchReminders — all grouping logic lives there.
  */
-export const syncNotificationWindow = async (tasks, bestTime, uid) => {
-  await scheduleBatchReminders(tasks, bestTime, uid);
+export const syncNotificationWindow = async (tasks, bestTime, uid, isPro = false) => {
+  await scheduleBatchReminders(tasks, bestTime, uid, isPro);
 };
 
 const _formatDue = (date) => {

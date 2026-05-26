@@ -15,7 +15,7 @@ import { format, addDays } from "date-fns";
 // ── Helpers ──────────────────────────────────────────────────
 
 // Mirrors server FREE_DAILY_LIMIT — used in error messages only
-const FREE_DAILY_LIMIT = 10;
+const FREE_DAILY_LIMIT = 5;
 
 const parseDate = (d) => {
   if (!d) return null;
@@ -104,7 +104,7 @@ const getIdToken = async () => {
   return user.getIdToken();
 };
 
-const callProxy = async ({ model, messages, temperature = 0.3, max_tokens = 500 }) => {
+const callProxy = async ({ model, messages, temperature = 0.3, max_tokens = 500, background = false }) => {
   const token = await getIdToken();
   const res = await fetch(`${VERCEL_API_URL}/api/ai`, {
     method: "POST",
@@ -112,7 +112,7 @@ const callProxy = async ({ model, messages, temperature = 0.3, max_tokens = 500 
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ model, messages, temperature, max_tokens }),
+    body: JSON.stringify({ model, messages, temperature, max_tokens, background }),
   });
 
   const text = await res.text();
@@ -317,6 +317,7 @@ Respond ONLY with this JSON, no markdown:
       ],
       temperature: 0.4,
       max_tokens: 350,
+      background: true,
     });
     const result = safeParseJSON(content.trim());
     const now = Date.now();
@@ -364,6 +365,7 @@ export const polishAceBrief = async (rawBrief, name) => {
   try {
     const content = await callProxy({
       model: "gpt-4o-mini",
+      background: true,
       messages: [
         { role: "system", content: BASE_SYSTEM },
         {
@@ -866,6 +868,7 @@ CRITICAL: Output ONLY a raw JSON array. Start with [ end with ]. No markdown, no
       ],
       temperature: 0.3,
       max_tokens: 1400,
+      background: true,
     });
 
     const data = safeParseJSON(content.trim(), "array");

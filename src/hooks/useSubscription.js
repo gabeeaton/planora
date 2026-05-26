@@ -9,6 +9,7 @@ import { useAuth } from "./useAuth";
 import { useUserProfile } from "./useUserProfile";
 import { configurePurchases, getIsSubscribed, ENTITLEMENT_ID } from "../services/purchases";
 import { invalidateTodayFocusCache } from "../services/openai";
+import { setProStatus } from "../services/firebase";
 import { FEATURE_FLAGS } from "../config";
 import Purchases from "react-native-purchases";
 
@@ -39,6 +40,15 @@ export const useSubscription = () => {
   }, [user?.uid]);
 
   const loading = profileLoading || rcLoading;
+
+  // When RC confirms the subscription has lapsed, sync Firestore so isPro doesn't
+  // keep granting access indefinitely after cancellation.
+  useEffect(() => {
+    if (rcLoading || !user?.uid || profile == null) return;
+    if (!rcSubscribed && profile.isPro) {
+      setProStatus(user.uid, false).catch(() => {});
+    }
+  }, [rcLoading, rcSubscribed, profile?.isPro, user?.uid]);
 
   const hasProAccess = FEATURE_FLAGS.BETA_PRO_UNLOCKED || rcSubscribed || !!profile?.isPro;
 

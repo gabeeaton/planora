@@ -19,12 +19,12 @@ import { track } from "../services/analytics";
 const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
 const FEATURES = [
-  { icon: "cpu",            label: "AI Priority Coach",     desc: "Ranks your tasks by urgency so you always know what's next." },
-  { icon: "message-circle", label: "Unlimited AI Chat",     desc: "Ask Ace anything about your workload, any time." },
-  { icon: "bell",           label: "Smart Reminders",       desc: "Nudges that adapt to your deadlines and habits." },
-  { icon: "edit-3",         label: "Weekly Study Plan",     desc: "AI builds your study schedule so you never cram again." },
-  { icon: "trending-up",    label: "Behavioral Insights",   desc: "See when you're most productive and where you lose time." },
-  { icon: "cloud",          label: "Cloud Sync",            desc: "Your data backed up and synced across devices." },
+  { icon: "cpu",            label: "AI Priority Coach",      desc: "Stops you from spending three hours on a low-stakes assignment when an exam is tomorrow." },
+  { icon: "message-circle", label: "Unlimited AI Chat",      desc: "Free plan caps at 5 messages. Scholar is unlimited because real academic coaching takes more than 5." },
+  { icon: "bell",           label: "2-Hour Deadline Alerts", desc: "A nudge the morning of a deadline is too late. Scholar warns you with 2 hours to spare." },
+  { icon: "edit-3",         label: "Weekly Study Plan",      desc: "Ace maps your whole week every Sunday so you're never staring down three due dates at once." },
+  { icon: "alert-triangle", label: "Avoidance Alerts",       desc: "Catch yourself procrastinating before it becomes an all-nighter." },
+  { icon: "refresh-cw",     label: "Persistent Chat History", desc: "Your Ace conversations stay synced across devices so you can pick up any strategy where you left off." },
 ];
 
 const TRUST_SIGNALS_TRIAL = [
@@ -229,7 +229,7 @@ export default function PaywallScreen({ navigation }) {
               resizeMode="contain"
             />
             <Text style={styles.heroLabel}>SCHOLAR PLAN</Text>
-            <Text style={styles.heroTitle}>Your AI academic{"\n"}coach, unlocked.</Text>
+            <Text style={styles.heroTitle}>Stop cramming.{"\n"}Start winning.</Text>
 
             {/* Trust signals — honest, verifiable */}
             <View style={styles.trustRow}>

@@ -51,6 +51,7 @@ import { useTheme } from "../utils/ThemeContext";
 import CompletionBurst from "../components/CompletionBurst";
 import TodaySchedule from "../components/TodaySchedule";
 import { useCalendarEvents } from "../hooks/useCalendarEvents";
+import { useFocusEffect } from "@react-navigation/native";
 import { AddTaskContext } from "../contexts/AddTaskContext";
 import { useSetWalkthroughTarget } from "../utils/WalkthroughContext";
 import { Share } from "react-native";
@@ -782,7 +783,15 @@ const DashboardScreen = ({ navigation }) => {
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [scheduleView, setScheduleView] = useState("today");
 
-  const { events: calEvents, status: calStatus, requestPermission: requestCalPermission } = useCalendarEvents(!DEMO_MODE);
+  const { events: calEvents, status: calStatus, requestPermission: requestCalPermission, refetchIfGranted } = useCalendarEvents(!DEMO_MODE);
+
+  // Re-check calendar permission whenever dashboard comes into focus —
+  // user may have granted it from the Calendar tab
+  useFocusEffect(
+    useCallback(() => {
+      if (!DEMO_MODE && calStatus !== "granted") refetchIfGranted();
+    }, [calStatus, refetchIfGranted])
+  );
 
   useEffect(() => {
     if (tasks.length === 0) return;
@@ -1609,17 +1618,19 @@ const DashboardScreen = ({ navigation }) => {
             <Feather name="edit-3" size={12} color="rgba(255,255,255,0.9)" />
             <Text style={styles.actionChipText}>Plan</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            ref={syllabusBtnRef}
-            onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
-            style={styles.actionChip}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            activeOpacity={0.7}
-            onLayout={() => measureBtn(syllabusBtnRef, "syllabusImport")}
-          >
-            <Feather name="upload-cloud" size={12} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.actionChipText}>Sync</Text>
-          </TouchableOpacity>
+          {!profile?.icsUrl && (
+            <TouchableOpacity
+              ref={syllabusBtnRef}
+              onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
+              style={styles.actionChip}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              activeOpacity={0.7}
+              onLayout={() => measureBtn(syllabusBtnRef, "syllabusImport")}
+            >
+              <Feather name="upload-cloud" size={12} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.actionChipText}>Sync</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Status row — only renders when there are alerts */}

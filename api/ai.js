@@ -32,7 +32,7 @@ function getAdminApp() {
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ── Rate limit config ────────────────────────────────────────
-const FREE_DAILY_LIMIT = 10;
+const FREE_DAILY_LIMIT = 5;
 const BETA_PRO_UNLOCKED = false;
 
 // Returns today's date string in UTC (e.g. "2025-02-24")
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
     const data = snap.data() ?? {};
     isPro = BETA_PRO_UNLOCKED || data.isPro === true;
 
-    if (!isPro) {
+    if (!isPro && !background) {
       const today = todayUTC();
       const callsDate = data.aiCallsDate ?? "";
       const callsToday = callsDate === today ? (data.aiCallsToday ?? 0) : 0;
@@ -100,7 +100,7 @@ export default async function handler(req, res) {
   }
 
   // ── 3. Parse request body ────────────────────────────────
-  const { model, messages, temperature, max_tokens } = req.body ?? {};
+  const { model, messages, temperature, max_tokens, background } = req.body ?? {};
   if (!model || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Invalid request body" });
   }

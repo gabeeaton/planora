@@ -57,5 +57,14 @@ export const useCalendarEvents = (enabled = true) => {
     }
   }, []);
 
-  return { events, sources, status, requestPermission };
+  // Check permission without prompting — use on focus to pick up grants from other screens
+  const refetchIfGranted = useCallback(async () => {
+    try {
+      const { status: s } = await Calendar.getCalendarPermissionsAsync();
+      setStatus(s);
+      if (s === "granted") await safeLoad(setEvents, setSources);
+    } catch {}
+  }, []);
+
+  return { events, sources, status, requestPermission, refetchIfGranted };
 };

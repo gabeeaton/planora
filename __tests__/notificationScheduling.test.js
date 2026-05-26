@@ -210,11 +210,11 @@ describe("scheduleBatchReminders — 2h reminder", () => {
     Object.keys(store).forEach(k => delete store[k]);
   });
 
-  it("schedules a 2h notification for a task with an explicit dueTime", async () => {
+  it("schedules a 2h notification for a task with an explicit dueTime (isPro=true)", async () => {
     // Due in ~4 hours so the 2h fire-time is still in the future
     const future = new Date(Date.now() + 4 * 60 * 60 * 1000);
     const tasks = [makeTask({ dueDate: future, dueTime: [future.getHours(), future.getMinutes()] })];
-    await scheduleBatchReminders(tasks, "morning", "uid-1");
+    await scheduleBatchReminders(tasks, "morning", "uid-1", true);
     const batch2h = scheduledNotifications.filter(n => n.content.data?.type === "batch-2h");
     expect(batch2h.length).toBeGreaterThan(0);
   });
@@ -222,7 +222,7 @@ describe("scheduleBatchReminders — 2h reminder", () => {
   it("2h notification title contains '2 hour' or '2h'", async () => {
     const future = new Date(Date.now() + 4 * 60 * 60 * 1000);
     const tasks = [makeTask({ title: "Quiz", dueDate: future, dueTime: [future.getHours(), future.getMinutes()] })];
-    await scheduleBatchReminders(tasks, "morning", "uid-1");
+    await scheduleBatchReminders(tasks, "morning", "uid-1", true);
     const notif = scheduledNotifications.find(n => n.content.data?.type === "batch-2h");
     expect(notif.content.title.toLowerCase()).toMatch(/2.?h|hour/);
   });
@@ -234,7 +234,7 @@ describe("scheduleBatchReminders — 2h reminder", () => {
       makeTask({ dueDate: future, dueTime: [h, m] }),
       makeTask({ dueDate: future, dueTime: [h, m] }),
     ];
-    await scheduleBatchReminders(tasks, "morning", "uid-1");
+    await scheduleBatchReminders(tasks, "morning", "uid-1", true);
     const batch2h = scheduledNotifications.filter(n => n.content.data?.type === "batch-2h");
     expect(batch2h.length).toBe(1);
   });
@@ -246,7 +246,7 @@ describe("scheduleBatchReminders — 2h reminder", () => {
       makeTask({ dueDate: t1, dueTime: [t1.getHours(), t1.getMinutes()] }),
       makeTask({ dueDate: t2, dueTime: [t2.getHours(), t2.getMinutes()] }),
     ];
-    await scheduleBatchReminders(tasks, "morning", "uid-1");
+    await scheduleBatchReminders(tasks, "morning", "uid-1", true);
     const batch2h = scheduledNotifications.filter(n => n.content.data?.type === "batch-2h");
     expect(batch2h.length).toBe(2);
   });
@@ -255,7 +255,7 @@ describe("scheduleBatchReminders — 2h reminder", () => {
     // Task due in 1 hour — 2h-before fire time is already past
     const due = new Date(Date.now() + 1 * 60 * 60 * 1000);
     const tasks = [makeTask({ dueDate: due, dueTime: [due.getHours(), due.getMinutes()] })];
-    await scheduleBatchReminders(tasks, "morning", "uid-1");
+    await scheduleBatchReminders(tasks, "morning", "uid-1", true);
     const batch2h = scheduledNotifications.filter(n => n.content.data?.type === "batch-2h");
     expect(batch2h.length).toBe(0);
   });
@@ -300,5 +300,55 @@ describe("scheduleBatchReminders — dueDate format handling", () => {
     expect(AsyncStorage.setItem).toHaveBeenCalled();
     const key = AsyncStorage.setItem.mock.calls.find(([k]) => k.includes("uid-manifest"));
     expect(key).toBeDefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+
+describe("scheduleBatchReminders — isPro gate on 2h reminder", () => {
+  beforeEach(() => {
+    scheduledNotifications = [];
+    mockSchedule.mockClear();
+    Object.keys(store).forEach(k => delete store[k]);
+  });
+
+  const taskDueIn4h = () => {
+    const future = new Date(Date.now() + 4 * 60 * 60 * 1000);
+    return makeTask({ dueDate: future, dueTime: [future.getHours(), future.getMinutes()] });
+  };
+
+  it("skips 2h notification when isPro is false (default)", async () => {
+    await scheduleBatchReminders([taskDueIn4h()], "morning", "uid-1", false);
+    const batch2h = scheduledNotifications.filter(n => n.content.data?.type === "batch-2h");
+    expect(batch2h.length).toBe(0);
+  });
+
+  it("skips 2h notification when isPro is omitted", async () => {
+    await scheduleBatchReminders([taskDueIn4h()], "morning", "uid-1");
+    const batch2h = scheduledNotifications.filter(n => n.content.data?.type === "batch-2h");
+    expect(batch2h.length).toBe(0);
+  });
+
+  it("schedules 2h notification when isPro is true", async () => {
+    await scheduleBatchReminders([taskDueIn4h()], "morning", "uid-1", true);
+    const batch2h = scheduledNotifications.filter(n => n.content.data?.type === "batch-2h");
+    expect(batch2h.length).toBeGreaterThan(0);
+  });
+
+  it("still schedules 24h notification for free users (not Scholar-gated)", async () => {
+    await scheduleBatchReminders([makeTask({ dueDate: daysFromNow(3) })], "morning", "uid-1", false);
+    const batch24h = scheduledNotifications.filter(n => n.content.data?.type === "batch-24h");
+    expect(batch24h.length).toBeGreaterThan(0);
+  });
+
+  it("free user with dueTime gets 24h but NOT 2h", async () => {
+    // Use daysFromNow(3) so the 24h fire-time is still in the future
+    const future = daysFromNow(3, 14, 0);
+    const task = makeTask({ dueDate: future, dueTime: [future.getHours(), future.getMinutes()] });
+    await scheduleBatchReminders([task], "morning", "uid-1", false);
+    const batch24h = scheduledNotifications.filter(n => n.content.data?.type === "batch-24h");
+    const batch2h  = scheduledNotifications.filter(n => n.content.data?.type === "batch-2h");
+    expect(batch24h.length).toBeGreaterThan(0);
+    expect(batch2h.length).toBe(0);
   });
 });

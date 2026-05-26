@@ -7,7 +7,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Animated,
+  ScrollView, ActivityIndicator, Animated, Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -23,47 +23,40 @@ import { useAuth } from "../hooks/useAuth";
 import { saveUserProfile } from "../services/firebase";
 import { track } from "../services/analytics";
 // ─────────────────────────────────────────────────────────────
-// LMS step content
+// LMS platform data
 // ─────────────────────────────────────────────────────────────
-const LMS_PLATFORMS = ["Canvas", "Brightspace", "Blackboard", "Moodle"];
+const LMS_OPTIONS = [
+  { key: "Canvas",      logo: require("../assets/canvas-logo.png"),       color: "#E30613", darkColor: "#FF3344" },
+  { key: "Brightspace", logo: require("../assets/brightspace-logo.webp"), color: "#FF6200", darkColor: "#FF8533" },
+  { key: "Blackboard",  logo: require("../assets/blackboard-logo.png"),   color: "#3A6BC4", darkColor: "#6B9EFF" },
+  { key: "Moodle",      logo: require("../assets/moodle-logo.png"),       color: "#F98012", darkColor: "#FFB03A" },
+];
 
 const LMS_STEPS = {
-  Canvas: {
-    steps: [
-      "Open the Canvas Student app on your phone",
-      "Tap ☰ (top left) → Settings → \"Subscribe to Calendar Feed\"",
-      "Copy the URL",
-      "Paste the URL in the box above",
-    ],
-    tip: "On desktop: Canvas → Calendar → \"Calendar Feed\" link (bottom right sidebar) → copy the URL. Replace webcal:// with https:// if needed.",
-  },
-  Brightspace: {
-    steps: [
-      "Log in to Brightspace on desktop or mobile browser",
-      "Click the calendar icon in the top navigation bar",
-      "Click \"Subscribe\" in the top right of the calendar view",
-      "Copy the iCal URL and paste it above",
-    ],
-    tip: "If the URL starts with webcal://, replace that part with https:// before pasting.",
-  },
-  Blackboard: {
-    steps: [
-      "Log in to Blackboard and open Calendar from the left menu",
-      "Click the settings gear ⚙ in the top right of the calendar",
-      "Select \"Get Calendar Feed\" and copy the URL",
-      "Paste the URL above",
-    ],
-    tip: "Replace webcal:// with https:// if needed. Some Blackboard versions call this \"iCal Feed\" instead.",
-  },
-  Moodle: {
-    steps: [
-      "Log in to Moodle and navigate to your Calendar",
-      "Scroll to the bottom of the calendar page",
-      "Click \"Export calendar\" → select \"All events\" → \"Get calendar URL\"",
-      "Copy the URL and paste above",
-    ],
-    tip: "Replace webcal:// with https:// if needed. The export option is at the very bottom of the calendar page.",
-  },
+  Canvas: [
+    "Open Canvas and sign in",
+    "Open Calendar from the sidebar or menu",
+    'Find "Calendar Feed" or "Subscribe to Calendar Feed" — check the right sidebar or scroll to the bottom',
+    "Copy the ICS/iCal URL and paste it below",
+  ],
+  Brightspace: [
+    "Open Brightspace and sign in",
+    "Open Calendar (check the top navbar, homepage widget, or a Tools menu)",
+    "Tap Settings → check Enable Calendar Feeds → tap Save",
+    'Tap Subscribe → choose "All Calendars" → copy the ICS/iCal URL and paste it below',
+  ],
+  Blackboard: [
+    "Open Blackboard and sign in",
+    "Open Calendar from the left navigation bar",
+    "Tap the gear icon (Calendar Settings) in the upper-right",
+    "Tap the ··· menu next to Calendar Settings → choose Share Calendar → copy the URL and paste it below",
+  ],
+  Moodle: [
+    "Open Moodle and sign in",
+    "Open Calendar (Dashboard or top navigation)",
+    'Scroll down and tap "Export calendar" or "Import or export calendars"',
+    'Tap "Get calendar URL" → copy the URL and paste it below',
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -163,19 +156,20 @@ const makeStyles = (colors) =>
     },
     stepsTitle: { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.textPrimary, marginBottom: 12 },
 
-    // Platform tabs inside the card
-    lmsTabs: {
-      flexDirection: "row", gap: 6, marginBottom: 14,
-      flexWrap: "wrap",
+    // Platform selector grid
+    lmsPlatformGrid: {
+      flexDirection: "row", flexWrap: "wrap", gap: spacing.sm,
+      marginBottom: spacing.md,
     },
-    lmsTab: {
-      paddingHorizontal: 12, paddingVertical: 6,
-      borderRadius: radius.full, borderWidth: 1,
-      borderColor: colors.border, backgroundColor: colors.bgElevated,
+    lmsPlatformBtn: {
+      width: "47%", flexDirection: "row", alignItems: "center",
+      gap: 10, backgroundColor: colors.bgCard,
+      borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+      paddingHorizontal: spacing.md, paddingVertical: 14, position: "relative",
     },
-    lmsTabActive: { borderColor: colors.accent, backgroundColor: colors.accentGlow },
-    lmsTabText:   { fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
-    lmsTabTextActive: { color: colors.accent },
+    lmsPlatformText: {
+      fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textSecondary,
+    },
 
     step: { flexDirection: "row", gap: 10, marginBottom: 10, alignItems: "flex-start" },
     stepNum: {
@@ -511,9 +505,6 @@ const SyllabusParserScreen = ({ navigation }) => {
     }
   };
 
-  // ── LMS steps data ────────────────────────────────────────
-  const lmsData = LMS_STEPS[selectedLms];
-
   // ── Success screen ────────────────────────────────────────
   if (importDone) {
     return (
@@ -617,16 +608,46 @@ const SyllabusParserScreen = ({ navigation }) => {
           </>
         ) : (
           <>
-            {/* URL input */}
-            <View style={styles.infoCard}>
-              <Feather name="zap" size={14} color={colors.accent} />
-              <Text style={styles.infoText}>
-                <Text style={styles.infoLink}>Easiest way: </Text>
-                Paste your school's calendar feed URL below — no file download needed.
-              </Text>
+            {/* Platform selector */}
+            <Text style={styles.label}>Which platform does your school use?</Text>
+            <View style={styles.lmsPlatformGrid}>
+              {LMS_OPTIONS.map((lms) => {
+                const c = colors.isDark ? lms.darkColor : lms.color;
+                const isActive = selectedLms === lms.key;
+                return (
+                  <TouchableOpacity
+                    key={lms.key}
+                    style={[styles.lmsPlatformBtn, isActive && { borderColor: c, backgroundColor: c + "18" }]}
+                    onPress={() => setSelectedLms(lms.key)}
+                    activeOpacity={0.75}
+                  >
+                    <Image source={lms.logo} style={{ width: 26, height: 26, borderRadius: 6 }} resizeMode="contain" />
+                    <Text style={[styles.lmsPlatformText, isActive && { color: c, fontFamily: "Outfit-Bold" }]}>{lms.key}</Text>
+                    {isActive && <Feather name="check" size={13} color={c} style={{ position: "absolute", top: 8, right: 8 }} />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            <Text style={styles.label}>Calendar feed URL</Text>
+            {/* Steps for selected platform */}
+            <View style={styles.stepsCard}>
+              <Text style={styles.stepsTitle}>How to get your {selectedLms} link</Text>
+              {LMS_STEPS[selectedLms].map((text, i) => (
+                <View key={i} style={styles.step}>
+                  <View style={styles.stepNum}>
+                    <Text style={styles.stepNumText}>{i + 1}</Text>
+                  </View>
+                  <Text style={styles.stepText}>{text}</Text>
+                </View>
+              ))}
+              <View style={styles.tipRow}>
+                <Feather name="info" size={12} color={colors.textMuted} />
+                <Text style={styles.tipText}>Don't see these options? Search your school's help site for "calendar feed" or "ICS URL". Replace webcal:// with https:// if needed.</Text>
+              </View>
+            </View>
+
+            {/* URL input */}
+            <Text style={styles.label}>Paste your calendar URL</Text>
             <View style={[styles.urlInputWrap, urlInputFocused && styles.urlInputWrapActive]}>
               <TextInput
                 style={styles.urlInput}
@@ -650,42 +671,6 @@ const SyllabusParserScreen = ({ navigation }) => {
                   : <Feather name="download-cloud" size={14} color="#fff" />}
                 <Text style={styles.urlFetchBtnText}>{icsLoading ? "Loading..." : "Load"}</Text>
               </TouchableOpacity>
-            </View>
-
-            {/* LMS instructions */}
-            <View style={styles.stepsCard}>
-              <Text style={styles.stepsTitle}>How to get your feed URL</Text>
-
-              {/* Platform switcher */}
-              <View style={styles.lmsTabs}>
-                {LMS_PLATFORMS.map((lms) => (
-                  <TouchableOpacity
-                    key={lms}
-                    style={[styles.lmsTab, selectedLms === lms && styles.lmsTabActive]}
-                    onPress={() => setSelectedLms(lms)}
-                  >
-                    <Text style={[styles.lmsTabText, selectedLms === lms && styles.lmsTabTextActive]}>
-                      {lms}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Steps for selected platform */}
-              {lmsData.steps.map((text, i) => (
-                <View key={i} style={styles.step}>
-                  <View style={styles.stepNum}>
-                    <Text style={styles.stepNumText}>{i + 1}</Text>
-                  </View>
-                  <Text style={styles.stepText}>{text}</Text>
-                </View>
-              ))}
-
-              {/* Tip */}
-              <View style={styles.tipRow}>
-                <Feather name="info" size={12} color={colors.textMuted} />
-                <Text style={styles.tipText}>{lmsData.tip}</Text>
-              </View>
             </View>
           </>
         )}
