@@ -166,28 +166,11 @@ export default function Mascot({
         ])
       ));
     } else if (variant === 'writing') {
-      // Scribble: 1.6s ease-in-out, 5 keyframes each 320ms apart.
-      // CSS: 0/100%=(0,0,0deg)  20%=(-2,1,-3deg)  40%=(2,1,3deg)  60%=(-2,1,-2deg)  80%=(2,1,2deg)
-      // Each property driven directly to its target value so no interpolation back-tracking.
-      // wX=translateX(px), wY=translateY(px), wR=rotate(deg direct value)
-      const easeIO = Easing.inOut(Easing.sin);
-      const scribble = (toX, toY, toR) => Animated.parallel([
-        Animated.timing(v.wX, { toValue: toX, duration: 320, easing: easeIO, useNativeDriver: true }),
-        Animated.timing(v.wY, { toValue: toY, duration: 320, easing: easeIO, useNativeDriver: true }),
-        Animated.timing(v.wR, { toValue: toR, duration: 320, easing: easeIO, useNativeDriver: true }),
-      ]);
+      // Single wLine loop drives everything — body position set each rAF via listener.
+      // wLine 0→1 over 1.6s (ease-out), instant reset. JS driver required for SVG props.
       anims.push(Animated.loop(Animated.sequence([
-        scribble(-2,  1, -3), // 0→20%
-        scribble( 2,  1,  3), // 20→40%
-        scribble(-2,  1, -2), // 40→60%
-        scribble( 2,  1,  2), // 60→80%
-        scribble( 0,  0,  0), // 80→100% back to rest
-      ])));
-      // Line: line-grow (dashoffset 120→0) + line-fade (opacity stays 1 until 80% then→0)
-      // Both run on wLine 0→1 over 1.6s ease-out, then reset. Separate from body.
-      anims.push(Animated.loop(Animated.sequence([
-        Animated.timing(v.wLine, { toValue: 1, duration: 1600, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(v.wLine, { toValue: 0, duration: 0, useNativeDriver: true }),
+        Animated.timing(v.wLine, { toValue: 1, duration: 1600, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+        Animated.timing(v.wLine, { toValue: 0, duration: 0, useNativeDriver: false }),
       ])));
     }
     // 'tap' has no idle loop — only responds to press
@@ -197,12 +180,31 @@ export default function Mascot({
 
     anims.forEach(a => a && a.start());
 
-    // Drive SVG strokeDashoffset and opacity via state listener (only for writing)
+    // Drive SVG props + body position each rAF tick via wLine listener (writing only).
+    // Body sweeps left→right in sync with the line being drawn. Y waves with the line's
+    // peaks. At 80%+ the pencil lifts off so the snap-back to start is "in the air".
     let lineListener = null;
     if (variant === 'writing') {
       lineListener = v.wLine.addListener(({ value }) => {
-        setLineDashOffset(120 - value * 120);          // 120→0
-        setLineOpacityVal(value >= 0.8 ? 1 - (value - 0.8) / 0.2 : 1); // fade at 80-100%
+        // SVG line
+        setLineDashOffset(120 - value * 120);
+        setLineOpacityVal(value >= 0.8 ? 1 - (value - 0.8) / 0.2 : 1);
+
+        // X: leading edge of drawn line goes from viewBox x=10 to x=120.4 over value 0→1.
+        // Converted to screen px relative to SVG/mascot center (viewBox x=100):
+        //   wX = (leading_x - 100) * (size*1.43/200) = (value*110.4 - 90) * size*0.00715
+        v.wX.setValue((value * 110.4 - 90) * size * 0.00715);
+
+        // Y: leading edge follows 1.25 sine cycles (up→down→up) with ~7px amplitude.
+        // baseY drops tip to line center; wave tracks actual path y with sub-pixel accuracy.
+        const baseY  = size * 0.15 + 4;
+        // Period = 87/120 = 0.725 of value range (one full up-down wave = 2 segments of 43.5 arc units)
+        const period = 0.725;
+        const waveY  = -size * 0.054 * Math.sin(value * 2 * Math.PI / period);
+        v.wY.setValue(baseY + waveY);
+
+        // Rotation: tilts with direction of travel
+        v.wR.setValue(3 * Math.cos(value * 2 * Math.PI / period));
       });
     }
 
