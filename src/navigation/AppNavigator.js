@@ -7,7 +7,9 @@
 import React, { useEffect, useRef, useState, useCallback, useContext, useMemo } from "react";
 import { View, ActivityIndicator, TouchableOpacity, StyleSheet, Text, Animated, Image } from "react-native";
 import * as Haptics from "expo-haptics";
-import { NavigationContainer, useNavigation, useNavigationState } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
+
+export const navigationRef = createNavigationContainerRef();
 import * as Notifications from "expo-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -43,7 +45,7 @@ import { useTasks } from "../hooks/useTasks";
 import { useSubscription } from "../hooks/useSubscription";
 import { invalidateTodayFocusCache } from "../services/openai";
 import { FEATURE_FLAGS } from "../config";
-const ACE_LOGO = require("../assets/logo.png");
+import Mascot from "../components/Mascot";
 
 import { AddTaskContext } from "../contexts/AddTaskContext";
 export { AddTaskContext };
@@ -63,10 +65,10 @@ const Tab   = createBottomTabNavigator();
 
 // ── Custom Tab Bar ────────────────────────────────────────────
 
-const COACH_NAME = "Ace"; // ← change to rename the AI character everywhere
+const COACH_NAME = "Tally"; // ← change to rename the AI character everywhere
 
-const TAB_ICONS  = { Dashboard: "home", Chat: "message-circle", Tasks: "check-square", Calendar: "calendar", Focus: "target" };
-const TAB_LABELS = { Dashboard: "Home", Chat: COACH_NAME, Tasks: "Tasks", Calendar: "Calendar", Focus: "Focus" };
+const TAB_ICONS  = { Dashboard: "home", Chat: "message-circle", Tasks: "check-square", Calendar: "calendar", Focus: "book-open" };
+const TAB_LABELS = { Dashboard: "Home", Chat: COACH_NAME, Tasks: "Tasks", Calendar: "Calendar", Focus: "Plan" };
 
 const TAB_TARGET_NAMES = { Dashboard: "homeTab", Chat: "chatTab", Tasks: "tasksTab", Calendar: "calendarTab", Focus: "focusTab" };
 
@@ -203,18 +205,6 @@ const aceStyles = StyleSheet.create({
     right: 16,
     zIndex: 99,
   },
-  aceBtn: {
-    width: 54, height: 54, borderRadius: 27,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1.5,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.38,
-    shadowRadius: 14,
-    elevation: 10,
-  },
-  aceBtnLogo: {
-    width: 44, height: 44,
-  },
   milestoneBanner: {
     position: "absolute",
     left: 14,
@@ -231,7 +221,6 @@ const aceStyles = StyleSheet.create({
     elevation: 14,
     zIndex: 9999,
   },
-  milestoneEmoji: { fontSize: 26 },
   milestoneTitle: { fontSize: 15, fontFamily: "Outfit-Bold", color: "#fff" },
   milestoneSub:   { fontSize: 12, fontFamily: "Outfit-Medium", color: "rgba(255,255,255,0.78)", marginTop: 1 },
 });
@@ -239,7 +228,7 @@ const aceStyles = StyleSheet.create({
 // ── Floating Ace / Planora FAB ────────────────────────────────
 // Separate component so it can call useSetWalkthroughTarget inside WalkthroughProvider
 
-const AceFabInner = ({ bottom, aceBtnScale, acePulse, colors, onPress, onPressIn, onPressOut }) => {
+const AceFabInner = ({ bottom, onPress }) => {
   const setTarget = useSetWalkthroughTarget();
   const fabRef    = useRef(null);
   return (
@@ -252,23 +241,7 @@ const AceFabInner = ({ bottom, aceBtnScale, acePulse, colors, onPress, onPressIn
         });
       }}
     >
-      <Animated.View style={{ transform: [{ scale: aceBtnScale }] }}>
-        <Animated.View style={{ transform: [{ scale: acePulse }] }}>
-          <TouchableOpacity
-            style={[aceStyles.aceBtn, {
-              backgroundColor: colors.accent,
-              borderColor: "rgba(255,255,255,0.25)",
-              shadowColor: colors.accent,
-            }]}
-            onPress={onPress}
-            onPressIn={onPressIn}
-            onPressOut={onPressOut}
-            activeOpacity={1}
-          >
-            <Image source={ACE_LOGO} style={aceStyles.aceBtnLogo} resizeMode="contain" />
-          </TouchableOpacity>
-        </Animated.View>
-      </Animated.View>
+      <Mascot variant="tap" size={58} onTap={onPress} blink={false} />
     </View>
   );
 };
@@ -282,42 +255,27 @@ const MainTabs = () => (
     sceneContainerStyle={{ backgroundColor: "transparent" }}
   >
     <Tab.Screen name="Dashboard" component={DashboardScreen} />
-    <Tab.Screen name="Chat"      component={ChatScreen} />
+    <Tab.Screen name="Focus"     component={StudyPlanScreen} />
     <Tab.Screen name="Tasks"     component={TasksScreen} />
-    <Tab.Screen name="Calendar"  component={CalendarScreen} />
-    <Tab.Screen name="Focus"     component={FocusScreen} />
+    <Tab.Screen name="Chat"      component={ChatScreen} />
   </Tab.Navigator>
 );
 
 const MainTabsMemo = React.memo(MainTabs);
 
-const MainTabsWithModal = () => {
+const MainTabsWithModal = ({ navigation }) => {
   const [visible, setVisible] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [acePopupVisible, setAcePopupVisible] = useState(false);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
-  const aceBtnScale = useRef(new Animated.Value(1)).current;
   const { createTask, editTask, tasks, patterns, streak } = useTasks();
   const { user } = useAuth();
   const { profile } = useUserProfile();
   const { isPro } = useSubscription();
-  const navigation = useNavigation();
   const walkthroughTriggered = useRef(false);
   const [showNewSemester, setShowNewSemester] = useState(false);
   const semesterChecked = useRef(false);
 
-  // Subtle idle breathing pulse
-  const acePulse = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(acePulse, { toValue: 1.06, duration: 1800, useNativeDriver: true }),
-        Animated.timing(acePulse, { toValue: 1,    duration: 1800, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, []);
 
   // ── Streak milestone banner ───────────────────────────────────
   const [milestoneBanner, setMilestoneBanner] = useState(null);
@@ -423,8 +381,16 @@ const MainTabsWithModal = () => {
   const contextValue = useMemo(() => ({ openAddTask, openQuickAdd }), [openAddTask, openQuickAdd]);
 
   const insets = useSafeAreaInsets();
-  const tabIndex = useNavigationState((s) => s?.routes?.[s.index]?.state?.index ?? 0);
-  const onChatTab = tabIndex === 1; // Dashboard(0), Chat(1), Tasks(2), Calendar(3), Focus(4)
+  const [tabIndex, setTabIndex] = useState(0);
+  useEffect(() => {
+    const update = () => {
+      const s = navigation.getState?.();
+      setTabIndex(s?.routes?.[s.index]?.state?.index ?? 0);
+    };
+    update();
+    return navigation.addListener("state", update);
+  }, [navigation]);
+  const onChatTab = tabIndex === 3; // Dashboard(0), Plan(1), Tasks(2), Chat(3)
   const { colors } = useTheme();
 
   const aceBtnBottom = Math.max(insets.bottom, 8) + 62 + 14;
@@ -450,7 +416,7 @@ const MainTabsWithModal = () => {
               },
             ]}
           >
-            <Text style={aceStyles.milestoneEmoji}>{milestoneBanner.emoji}</Text>
+            <Mascot variant="wiggle" size={44} blink={false} />
             <View style={{ flex: 1 }}>
               <Text style={aceStyles.milestoneTitle}>{milestoneBanner.title}</Text>
               <Text style={aceStyles.milestoneSub}>{milestoneBanner.sub}</Text>
@@ -469,15 +435,10 @@ const MainTabsWithModal = () => {
         {!onChatTab && (
           <AceFabInner
             bottom={aceBtnBottom}
-            aceBtnScale={aceBtnScale}
-            acePulse={acePulse}
-            colors={colors}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
               setAcePopupVisible(true);
             }}
-            onPressIn={() => Animated.spring(aceBtnScale, { toValue: 0.88, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
-            onPressOut={() => Animated.spring(aceBtnScale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }).start()}
           />
         )}
 
@@ -609,6 +570,7 @@ const AppNavigator = () => {
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       linking={linking}
       theme={{
         colors: {
@@ -675,6 +637,11 @@ const AppNavigator = () => {
             <Stack.Screen
               name="Profile"
               component={ProfileScreen}
+              options={{ presentation: "modal", headerShown: false, gestureEnabled: true, gestureDirection: "vertical" }}
+            />
+            <Stack.Screen
+              name="Calendar"
+              component={CalendarScreen}
               options={{ presentation: "modal", headerShown: false, gestureEnabled: true, gestureDirection: "vertical" }}
             />
             <Stack.Screen

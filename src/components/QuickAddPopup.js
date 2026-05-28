@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Animated, Keyboard, ScrollView, Platform, Modal,
-  KeyboardAvoidingView, TouchableWithoutFeedback,
+  KeyboardAvoidingView, TouchableWithoutFeedback, LayoutAnimation, UIManager,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -47,6 +47,10 @@ const fmt12 = (h, m) => {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
 };
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function QuickAddPopup({ visible, onClose, onSave }) {
   const { colors } = useTheme();
@@ -251,7 +255,11 @@ export default function QuickAddPopup({ visible, onClose, onSave }) {
             {!showDesc ? (
               <TouchableOpacity
                 style={s.addNotesRow}
-                onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowDesc(true); }}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setShowDesc(true);
+                }}
                 activeOpacity={0.7}
               >
                 <Feather name="file-text" size={13} color={colors.textMuted} />

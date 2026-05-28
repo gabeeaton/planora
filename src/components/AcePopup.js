@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Animated, Keyboard, Platform, ScrollView,
-  Modal, TouchableWithoutFeedback, Image, LayoutAnimation, UIManager,
+  Modal, TouchableWithoutFeedback, LayoutAnimation, UIManager,
 } from "react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -16,7 +16,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-const ACE_LOGO = require("../assets/logo.png");
+import Mascot from "./Mascot";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../utils/ThemeContext";
 import { useAuth } from "../hooks/useAuth";
@@ -27,7 +27,7 @@ import { sendChatMessage } from "../services/openai";
 import { saveChatHistory } from "../services/firebase";
 import { spacing } from "../utils/theme";
 
-const COACH_NAME = "Ace";
+const COACH_NAME = "Tally";
 const TAB_BAR_HEIGHT = 62;
 const ACE_BTN_SIZE = 50;
 const HISTORY_KEY = (uid) => `@planora_chat_${uid}`;
@@ -205,9 +205,7 @@ export default function AcePopup({ visible, onClose, onOpenFullChat }) {
         >
           {/* Header */}
           <View style={s.header}>
-            <View style={[s.aceBadge, { backgroundColor: colors.accent }]}>
-              <Image source={ACE_LOGO} style={s.aceLogo} resizeMode="contain" />
-            </View>
+            <Mascot variant="alive" size={48} />
             <View style={{ flex: 1 }}>
               <Text style={s.headerName}>{COACH_NAME}</Text>
               <Text style={s.headerSub}>AI study coach</Text>
@@ -327,15 +325,6 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.isDark ? colors.border : "#F0F0F8",
-  },
-  aceBadge: {
-    width: 58, height: 58, borderRadius: 17,
-    alignItems: "center", justifyContent: "center",
-    flexShrink: 0,
-    overflow: "hidden",
-  },
-  aceLogo: {
-    width: 50, height: 50,
   },
   headerName: {
     fontSize: 14, fontFamily: "Outfit-Bold", color: colors.textPrimary,

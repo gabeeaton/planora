@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Text, TextInput, View, Appearance } from "react-native";
+import { Text, TextInput, View, Image, Appearance } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTasks } from "./src/hooks/useTasks";
 import CompletionShareSheet from "./src/components/CompletionShareSheet";
@@ -10,7 +10,6 @@ Text.defaultProps.style = { fontFamily: "Outfit-Regular" };
 TextInput.defaultProps = TextInput.defaultProps || {};
 TextInput.defaultProps.style = { fontFamily: "Outfit-Regular" };
 import * as Sentry from "@sentry/react-native";
-import { PostHogProvider } from "posthog-react-native";
 import { posthog } from "./src/services/analytics";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -33,6 +32,8 @@ const assetsReady = Asset.loadAsync([
   require("./src/assets/logo-full-white.png"),
   require("./src/assets/spotify-logo.png"),
   require("./src/assets/apple-music-logo.jpg"),
+  require("./src/assets/mascot-rn/assets/mascot.png"),
+  require("./src/assets/mascot-rn/assets/mascot-closed.png"),
 ]).catch(() => {});
 
 // Configure RevenueCat early — before any purchase calls
@@ -102,7 +103,13 @@ function App() {
   }, []);
   if (!ready || (!fontsLoaded && !fontTimeout)) {
     const bg = Appearance.getColorScheme() === "dark" ? "#0A0A0F" : "#F7F7F9";
-    return <View style={{ flex: 1, backgroundColor: bg }} />;
+    return (
+      <View style={{ flex: 1, backgroundColor: bg }}>
+        {/* Force native image decode during splash so mascot renders instantly */}
+        <Image source={require("./src/assets/mascot-rn/assets/mascot.png")}        style={{ width: 0, height: 0 }} fadeDuration={0} />
+        <Image source={require("./src/assets/mascot-rn/assets/mascot-closed.png")} style={{ width: 0, height: 0 }} fadeDuration={0} />
+      </View>
+    );
   }
 
   const inner = (
@@ -123,7 +130,7 @@ function App() {
     </GestureHandlerRootView>
   );
 
-  return posthog ? <PostHogProvider client={posthog}>{inner}</PostHogProvider> : inner;
+  return inner;
 }
 
 export default Sentry.wrap(App);

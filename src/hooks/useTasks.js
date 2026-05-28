@@ -337,7 +337,21 @@ export const TasksProvider = ({ children }) => {
     }
   }, [user]);
 
-  const pendingTasks   = tasks.filter((t) => !t.completed);
+  const pendingTasks = tasks
+    .filter((t) => !t.completed)
+    .sort((a, b) => {
+      const toMs = (d) => {
+        if (!d) return null;
+        const date = d?.toDate ? d.toDate() : d?.seconds ? new Date(d.seconds * 1000) : new Date(d);
+        return isNaN(date?.getTime()) ? null : date.getTime();
+      };
+      const aMs = toMs(a.dueDate);
+      const bMs = toMs(b.dueDate);
+      if (aMs === null && bMs === null) return 0;
+      if (aMs === null) return 1;
+      if (bMs === null) return -1;
+      return aMs - bMs;
+    });
   const completedTasks = tasks.filter((t) => t.completed);
   const todaysTasks    = tasks.filter((t) => {
     if (!t.dueDate) return false;

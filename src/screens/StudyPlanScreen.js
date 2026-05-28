@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Animated, Alert, DeviceEventEmitter,
+  Animated, Alert, DeviceEventEmitter, Modal, Pressable,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import Mascot from "../components/Mascot";
 import { useTheme } from "../utils/ThemeContext";
 import { useAuth } from "../hooks/useAuth";
 import { useUserProfile } from "../hooks/useUserProfile";
@@ -15,7 +16,7 @@ import { scheduleStudyPlanReminders, cancelStudyPlanReminders } from "../service
 import { generateStudyPlan } from "../services/openai";
 import { useCalendarEvents } from "../hooks/useCalendarEvents";
 import { FEATURE_FLAGS } from "../config";
-import { spacing, radius } from "../utils/theme";
+import { spacing, radius, getClassColor } from "../utils/theme";
 import { addDays, format, startOfToday, isSameDay } from "date-fns";
 import * as Haptics from "expo-haptics";
 
@@ -37,31 +38,17 @@ const makeDemoPlan = () => {
   ];
 };
 
-const CLASS_COLORS = [
-  "#6C63FF", "#FF6B6B", "#4ECDC4", "#FFB347", "#5CFF8F",
-  "#FF8CC8", "#63B3FF", "#CE93D8", "#80DEEA", "#FFAB76",
-];
-
-const colorForClass = (name) => {
-  if (!name) return "#888";
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return CLASS_COLORS[Math.abs(hash) % CLASS_COLORS.length];
-};
 
 const PLAN_CACHE_KEY = "@planora_study_plan_cache";
 
 const TIME_PRESETS = [
   { label: "Off", value: 0 },
-  { label: "30m", value: 0.5 },
   { label: "1h",  value: 1 },
   { label: "2h",  value: 2 },
   { label: "3h",  value: 3 },
   { label: "4h",  value: 4 },
   { label: "5h",  value: 5 },
   { label: "6h",  value: 6 },
-  { label: "7h",  value: 7 },
-  { label: "8h",  value: 8 },
 ];
 
 const makeStyles = (colors) => StyleSheet.create({
@@ -72,7 +59,58 @@ const makeStyles = (colors) => StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   headerTitle: { fontSize: 18, fontFamily: "Outfit-Bold", color: colors.textPrimary },
-  closeBtn: { padding: 4 },
+  headerAction: { padding: 4 },
+
+  // Detail sheet
+  detailBackdrop: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end",
+  },
+  detailSheet: {
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingBottom: 36,
+    shadowColor: "#000", shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15, shadowRadius: 20, elevation: 20,
+  },
+  detailHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: "rgba(128,128,128,0.3)",
+    alignSelf: "center", marginTop: 12, marginBottom: 4,
+  },
+  detailHeader: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
+  detailClass: { fontSize: 12, fontFamily: "Outfit-Bold", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 },
+  detailTitle: { fontSize: 18, fontFamily: "Outfit-Bold", lineHeight: 24, marginBottom: 12 },
+  detailMeta: { flexDirection: "row", gap: 8 },
+  detailChip: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+  },
+  detailChipText: { fontSize: 12, fontFamily: "Outfit-SemiBold" },
+  detailActivity: {
+    fontSize: 14, fontFamily: "Outfit-Regular", lineHeight: 22,
+    paddingHorizontal: 20, paddingBottom: 20,
+  },
+  detailDoneBtn: {
+    marginHorizontal: 20, borderRadius: 14, paddingVertical: 14,
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+  },
+  detailDoneBtnText: { fontSize: 15, fontFamily: "Outfit-Bold" },
+
+  // Availability sheet
+  availSheet: {
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingTop: 4,
+    shadowColor: "#000", shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15, shadowRadius: 20, elevation: 20,
+  },
+  availSheetTitle: { fontSize: 17, fontFamily: "Outfit-Bold", paddingHorizontal: 20, paddingTop: 16, marginBottom: 4 },
+  availSheetHint: { fontSize: 13, fontFamily: "Outfit-Regular", paddingHorizontal: 20, marginBottom: 12 },
+
+  // Set all row
+  setAllRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
+  setAllChip: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, borderWidth: 1,
+  },
+  setAllChipText: { fontSize: 13, fontFamily: "Outfit-SemiBold" },
 
   // Availability picker
   pickerHint: {
@@ -124,21 +162,22 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   availScheduleTextClass: { color: colors.accent },
 
-  loadingWrap: {
-    paddingHorizontal: spacing.lg, paddingTop: 48, paddingBottom: 16, alignItems: "center",
+  loadingOverlay: {
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+    zIndex: 10, alignItems: "center", justifyContent: "center", gap: 20,
   },
-  loadingLabel: {
-    fontSize: 15, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, marginBottom: 20,
+  loadingBigLabel: {
+    fontSize: 18, fontFamily: "Outfit-SemiBold", textAlign: "center",
+    paddingHorizontal: spacing.lg,
   },
-  loadingSubLabel: {
-    fontSize: 13, fontFamily: "Outfit-Regular", color: colors.textMuted, marginTop: 12,
+  overcommitBanner: {
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+    marginHorizontal: spacing.lg, marginBottom: 12,
+    borderWidth: 1, borderRadius: radius.md,
+    paddingHorizontal: 12, paddingVertical: 10,
   },
-  progressTrack: {
-    width: "100%", height: 6, borderRadius: 3,
-    backgroundColor: colors.isDark ? colors.bgInput : "#E8E8EE", overflow: "hidden",
-  },
-  progressFill: {
-    height: 6, borderRadius: 3,
+  overcommitText: {
+    flex: 1, fontSize: 13, fontFamily: "Outfit-Regular", lineHeight: 18,
   },
 
   generateBtn: {
@@ -185,14 +224,13 @@ const makeStyles = (colors) => StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   sessionAccent: { width: 4 },
-  sessionBody: { flex: 1, paddingVertical: 12, paddingHorizontal: 12 },
+  sessionBody: { flex: 1, paddingVertical: 11, paddingHorizontal: 11 },
   sessionClassTag: {
     paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
   },
   sessionClassText: { fontSize: 10, fontFamily: "Outfit-Bold" },
-  sessionTitle: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, marginBottom: 4, lineHeight: 20 },
-  sessionSourceTask: { fontSize: 11, fontFamily: "Outfit-Regular", color: colors.textMuted, marginBottom: 4 },
-  sessionActivity: { fontSize: 12, fontFamily: "Outfit-Regular", color: colors.textSecondary, lineHeight: 17 },
+  sessionTitle: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, lineHeight: 20 },
+  sessionSourceTask: { fontSize: 11, fontFamily: "Outfit-Regular", color: colors.textMuted, marginTop: 3 },
   durationBadge: {
     paddingHorizontal: 10, paddingVertical: 12,
     alignItems: "center", justifyContent: "center",
@@ -309,18 +347,51 @@ const StudyPlanScreen = ({ navigation }) => {
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(today, i);
+    const dow = date.getDay(); // 0=Sun, 6=Sat
+    const isWeekend = dow === 0 || dow === 6;
     return {
       label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : format(date, "EEEE"),
       date: format(date, "yyyy-MM-dd"),
       dateLabel: format(date, "MMM d"),
       dateObj: date,
-      hours: 2,
+      hours: isWeekend ? 3 : 2,
     };
   });
 
   const [availability, setAvailability] = useState(weekDays);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const detailSheetAnim = useRef(new Animated.Value(0)).current;
+  const [showAvailSheet, setShowAvailSheet] = useState(false);
+  const availSheetAnim = useRef(new Animated.Value(0)).current;
   const [plan, setPlan] = useState(DEMO_MODE ? makeDemoPlan() : null);
   const [loading, setLoading] = useState(false);
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+
+  const LOADING_MESSAGES = [
+    "Tally is planning your week...",
+    "Spacing out your sessions...",
+    "Checking your deadlines...",
+    "Balancing your workload...",
+    "Almost ready...",
+  ];
+
+  useEffect(() => {
+    if (!loading) { setLoadingMsgIdx(0); return; }
+    const interval = setInterval(() => {
+      setLoadingMsgIdx((i) => (i + 1) % LOADING_MESSAGES.length);
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  const overcommitment = useMemo(() => {
+    if (!plan) return null;
+    const scheduledMins = plan.filter((s) => !s.missed).reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
+    const availableMins = availability.reduce((sum, d) => sum + d.hours * 60, 0);
+    if (availableMins === 0 || scheduledMins <= availableMins) return null;
+    const scheduledHrs = (scheduledMins / 60).toFixed(1);
+    const availableHrs = (availableMins / 60).toFixed(1);
+    return { scheduledHrs, availableHrs, overMins: scheduledMins - availableMins };
+  }, [plan, availability]);
 
   // Load cached plan on mount — show yesterday's sessions as missed for 24h, drop older ones
   useEffect(() => {
@@ -341,43 +412,46 @@ const StudyPlanScreen = ({ navigation }) => {
         if (filtered.length > 0) {
           setPlan(filtered);
           // Reschedule notifications for any remaining future sessions
-          scheduleStudyPlanReminders(filtered, user?.uid).catch(() => {});
+          if (isPro) scheduleStudyPlanReminders(filtered, user?.uid).catch(() => {});
         }
       } catch {}
     }).catch(() => {});
   }, [user?.uid]);
-  const progressAnim = useRef(new Animated.Value(0)).current;
-  const progressAnimation = useRef(null);
   const generateScale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (loading) {
-      progressAnim.setValue(0);
-      progressAnimation.current = Animated.timing(progressAnim, {
-        toValue: 0.88,
-        duration: 14000,
-        useNativeDriver: false,
-      });
-      progressAnimation.current.start();
-    } else {
-      progressAnimation.current?.stop();
-      Animated.timing(progressAnim, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: false,
-      }).start(() => progressAnim.setValue(0));
-    }
-  }, [loading]);
 
   const setHours = (index, hours) =>
     setAvailability((prev) => prev.map((d, i) => i === index ? { ...d, hours } : d));
 
-  const formatHoursDisplay = (h) => {
-    if (h === 0) return "Off";
-    if (h === 0.5) return "30m";
-    if (h % 1 === 0) return `${h}h`;
-    return `${Math.floor(h)}h 30m`;
-  };
+  const setAllHours = (hours) =>
+    setAvailability((prev) => prev.map((d) => ({ ...d, hours })));
+
+  const openDetail = useCallback((session) => {
+    setSelectedSession(session);
+    Animated.spring(detailSheetAnim, {
+      toValue: 1, useNativeDriver: true,
+      tension: 65, friction: 11,
+    }).start();
+  }, [detailSheetAnim]);
+
+  const closeDetail = useCallback(() => {
+    Animated.timing(detailSheetAnim, {
+      toValue: 0, duration: 220,
+      useNativeDriver: true,
+    }).start(() => setSelectedSession(null));
+  }, [detailSheetAnim]);
+
+  const openAvailSheet = useCallback(() => {
+    setShowAvailSheet(true);
+    Animated.spring(availSheetAnim, {
+      toValue: 1, useNativeDriver: true, tension: 65, friction: 11,
+    }).start();
+  }, [availSheetAnim]);
+
+  const closeAvailSheet = useCallback(() => {
+    Animated.timing(availSheetAnim, {
+      toValue: 0, duration: 220, useNativeDriver: true,
+    }).start(() => setShowAvailSheet(false));
+  }, [availSheetAnim]);
 
   const toggleSessionDone = useCallback((key) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -415,7 +489,7 @@ const StudyPlanScreen = ({ navigation }) => {
       AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: merged }))
         .then(() => DeviceEventEmitter.emit("studyPlanUpdated"))
         .catch(() => {});
-      scheduleStudyPlanReminders(result, user?.uid).catch(() => {});
+      if (isPro) scheduleStudyPlanReminders(result, user?.uid).catch(() => {});
     } catch (err) {
       Alert.alert("Couldn't generate plan", err.message ?? "Try again in a moment.");
     } finally {
@@ -442,14 +516,166 @@ const StudyPlanScreen = ({ navigation }) => {
       })).filter((d) => d.sessions.length > 0 || d.deadlines.length > 0)
     : [];
 
+  const detailTranslateY = detailSheetAnim.interpolate({
+    inputRange: [0, 1], outputRange: [400, 0],
+  });
+
   return (
     <View style={[styles.safe, { paddingTop: insets.top }]}>
+      {loading && (
+        <View style={[styles.loadingOverlay, { backgroundColor: colors.bg }]}>
+          <Mascot variant="writing" size={130} blink={false} />
+          <Text style={[styles.loadingBigLabel, { color: colors.textPrimary }]}>
+            {LOADING_MESSAGES[loadingMsgIdx]}
+          </Text>
+        </View>
+      )}
+
+      {/* Session detail sheet */}
+      {selectedSession && (
+        <Modal transparent animationType="none" onRequestClose={closeDetail}>
+          <Pressable style={styles.detailBackdrop} onPress={closeDetail}>
+            <Animated.View
+              style={[styles.detailSheet, { backgroundColor: colors.bgCard, transform: [{ translateY: detailTranslateY }] }]}
+            >
+              <Pressable onPress={() => {}}>
+                <View style={styles.detailHandle} />
+                <View style={styles.detailHeader}>
+                  {selectedSession.className && (
+                    <Text style={[styles.detailClass, { color: getClassColor(selectedSession.className, colors.isDark) }]}>
+                      {selectedSession.className}
+                    </Text>
+                  )}
+                  <Text style={[styles.detailTitle, { color: colors.textPrimary }]}>{selectedSession.sessionTitle}</Text>
+                  <View style={styles.detailMeta}>
+                    <View style={[styles.detailChip, { backgroundColor: colors.bgInput }]}>
+                      <Feather name="clock" size={11} color={colors.textMuted} />
+                      <Text style={[styles.detailChipText, { color: colors.textMuted }]}>{selectedSession.durationMinutes} min</Text>
+                    </View>
+                    {selectedSession.taskDueDate && (
+                      <View style={[styles.detailChip, { backgroundColor: colors.bgInput }]}>
+                        <Feather name="flag" size={11} color={colors.textMuted} />
+                        <Text style={[styles.detailChipText, { color: colors.textMuted }]}>Due {selectedSession.taskDueDate}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                {selectedSession.activity && (
+                  <Text style={[styles.detailActivity, { color: colors.textSecondary }]}>{selectedSession.activity}</Text>
+                )}
+                <TouchableOpacity
+                  style={[styles.detailDoneBtn, { backgroundColor: selectedSession.completed ? colors.bgInput : colors.accent }]}
+                  onPress={() => { toggleSessionDone(selectedSession._key); closeDetail(); }}
+                  activeOpacity={0.8}
+                >
+                  <Feather name={selectedSession.completed ? "x" : "check"} size={16} color={selectedSession.completed ? colors.textMuted : "#fff"} />
+                  <Text style={[styles.detailDoneBtnText, { color: selectedSession.completed ? colors.textMuted : "#fff" }]}>
+                    {selectedSession.completed ? "Mark Incomplete" : "Mark Done"}
+                  </Text>
+                </TouchableOpacity>
+              </Pressable>
+            </Animated.View>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* Availability sheet — shown over existing plan, non-destructive */}
+      {showAvailSheet && (
+        <Modal transparent animationType="none" onRequestClose={closeAvailSheet}>
+          <Pressable style={styles.detailBackdrop} onPress={closeAvailSheet}>
+            <Animated.View style={[
+              styles.availSheet,
+              { backgroundColor: colors.bgCard },
+              { transform: [{ translateY: availSheetAnim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] },
+            ]}>
+              <Pressable onPress={() => {}}>
+                <View style={styles.detailHandle} />
+                <Text style={[styles.availSheetTitle, { color: colors.textPrimary }]}>Adjust availability</Text>
+                <Text style={[styles.availSheetHint, { color: colors.textSecondary }]}>
+                  Update your free hours, then rebuild.
+                </Text>
+                <View style={[styles.setAllRow, { paddingHorizontal: 20, marginBottom: 8 }]}>
+                  {[1, 2, 3, 4].map((h) => (
+                    <TouchableOpacity
+                      key={h}
+                      style={[styles.setAllChip, { borderColor: colors.border, backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7" }]}
+                      onPress={() => { tap(); setAllHours(h); }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.setAllChipText, { color: colors.textSecondary }]}>All {h}h</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <ScrollView style={{ maxHeight: 340 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 6, paddingBottom: 8 }}>
+                  {availability.map((day, i) => {
+                    const dayInfo = scheduleByDay[i];
+                    return (
+                      <View key={day.date} style={[styles.availRow, { paddingRight: 0 }]}>
+                        <View style={styles.availRowTop}>
+                          <View style={styles.availDayInfo}>
+                            <Text style={styles.availDayName}>{day.label}</Text>
+                            <Text style={styles.availDayDate}>{day.dateLabel}</Text>
+                          </View>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.availChipScroll} contentContainerStyle={styles.availChipRow}>
+                            {TIME_PRESETS.map(({ label, value }) => {
+                              const selected = day.hours === value;
+                              return (
+                                <TouchableOpacity
+                                  key={value}
+                                  style={[styles.availChip, selected && styles.availChipSelected]}
+                                  onPress={() => { tap(); setHours(i, value); }}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={[styles.availChipText, selected && styles.availChipTextSelected]}>{label}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                        {dayInfo?.events?.length > 0 && (
+                          <View style={styles.availScheduleRow}>
+                            {dayInfo.events.map((evt) => (
+                              <View key={evt.id} style={[styles.availSchedulePill, evt.isClass && styles.availSchedulePillClass]}>
+                                <Feather name={evt.isClass ? "book" : "calendar"} size={9} color={evt.isClass ? colors.accent : colors.textMuted} />
+                                <Text style={[styles.availScheduleText, evt.isClass && styles.availScheduleTextClass]}>
+                                  {evt.title}{evt.time ? ` · ${evt.time}` : ""}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+                <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36, gap: 10 }}>
+                  <TouchableOpacity
+                    style={[styles.generateBtn, { backgroundColor: colors.accent, marginHorizontal: 0, marginTop: 0 }]}
+                    onPress={() => { closeAvailSheet(); setTimeout(handleGenerate, 250); }}
+                    activeOpacity={0.85}
+                  >
+                    <Feather name="edit-3" size={16} color="#fff" />
+                    <Text style={styles.generateBtnText}>Rebuild Plan</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </Animated.View>
+          </Pressable>
+        </Modal>
+      )}
+
       <View style={styles.header}>
-        <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-          <Feather name="x" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Build My Plan</Text>
-        <View style={{ width: 30 }} />
+        <Text style={styles.headerTitle}>My Plan</Text>
+        {plan && !loading && (
+          <TouchableOpacity
+            style={styles.headerAction}
+            onPress={openAvailSheet}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="refresh-cw" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+        {!plan && <View style={{ width: 30 }} />}
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}>
@@ -473,8 +699,21 @@ const StudyPlanScreen = ({ navigation }) => {
         ) : !plan ? (
           <>
             <Text style={styles.pickerHint}>
-              How many free hours do you have each day? I'll build a schedule around your tasks and deadlines.
+              How much free time do you have each day? Tally will build your sessions around it.
             </Text>
+
+            <View style={[styles.setAllRow, { paddingHorizontal: spacing.lg }]}>
+              {[1, 2, 3, 4].map((h) => (
+                <TouchableOpacity
+                  key={h}
+                  style={[styles.setAllChip, { borderColor: colors.border, backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7" }]}
+                  onPress={() => { tap(); setAllHours(h); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.setAllChipText, { color: colors.textSecondary }]}>All {h}h</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             <View style={styles.availList}>
               {availability.map((day, i) => {
@@ -536,20 +775,7 @@ const StudyPlanScreen = ({ navigation }) => {
               })}
             </View>
 
-            {loading ? (
-              <View style={styles.loadingWrap}>
-                <Text style={styles.loadingLabel}>Building your plan...</Text>
-                <View style={styles.progressTrack}>
-                  <Animated.View
-                    style={[styles.progressFill, {
-                      backgroundColor: colors.accent,
-                      width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
-                    }]}
-                  />
-                </View>
-                <Text style={styles.loadingSubLabel}>Analyzing your tasks and deadlines</Text>
-              </View>
-            ) : (
+            {!loading && (
               <Animated.View style={{ transform: [{ scale: generateScale }] }}>
                 <TouchableOpacity
                   style={[styles.generateBtn, { backgroundColor: colors.accent }]}
@@ -569,6 +795,15 @@ const StudyPlanScreen = ({ navigation }) => {
             <Text style={styles.planHint}>
               Prep sessions leading up to your deadlines. Times are up to you.
             </Text>
+
+            {overcommitment && (
+              <View style={[styles.overcommitBanner, { backgroundColor: colors.isDark ? "#2D1A1A" : "#FFF0EE", borderColor: "#FF6B6B" }]}>
+                <Feather name="alert-triangle" size={14} color="#FF6B6B" />
+                <Text style={[styles.overcommitText, { color: colors.isDark ? "#FF8888" : "#CC3333" }]}>
+                  {overcommitment.scheduledHrs}h of work, {overcommitment.availableHrs}h available — you're overcommitted. Something will slip unless you free up time.
+                </Text>
+              </View>
+            )}
 
             {missedSessions.length > 0 && (
               <View style={[styles.daySection, { opacity: 0.5 }]}>
@@ -614,7 +849,7 @@ const StudyPlanScreen = ({ navigation }) => {
                   </View>
 
                   {day.deadlines.map((t) => {
-                    const accentColor = colorForClass(t.className);
+                    const accentColor = getClassColor(t.className, colors.isDark);
                     return (
                       <View key={t.id} style={[styles.deadlineRow, { borderColor: accentColor + "55", backgroundColor: accentColor + "11" }]}>
                         <Feather name="flag" size={12} color={accentColor} style={{ marginTop: 1 }} />
@@ -629,10 +864,14 @@ const StudyPlanScreen = ({ navigation }) => {
 
                   {day.sessions.map((s, idx) => {
                     const key = s._key ?? `${s.date}_${idx}`;
-                    const accentColor = colorForClass(s.className);
+                    const accentColor = getClassColor(s.className, colors.isDark);
                     return (
-                      <View key={key} style={[styles.sessionCard, s.completed && { opacity: 0.45 }]}>
-                        {/* Circle checkbox */}
+                      <TouchableOpacity
+                        key={key}
+                        style={[styles.sessionCard, s.completed && { opacity: 0.4 }]}
+                        onPress={() => openDetail(s)}
+                        activeOpacity={0.75}
+                      >
                         <TouchableOpacity
                           style={styles.sessionCheck}
                           onPress={() => toggleSessionDone(key)}
@@ -648,27 +887,22 @@ const StudyPlanScreen = ({ navigation }) => {
                         <View style={[styles.sessionAccent, { backgroundColor: accentColor }]} />
                         <View style={styles.sessionBody}>
                           {s.className && (
-                            <View style={[styles.sessionClassTag, { backgroundColor: accentColor + "22", alignSelf: "flex-start", marginBottom: 5 }]}>
+                            <View style={[styles.sessionClassTag, { backgroundColor: accentColor + "22", alignSelf: "flex-start", marginBottom: 4 }]}>
                               <Text style={[styles.sessionClassText, { color: accentColor }]}>{s.className}</Text>
                             </View>
                           )}
                           <Text style={[styles.sessionTitle, s.completed && { textDecorationLine: "line-through", color: colors.textMuted }]}>
                             {s.sessionTitle}
                           </Text>
-                          {!s.completed && (s.taskDueDate || (s.taskTitle && s.taskTitle !== s.sessionTitle)) && (
-                            <Text style={styles.sessionSourceTask}>
-                              {s.taskTitle && s.taskTitle !== s.sessionTitle ? s.taskTitle : ""}
-                              {s.taskTitle && s.taskTitle !== s.sessionTitle && s.taskDueDate ? " · " : ""}
-                              {s.taskDueDate ? `due ${s.taskDueDate}` : ""}
-                            </Text>
+                          {!s.completed && s.taskDueDate && (
+                            <Text style={styles.sessionSourceTask}>due {s.taskDueDate}</Text>
                           )}
-                          {!s.completed && <Text style={styles.sessionActivity}>{s.activity}</Text>}
                         </View>
                         <View style={styles.durationBadge}>
                           <Text style={styles.durationText}>{s.durationMinutes}</Text>
                           <Text style={styles.durationUnit}>min</Text>
                         </View>
-                      </View>
+                      </TouchableOpacity>
                     );
                   })}
                 </View>
@@ -677,15 +911,11 @@ const StudyPlanScreen = ({ navigation }) => {
 
             <TouchableOpacity
               style={[styles.regenerateBtn, { borderColor: colors.border }]}
-              onPress={() => {
-                tap();
-                setPlan(null);
-                AsyncStorage.removeItem(PLAN_CACHE_KEY).catch(() => {});
-                cancelStudyPlanReminders(user?.uid).catch(() => {});
-              }}
+              onPress={openAvailSheet}
+              activeOpacity={0.7}
             >
-              <Feather name="chevron-left" size={14} color={colors.textMuted} />
-              <Text style={[styles.regenerateBtnText, { color: colors.textMuted }]}>Adjust availability</Text>
+              <Feather name="sliders" size={14} color={colors.textMuted} />
+              <Text style={[styles.regenerateBtnText, { color: colors.textMuted }]}>Change availability</Text>
             </TouchableOpacity>
           </>
         )}

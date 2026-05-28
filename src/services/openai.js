@@ -72,9 +72,9 @@ const safeParseJSON = (raw, type = "object") => {
   }
 };
 
-// System message applied to every call — defines Ace's character + prevents [ID:xxx] echoing
+// System message applied to every call — defines Tally's character + prevents [ID:xxx] echoing
 const BASE_SYSTEM =
-  "You are Ace, a sharp and genuinely encouraging academic coach inside Planora. Your tone is like a best friend who's really good at school — warm, real, and a little hyped when students are winning. Always address the student by name when you know it. Be honest when things are tight, but kind — never preachy. Celebrate wins loudly — use phrases like 'Let's go.', 'You're actually killing it right now.', 'Locked in.', 'That's a W.', 'You're ahead — enjoy it.' only on genuine wins (big streak, clear board, finishing early). Never use celebration language on stress or overdue situations. Use at most one exclamation point per response, only on real wins — never on warnings, overdue tasks, or pressure. Reference their actual classes, grades, and deadlines; never give advice that could apply to any random student. Keep it casual and direct. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output — these are internal only.";
+  "You are Tally, a sharp and genuinely encouraging academic coach inside Planora. Your tone is like a best friend who's really good at school — warm, fun, and a little hyped when students are winning. Always address the student by name when you know it. Be honest when things are tight, but kind — never preachy or robotic. Celebrate wins loudly — use phrases like 'Let's go.', 'You're actually killing it right now.', 'Locked in.', 'That's a W.', 'You're ahead — enjoy it.' only on genuine wins (big streak, clear board, finishing early). When things are stressful, be the calm hype person — acknowledge it's a lot, then redirect with one concrete next step. Never spiral into a list of warnings. Use at most one exclamation point per response, only on real wins. Reference their actual classes, tasks, and deadlines; never give advice that could apply to any random student. Keep it casual, direct, and a little fun. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output — these are internal only.";
 
 /**
  * Maps proxy/network errors to user-friendly messages.
@@ -300,7 +300,7 @@ Rules:
 - STRICT priority order: overdue first, then due today, then due this week, then HIGH priority tasks, then MEDIUM — NEVER pick a LOW priority task or a task due more than 2 weeks away if there are HIGH priority or sooner-due tasks available
 - Factor in assumed complexity using this order: final exam / midterm > major project / paper / presentation > quiz / discussion post > reading / participation — readings should almost never appear unless nothing more important exists
 - Use EXACT task IDs from the list above
-- insight: 1 sentence (max 18 words) in Ace's voice explaining the real stakes right now. Name something specific — a grade, a deadline, a pattern. Bad examples: "Stay focused, you've got this." / "These tasks will help you succeed." Good examples: "Your Chem exam is Thursday and it's not on your radar yet." / "Two things past due — pick the shorter one and get off zero."
+- insight: 1 sentence (max 18 words) in Tally's voice explaining the real stakes right now. Name something specific — a grade, a deadline, a pattern. Bad examples: "Stay focused, you've got this." / "These tasks will help you succeed." Good examples: "Your Chem exam is Thursday and it's not on your radar yet." / "Two things past due — pick the shorter one and get off zero."
 
 Respond ONLY with this JSON, no markdown:
 {
@@ -338,7 +338,7 @@ export const invalidateTodayFocusCache = () => {
   AsyncStorage.removeItem(FOCUS_CACHE_KEY).catch(() => {});
 };
 
-// ── 1b. Polish Ace's Brief paragraph ────────────────────────────
+// ── 1b. Polish Tally's Brief paragraph ────────────────────────────
 // Takes the choppy client-assembled brief, rewrites it as one cohesive paragraph.
 // Cached by content hash — only fires a new call when the brief actually changes.
 
@@ -370,7 +370,7 @@ export const polishAceBrief = async (rawBrief, name) => {
         { role: "system", content: BASE_SYSTEM },
         {
           role: "user",
-          content: `Rewrite the coaching brief below as one smooth, cohesive paragraph in Ace's voice. Keep EVERY fact, task name, and data point — don't drop anything. ${name ? `Use the student's name (${name}) once naturally.` : "Do not add a name."} Sound warm, casual, and genuinely encouraging — like a best friend who's really good at school and invested in their success. On genuine wins (clear board, big streak, finishing early) you can use phrases like "Let's go.", "You're actually killing it right now.", "Locked in.", "That's a W.", "You're ahead — enjoy it." — but only when the brief describes a real win. Use at most one exclamation point, only if the situation genuinely calls for it. Never use celebration language on stress, overdue tasks, or warnings. 2–4 sentences max. No bullet points, no lists, no headers.
+          content: `Rewrite the coaching brief below in Tally's voice. ${name ? `Use the student's name (${name}) once naturally.` : "Do not add a name."} Pick the 2-3 most important insights and drop the rest — the student needs what matters most, not everything. Each sentence must earn its place. Sound warm, casual, and a little fun — like a sharp friend who's genuinely rooting for them. Say "we" not "you should." On genuine wins (clear board, big streak, finishing early) use phrases like "Let's go.", "You're actually killing it right now.", "Locked in.", "That's a W." — only when it's a real win. Never use celebration language on stress, overdue tasks, or warnings. If study sessions for today are mentioned, weave them in naturally — they're part of the plan. Max 3 sentences. No bullet points, no lists, no headers.
 
 Brief:
 ${rawBrief}`,
@@ -417,7 +417,7 @@ export const getWhatDoIDo = async (tasks, userProfile, patterns) => {
     .join(", ") ?? "Not specified";
 
   const WHAT_DO_I_DO_SYSTEM =
-    "You are Ace, a sharp and encouraging academic coach. Address the student by name when you know it. Name the exact task, name the exact deadline, tell them exactly what to do in the first 10 minutes. Reference their actual situation — not generic advice. Be direct and warm — give them the confidence to start, then get out of the way. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output.";
+    "You are Tally, a sharp and encouraging academic coach. Address the student by name when you know it. Name the exact task, name the exact deadline, tell them exactly what to do in the first 10 minutes. Reference their actual situation — not generic advice. Be direct and warm — give them the confidence to start, then get out of the way. NEVER include [ID:xxx] tags, task IDs, or internal identifiers in any text output.";
 
   const wdidStyleMap = { "on-top": "stays on top of things", "procrastinator": "tends to procrastinate", "structured": "needs structure and reminders" };
   const wdidWorkStyle = userProfile?.learningStyle ? `Work style: ${wdidStyleMap[userProfile.learningStyle] ?? userProfile.learningStyle}` : null;
@@ -470,7 +470,7 @@ Respond ONLY with this JSON, no markdown:
 // ── 3. Academic Coach Chat ───────────────────────────────────
 
 const CHAT_SYSTEM = (contextBlock) =>
-  `You are Ace, the student's AI coach inside Planora. You know their actual classes, grades, and deadlines. Your tone is warm, encouraging, and a little casual — like a sharp friend who's genuinely rooting for them. Use their name naturally (not every sentence, but enough to feel personal). Say "we" not "you should." Be honest when things are tight, but always leave them feeling capable. Celebrate when they complete things — make it feel like a win. One emoji per response max, only when it fits. Keep responses concise (2-4 sentences) unless they ask for something detailed. Always reference their actual situation — never generic advice.
+  `You are Tally, the student's AI coach inside Planora. You know their actual classes, tasks, and deadlines. Your tone is fun, warm, and a little casual — like a sharp friend who's genuinely hyped for them to win. Use their name naturally. Say "we" not "you should." Be real when things are tight, but always leave them feeling like they can handle it. Celebrate completions like they matter — because they do. One emoji per response max, only when it genuinely fits. Keep responses punchy (2-4 sentences) unless they need detail. Always reference their actual situation — never generic advice.
 
 CLASS vs TASK rule (read this first): when the student asks about a CLASS (e.g. "which class should I worry about?"), answer with the class name (e.g. "HIST 101"), not a task title. When they ask about a specific task, use the task title. Never mix these up.
 
@@ -582,7 +582,7 @@ export const generateStudyPlan = async (tasks, userProfile, patterns, availabili
   const pending = (tasks ?? [])
     .filter((t) => !t.completed && t.dueDate)
     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-    .slice(0, 15);
+    .slice(0, 30);
 
   if (pending.length === 0) throw new Error("No upcoming tasks to plan around.");
 
@@ -775,22 +775,28 @@ Output ONLY a raw JSON array — no markdown, no explanation:
       { role: "user", content: prompt },
     ],
     temperature: 0.2,
-    max_tokens: 4000,
+    max_tokens: 8000,
   });
 
   const sessions = safeParseJSON(content.trim(), "array");
 
   const validIds = new Set(pending.map((t) => t.id));
 
-  return sessions
+  const resolveDate = (raw) => {
+    if (!raw) return new Date();
+    if (raw?.toDate) return raw.toDate();
+    if (raw?.seconds) return new Date(raw.seconds * 1000);
+    return new Date(raw);
+  };
+
+  const processed = sessions
     .filter((s) => validIds.has(s.taskId))
     .map((s) => {
       const task = pending.find((t) => t.id === s.taskId);
-      const dueDate = task.dueDate?.toDate ? task.dueDate.toDate() : task.dueDate?.seconds ? new Date(task.dueDate.seconds * 1000) : new Date(task.dueDate);
+      const dueDate = resolveDate(task.dueDate);
       const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
       const isOverdue = daysUntilDue < 0;
 
-      // Hard enforce in code: overdue → today, future → must be before due date
       let date = s.date;
       if (isOverdue) {
         date = todayStr;
@@ -798,7 +804,6 @@ Output ONLY a raw JSON array — no markdown, no explanation:
         const dueDateLocalStr = format(dueDate, "yyyy-MM-dd");
         const dayBeforeStr = format(addDays(dueDate, -1), "yyyy-MM-dd");
         if (date > dueDateLocalStr) {
-          // Session is after due date — move to day before, minimum today
           date = dayBeforeStr >= todayStr ? dayBeforeStr : todayStr;
         }
       }
@@ -812,6 +817,29 @@ Output ONLY a raw JSON array — no markdown, no explanation:
         taskDueDate: format(dueDate, "M/d"),
       };
     });
+
+  // Ensure every pending task has at least one session — AI sometimes skips tasks
+  const coveredIds = new Set(processed.map((s) => s.taskId));
+  for (const task of pending) {
+    if (coveredIds.has(task.id)) continue;
+    const dueDate = resolveDate(task.dueDate);
+    const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+    const isOverdue = daysUntilDue < 0;
+    const dayBeforeStr = format(addDays(dueDate, -1), "yyyy-MM-dd");
+    const date = isOverdue ? todayStr : (dayBeforeStr >= todayStr ? dayBeforeStr : todayStr);
+    processed.push({
+      taskId: task.id,
+      sessionTitle: task.title,
+      date,
+      durationMinutes: TASK_DURATION_MINUTES(task.title),
+      activity: `Work through ${task.title} before the deadline. Focus on making meaningful progress.`,
+      taskTitle: task.title,
+      className: task.className ?? null,
+      taskDueDate: format(dueDate, "M/d"),
+    });
+  }
+
+  return processed.sort((a, b) => a.date.localeCompare(b.date));
 };
 
 // ── 4. AI Priority Suggestion ────────────────────────────────

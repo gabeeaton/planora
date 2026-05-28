@@ -158,9 +158,9 @@ export default function TasksScreen() {
   const isEmpty = !loading && tasks.length === 0 && completedTasks.length === 0;
 
   return (
-    <View style={[s.safe, { paddingTop: insets.top }]}>
+    <View style={s.safe}>
       {/* Header */}
-      <View style={s.header}>
+      <View style={[s.header, { paddingTop: insets.top + 2 }]}>
         <Text style={s.title}>Tasks</Text>
         <TouchableOpacity
           style={s.addBtn}

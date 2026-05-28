@@ -33,6 +33,7 @@ import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../hooks/useAuth";
 import { useTasks } from "../hooks/useTasks";
 import { spacing, radius, shadows, typography, getClassColor, priorityColors, priorityGlow } from "../utils/theme";
+import Mascot from "../components/Mascot";
 import ClassTag from "../components/ClassTag";
 import { useTheme } from "../utils/ThemeContext";
 import { saveUserProfile } from "../services/firebase";
@@ -1765,11 +1766,7 @@ const OnboardingScreen = ({ navigation }) => {
           opacity: vpLogoAnim,
           transform: [{ scale: vpLogoAnim.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) }],
         }]}>
-          <Image
-            source={require("../assets/logo-purple.png")}
-            style={styles.valuePropLogo}
-            resizeMode="contain"
-          />
+          <Mascot variant="wave" size={100} />
         </Animated.View>
 
         {/* Headline + subtitle */}

@@ -311,7 +311,7 @@ const TaskCard = ({
       },
       onPanResponderTerminate: () => {
         thresholdHapticFired.current = false;
-        Animated.spring(swipeX, { toValue: 0, useNativeDriver: true }).start();
+        Animated.spring(swipeX, { toValue: 0, useNativeDriver: true, speed: 40, bounciness: 8 }).start();
       },
     })
   ).current;

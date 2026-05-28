@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Animated, Linking
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../utils/ThemeContext";
 import { useTasks } from "../hooks/useTasks";
 import { spacing, radius } from "../utils/theme";
@@ -45,10 +44,9 @@ const openMusic = (app) => {
   Linking.openURL(app.appUrl).catch(() => Linking.openURL(app.url).catch(() => {}));
 };
 
-export default function FocusScreen() {
+export default function FocusScreen({ navigation }) {
   const { colors } = useTheme();
   const s = makeStyles(colors);
-  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const real = useTasks();
   const pendingTasks = DEMO_MODE ? DEMO_TASKS : real.pendingTasks;
@@ -88,9 +86,9 @@ export default function FocusScreen() {
   const pColors = priorityColors(colors.isDark);
 
   return (
-    <View style={[s.safe, { paddingTop: insets.top }]}>
+    <View style={s.safe}>
       {/* Purple header */}
-      <View style={s.header}>
+      <View style={[s.header, { paddingTop: insets.top + 2 }]}>
         <View style={StyleSheet.absoluteFill} pointerEvents="none" collapsable={false}>
           <View style={s.decoOrb} />
           <View style={[s.decoOrb, { width: 60, height: 60, right: 70, top: 8, opacity: 0.6 }]} />

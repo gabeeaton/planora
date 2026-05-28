@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, Modal, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert,
+  ScrollView, ActivityIndicator, Alert, Animated,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +15,34 @@ export default function NewSemesterPrompt({ visible, oldSemester, userId, school
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState(null);
   const [loading, setLoading]   = useState(false);
+
+  const sheetY       = useRef(new Animated.Value(520)).current;
+  const backdropFade = useRef(new Animated.Value(0)).current;
+  const actionsOpacity = useRef(new Animated.Value(0)).current;
+  const actionsTransY  = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    if (visible) {
+      sheetY.setValue(520);
+      backdropFade.setValue(0);
+      Animated.parallel([
+        Animated.timing(backdropFade, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.spring(sheetY, { toValue: 0, speed: 18, bounciness: 4, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (selected) {
+      Animated.parallel([
+        Animated.spring(actionsOpacity, { toValue: 1, speed: 28, bounciness: 0, useNativeDriver: true }),
+        Animated.spring(actionsTransY,  { toValue: 0, speed: 28, bounciness: 6, useNativeDriver: true }),
+      ]).start();
+    } else {
+      actionsOpacity.setValue(0);
+      actionsTransY.setValue(10);
+    }
+  }, [selected]);
 
   // Only show current + upcoming terms — no going back to old semesters
   const terms = generateUpcomingTerms(schoolSystem ?? "semester").filter((t) => t !== oldSemester);
@@ -70,9 +98,9 @@ export default function NewSemesterPrompt({ visible, oldSemester, userId, school
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={handleLater}>
-      <View style={styles.backdrop}>
-        <View style={[styles.sheet, { backgroundColor: sheetBg, paddingBottom: Math.max(insets.bottom, 20) }]}>
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={handleLater}>
+      <Animated.View style={[styles.backdrop, { opacity: backdropFade }]}>
+        <Animated.View style={[styles.sheet, { backgroundColor: sheetBg, paddingBottom: Math.max(insets.bottom, 20), transform: [{ translateY: sheetY }] }]}>
           <View style={[styles.handle, { backgroundColor: colors.isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }]} />
 
           <Text style={styles.emoji}>🎓</Text>
@@ -102,36 +130,37 @@ export default function NewSemesterPrompt({ visible, oldSemester, userId, school
             ))}
           </ScrollView>
 
-          {selected && (
-            <View style={styles.actions}>
-              {loading ? (
-                <ActivityIndicator color={colors.accent} style={{ marginVertical: 16 }} />
-              ) : (
-                <>
-                  <TouchableOpacity
-                    style={[styles.btn, { backgroundColor: colors.accent }]}
-                    onPress={handleSwitch}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnLabel}>Switch to {selected}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.btnOutline, { borderColor: rowBorder }]}
-                    onPress={handleSwitchAndClear}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.btnOutlineLabel, { color: textSub }]}>Switch & Clear Old Tasks</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
-          )}
+          <Animated.View
+            pointerEvents={selected ? "auto" : "none"}
+            style={[styles.actions, { opacity: actionsOpacity, transform: [{ translateY: actionsTransY }] }]}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.accent} style={{ marginVertical: 16 }} />
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.btn, { backgroundColor: colors.accent }]}
+                  onPress={handleSwitch}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.btnLabel}>Switch to {selected || ""}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btnOutline, { borderColor: rowBorder }]}
+                  onPress={handleSwitchAndClear}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.btnOutlineLabel, { color: textSub }]}>Switch & Clear Old Tasks</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </Animated.View>
 
           <TouchableOpacity onPress={handleLater} style={styles.laterBtn} activeOpacity={0.6}>
             <Text style={[styles.laterLabel, { color: textSub }]}>Remind me later</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 }

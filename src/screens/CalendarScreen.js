@@ -14,7 +14,6 @@ import { useTheme } from "../utils/ThemeContext";
 import { useCalendarEvents } from "../hooks/useCalendarEvents";
 import { useTasks } from "../hooks/useTasks";
 import { useSubscription } from "../hooks/useSubscription";
-import { useNavigation } from "@react-navigation/native";
 import { spacing } from "../utils/theme";
 import * as Haptics from "expo-haptics";
 import { AddTaskContext } from "../contexts/AddTaskContext";
@@ -97,11 +96,10 @@ const isEventNow = (ev) => {
   } catch { return false; }
 };
 
-export default function CalendarScreen() {
+export default function CalendarScreen({ navigation }) {
   const { colors } = useTheme();
   const s = makeStyles(colors);
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
   const { isPro } = useSubscription();
   const realCal = useCalendarEvents(!DEMO_MODE);
   const realTasks = useTasks();
@@ -192,10 +190,10 @@ export default function CalendarScreen() {
 
   return (
     // Outer container: accent strip + fixed grid + scrollable day panel
-    <View style={[s.safe, { paddingTop: insets.top }]}>
+    <View style={s.safe}>
 
       {/* ── Accent strip (FIXED — never scrolls) ── */}
-      <View style={s.accentStrip}>
+      <View style={[s.accentStrip, { paddingTop: insets.top + 2 }]}>
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <View style={s.decoOrb} />
           <View style={[s.decoOrb, { width: 60, height: 60, right: 70, top: 6, opacity: 0.6 }]} />

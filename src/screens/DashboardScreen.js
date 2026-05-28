@@ -24,7 +24,6 @@ import {
   UIManager,
   InteractionManager,
   DeviceEventEmitter,
-  Image,
 } from "react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -46,7 +45,7 @@ import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../serv
 import * as Notifications from "expo-notifications";
 import { typography, spacing, radius, shadows, getClassColor } from "../utils/theme";
 import { getSemesterStart } from "../utils/termHelpers";
-const ACE_LOGO = require("../assets/logo.png");
+import Mascot from "../components/Mascot";
 import { useTheme } from "../utils/ThemeContext";
 import CompletionBurst from "../components/CompletionBurst";
 import TodaySchedule from "../components/TodaySchedule";
@@ -106,6 +105,7 @@ const makeStyles = (colors, insets) =>
       flexShrink: 0,
     },
     profileAvatarText: { fontSize: 15, fontFamily: "Outfit-Bold", color: "#fff" },
+    calendarBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center", marginRight: 4 },
     greeting: {
       fontFamily: "Outfit-ExtraBold", fontSize: 24,
       color: "#fff", letterSpacing: -0.3, lineHeight: 30,
@@ -152,11 +152,11 @@ const makeStyles = (colors, insets) =>
     dueTodayLabel: {
       fontSize: 12, fontFamily: "Outfit-SemiBold", color: "rgba(255,255,255,0.92)",
     },
-    // ── Unified Ace card ──────────────────────────────────────
+    // ── Unified Tally card ──────────────────────────────────────
     aceCard: {
       backgroundColor: colors.isDark ? colors.bgCard : "#fff",
       borderRadius: 16,
-      borderWidth: 1, borderColor: colors.isDark ? colors.border : "#E8E8F0",
+      borderWidth: colors.isDark ? 1 : 0, borderColor: colors.border,
       borderLeftWidth: 4, borderLeftColor: colors.accent,
       overflow: "hidden",
       ...(colors.isDark ? {} : {
@@ -168,7 +168,6 @@ const makeStyles = (colors, insets) =>
       flexDirection: "row", alignItems: "center", gap: 10,
       paddingHorizontal: spacing.md, paddingTop: 14, paddingBottom: 8,
     },
-    aceCardLogo: { width: 52, height: 52, flexShrink: 0 },
     aceCardName: {
       fontSize: 14, fontFamily: "Outfit-ExtraBold",
       color: colors.accent, letterSpacing: 0.2, flex: 1,
@@ -1230,7 +1229,7 @@ const DashboardScreen = ({ navigation }) => {
     navigation.navigate("FocusMode", { task: serializeTask(task) });
   };
 
-  const COACH_NAME = "Ace"; // ← change this to swap the AI character name everywhere
+  const COACH_NAME = "Tally"; // ← change this to swap the AI character name everywhere
 
   const greeting = () => {
     const h = now.getHours();
@@ -1252,7 +1251,7 @@ const DashboardScreen = ({ navigation }) => {
   };
 
   // Full coaching brief — built from all available client-side data, no API call.
-  // Ace's voice: direct, honest, dry when warranted. Rooting for you but never hollow.
+  // Tally's voice: direct, honest, dry when warranted. Rooting for you but never hollow.
   const aceBrief = useMemo(() => {
     if (loading || tasks.length === 0) return null;
     const h = now.getHours();
@@ -1467,8 +1466,45 @@ const DashboardScreen = ({ navigation }) => {
       }
     }
 
+    // ── PART 11: Study plan sessions for today ────────────────────
+    if (todayPlanSessions.length > 0 && overdueTasks.length === 0) {
+      if (todayPlanSessions.length === 1) {
+        parts.push(`Your plan has one session lined up for today: "${todayPlanSessions[0].sessionTitle}" — that's your main event.`);
+      } else {
+        const titles = todayPlanSessions.slice(0, 2).map((s) => `"${s.sessionTitle}"`).join(" and ");
+        parts.push(`Your plan has ${todayPlanSessions.length} sessions today — ${titles}${todayPlanSessions.length > 2 ? " and more" : ""}. Stick to it.`);
+      }
+    }
+
+    // ── PART 12: Full week workload ───────────────────────────────
+    if (weekTotal >= 4 && overdueTasks.length === 0 && todaysTasks.length === 0 && parts.length <= 1) {
+      parts.push(`${weekTotal} things due this week — it's a busy one. Chipping away early is the move.`);
+    }
+
+    // ── PART 13: Plan completion progress for today ───────────────
+    const completedPlanToday = (todayPlanSessions ?? []).filter((s) => s.completed).length;
+    const totalPlanToday = (todayPlanSessions ?? []).length + completedPlanToday;
+    if (totalPlanToday >= 2 && completedPlanToday > 0 && overdueTasks.length === 0) {
+      if (completedPlanToday === totalPlanToday) {
+        parts.push(`All of today's plan sessions are done. That's a W — seriously.`);
+      } else {
+        parts.push(`${completedPlanToday} of ${totalPlanToday} plan sessions done today — keep that momentum going.`);
+      }
+    }
+
+    // ── PART 14: Weekend-specific context ────────────────────────
+    if (dayOfWeek === 5 && overdueTasks.length === 0 && parts.length <= 1) {
+      parts.push(weekTotal >= 3
+        ? `It's Friday — ${weekTotal} things coming up next week. A little work this weekend goes a long way.`
+        : `It's Friday — light week ahead. Use the weekend buffer to stay in front of it.`
+      );
+    } else if (dayOfWeek === 6 && overdueTasks.length === 0 && parts.length <= 1 && weekTotal > 0) {
+      parts.push(`Saturday — low pressure, but a bit of progress now saves Sunday stress. Even one task moves the needle.`);
+    }
+
     return parts.filter(Boolean).join(" ") || null;
-  }, [loading, tasks, pendingTasks, todaysTasks, enrichedTasks, patterns, streak, now, calEvents, profile?.classSchedule, profile?.name]);
+  }, [loading, tasks, pendingTasks, todaysTasks, enrichedTasks, patterns, streak, now, calEvents, profile?.classSchedule, profile?.name, todayPlanSessions]);
+
 
   // ── Polish aceBrief via AI — cached by content, falls back to raw on failure ──
   const [polishedBrief, setPolishedBrief] = useState(null);
@@ -1606,9 +1642,9 @@ const DashboardScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={[styles.safe, { paddingTop: insets.top }]}>
+    <View style={styles.safe}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 2 }]}>
         {/* Decorative background — sparkles + glow orb */}
         <View style={StyleSheet.absoluteFill} pointerEvents="none" collapsable={false}>
           <View style={[styles.decoOrb, { backgroundColor: "rgba(255,255,255,0.12)", right: -30, top: -30 }]} />
@@ -1650,20 +1686,6 @@ const DashboardScreen = ({ navigation }) => {
           )}
           <View style={{ flex: 1 }} />
           <TouchableOpacity
-            ref={studyPlanBtnRef}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              navigation.navigate(isPro ? "StudyPlan" : "Paywall");
-            }}
-            style={styles.actionChip}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            onLayout={() => measureBtn(studyPlanBtnRef, "studyPlan")}
-            activeOpacity={0.7}
-          >
-            <Feather name="edit-3" size={12} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.actionChipText}>Plan</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             ref={syllabusBtnRef}
             onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("SyllabusParser"); }}
             style={styles.actionChip}
@@ -1673,6 +1695,15 @@ const DashboardScreen = ({ navigation }) => {
           >
             <Feather name="upload-cloud" size={12} color="rgba(255,255,255,0.9)" />
             <Text style={styles.actionChipText}>Sync</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionChip}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); navigation.navigate("Calendar"); }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            activeOpacity={0.7}
+          >
+            <Feather name="calendar" size={12} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.actionChipText}>Calendar</Text>
           </TouchableOpacity>
         </View>
 
@@ -1758,7 +1789,7 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.icsResyncTitle}>Re-sync your calendar</Text>
             </View>
             <Text style={styles.icsResyncSub}>
-              {"You're in a new semester. Re-sync your calendar feed so Ace has your latest assignments and deadlines."}
+              {"You're in a new semester. Re-sync your calendar feed so Tally has your latest assignments and deadlines."}
             </Text>
             <View style={styles.icsResyncActions}>
               <TouchableOpacity
@@ -1776,7 +1807,7 @@ const DashboardScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* ── Ace coaching card — full paragraph from client-side data ── */}
+        {/* ── Tally coaching card — full paragraph from client-side data ── */}
         {aceBrief && (
           <View
             ref={insightStripRef}
@@ -1785,8 +1816,8 @@ const DashboardScreen = ({ navigation }) => {
             onLayout={() => setTimeout(() => measureBtn(insightStripRef, "insightStrip", 16), 150)}
           >
             <View style={styles.aceCardHeader}>
-              <Image source={ACE_LOGO} style={styles.aceCardLogo} resizeMode="contain" />
-              <Text style={styles.aceCardName}>Ace's Brief</Text>
+              <Mascot variant="alive" size={44} />
+              <Text style={styles.aceCardName}>Tally's Brief</Text>
               <Text style={styles.aceCardSparkle}>✦</Text>
             </View>
             <Text style={styles.aceCardMessage}>{polishedBrief ?? aceBrief}</Text>
@@ -1832,20 +1863,6 @@ const DashboardScreen = ({ navigation }) => {
         </View> */}
 
         {/* Today's / Upcoming schedule */}
-        {(todayDisplayEvents.length > 0 || upcomingDisplayEvents.length > 0) && (
-          <View
-            style={{ marginTop: 12 }}
-            ref={todayScheduleRef}
-            onLayout={() => setTimeout(() => measureBtn(todayScheduleRef, "todaySchedule", 16), 200)}
-          >
-            <TodaySchedule
-              events={scheduleView === "today" ? todayDisplayEvents : upcomingDisplayEvents}
-              view={scheduleView}
-              onToggleView={setScheduleView}
-              onSeeAll={calStatus === "granted" ? () => navigation.navigate("Calendar") : undefined}
-            />
-          </View>
-        )}
 
       </ScrollView>
 

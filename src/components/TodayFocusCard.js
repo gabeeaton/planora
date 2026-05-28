@@ -12,11 +12,11 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import {
-  View, Text, StyleSheet, ActivityIndicator, Animated, TouchableOpacity, Image,
+  View, Text, StyleSheet, ActivityIndicator, Animated, TouchableOpacity,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { spacing, radius, priorityColors } from "../utils/theme";
-const ACE_LOGO = require("../assets/logo.png");
+import Mascot from "./Mascot";
 import { useTheme } from "../utils/ThemeContext";
 import { getTodayFocus, invalidateTodayFocusCache } from "../services/openai";
 import { isToday, isTomorrow, differenceInCalendarDays } from "date-fns";
@@ -69,9 +69,9 @@ const FocusTaskRow = ({ task, idx, isLast, onPress, styles, colors, PRIORITY_COL
 
   useEffect(() => {
     Animated.sequence([
-      Animated.delay(180 + idx * 70),
+      Animated.delay(60 + idx * 55),
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
         Animated.spring(translateY, { toValue: 0, speed: 28, bounciness: 0, useNativeDriver: true }),
       ]),
     ]).start();
@@ -144,7 +144,6 @@ const makeStyles = (colors) => StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 10,
     paddingHorizontal: spacing.md, paddingTop: 14, paddingBottom: 8,
   },
-  aceLogo: { width: 52, height: 52, flexShrink: 0 },
   headerLabel: {
     fontSize: 14, fontFamily: "Outfit-ExtraBold", color: colors.accent,
     letterSpacing: 0.2, flex: 1,
@@ -311,8 +310,8 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
   return (
     <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.header}>
-        <Image source={ACE_LOGO} style={styles.aceLogo} resizeMode="contain" />
-        <Text style={styles.headerLabel}>Ace's picks</Text>
+        <Mascot variant="alive" size={42} />
+        <Text style={styles.headerLabel}>Tally's picks</Text>
         <TouchableOpacity onPress={retry} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Feather name="refresh-cw" size={13} color={colors.textMuted} />
         </TouchableOpacity>

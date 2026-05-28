@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  View, Text, Image, TouchableOpacity, StyleSheet, Alert,
+  View, Text, TouchableOpacity, StyleSheet, Alert,
   Animated, ScrollView, useWindowDimensions, DeviceEventEmitter,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-const ACE_LOGO = require("../assets/logo.png");
+import Mascot from "./Mascot";
 import { Feather } from "@expo/vector-icons";
 import { useTheme } from "../utils/ThemeContext";
 import { useWalkthroughTargets } from "../utils/WalkthroughContext";
@@ -12,14 +12,14 @@ import { useWalkthroughTargets } from "../utils/WalkthroughContext";
 const DARK = "rgba(0,0,0,0.76)";
 const PAD  = 4;
 
-// Step 0 is the Ace intro — no spotlight, full-screen welcome
+// Step 0 is the Tally intro — no spotlight, full-screen welcome
 const STEPS = [
   { key: "intro", isIntro: true },
   {
     key:   "insightStrip",
     icon:  "cpu",
-    title: "Ace's read on your week",
-    desc:  "Every time you open the app, Ace scans your deadlines, grades, and patterns — then gives you a coaching note. No fluff, just what you need to hear.",
+    title: "Tally's read on your week",
+    desc:  "Every time you open the app, Tally scans your deadlines, grades, and patterns — then gives you a coaching note. No fluff, just what you need to hear.",
     tooltipSide: "below",
     pad: 4,
     optional: true,
@@ -37,7 +37,7 @@ const STEPS = [
     key:   "todayFocus",
     icon:  "zap",
     title: "What to work on next",
-    desc:  "Ace ranks your highest-priority task and puts it front and center. Tap Start to jump in, or swipe to move on.",
+    desc:  "Tally ranks your highest-priority task and puts it front and center. Tap Start to jump in, or swipe to move on.",
     tooltipSide: "below",
     pad: 4,
     optional: true,
@@ -54,8 +54,8 @@ const STEPS = [
   {
     key:      "aceBtn",
     icon:     "message-circle",
-    title:    "Meet Ace",
-    desc:     "Tap the Ace button anytime to ask what to work on, get study advice, or talk through your workload.",
+    title:    "Meet Tally",
+    desc:     "Tap the Tally button anytime to ask what to work on, get study advice, or talk through your workload.",
     tooltipSide: "above",
     optional: true,
     pad: 6,
@@ -64,7 +64,7 @@ const STEPS = [
     key:      "priorityBadge",
     icon:     "zap",
     title:    "Priority labels",
-    desc:     "Tap any badge to see why Ace ranked it High, Medium, or Low. Priority updates automatically as deadlines approach.",
+    desc:     "Tap any badge to see why Tally ranked it High, Medium, or Low. Priority updates automatically as deadlines approach.",
     tooltipSide: "above",
     optional: true,
   },
@@ -86,7 +86,7 @@ const STEPS = [
   {
     key:   "chatTab",
     icon:  "message-circle",
-    title: "Chat with Ace",
+    title: "Chat with Tally",
     desc:  "Have a full conversation — ask what to work on next, get study tips, or talk through your entire workload.",
     tooltipSide: "above",
   },
@@ -94,7 +94,7 @@ const STEPS = [
     key:   "calendarTab",
     icon:  "calendar",
     title: "Your schedule",
-    desc:  "See your calendar events alongside your deadlines. Tap Plan to let Ace build your study week.",
+    desc:  "See your calendar events alongside your deadlines. Tap Plan to let Tally build your study week.",
     tooltipSide: "above",
   },
   {
@@ -182,7 +182,7 @@ function IntroScreen({ colors, onNext, onDismiss }) {
   const PILLS = [
     { icon: "zap",            label: "Smart Priority" },
     { icon: "edit-3",         label: "Study Plans" },
-    { icon: "message-circle", label: "Ask Ace" },
+    { icon: "message-circle", label: "Ask Tally" },
   ];
 
   return (
@@ -194,28 +194,32 @@ function IntroScreen({ colors, onNext, onDismiss }) {
         bounces
         decelerationRate="fast"
       >
-        {/* Logo + pulsing glow */}
+        {/* Mascot + pulsing glow rings */}
         <Animated.View style={[intro.logoArea, { transform: [{ scale: logoScale }] }]}>
+          {/* Outer soft ring */}
+          <Animated.View style={[
+            intro.logoGlowOuter,
+            {
+              backgroundColor: colors.accent + "12",
+              opacity: glowAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.4, 0.1, 0.4] }),
+              transform: [{ scale: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [1.0, 1.22] }) }],
+            },
+          ]} />
+          {/* Inner glow */}
           <Animated.View style={[
             intro.logoGlow,
             {
-              backgroundColor: colors.accent + "30",
-              opacity: glowAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.5, 0.15, 0.5] }),
-              transform: [{ scale: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [1.0, 1.18] }) }],
+              backgroundColor: colors.accent + "28",
+              opacity: glowAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.7, 0.25, 0.7] }),
+              transform: [{ scale: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [1.0, 1.14] }) }],
             },
           ]} />
-          <View style={[intro.logoWrap, {
-            backgroundColor: "rgba(255,255,255,0.06)",
-            borderWidth: 1,
-            borderColor: colors.accent + "45",
-          }]}>
-            <Image source={ACE_LOGO} style={intro.logo} resizeMode="contain" />
-          </View>
+          <Mascot variant="wave" size={130} />
         </Animated.View>
 
         {/* Title */}
         <Animated.Text style={[intro.title, { opacity: titleOpacity, transform: [{ translateY: titleSlide }] }]}>
-          Hi, I'm Ace.
+          Hi, I'm Tally.
         </Animated.Text>
 
         {/* Subtitle */}
@@ -355,7 +359,7 @@ export default function WalkthroughOverlay({ onDone, fabBottom = 0 }) {
   // ── Intro step ──────────────────────────────────────────────
   if (current.isIntro) {
     return (
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.94)" }]} pointerEvents="auto">
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.96)", zIndex: 999 }]} pointerEvents="auto">
         <IntroScreen colors={colors} onNext={advance} onDismiss={dismiss} />
       </View>
     );
@@ -490,55 +494,50 @@ const intro = StyleSheet.create({
     paddingVertical: 48,
   },
   logoArea: {
-    width: 150, height: 150,
+    width: 200, height: 200,
     alignItems: "center", justifyContent: "center",
-    marginBottom: 36,
+    marginBottom: 32,
+  },
+  logoGlowOuter: {
+    position: "absolute",
+    width: 260, height: 260, borderRadius: 999,
   },
   logoGlow: {
     position: "absolute",
-    width: 172, height: 172, borderRadius: 46,
-    top: -11, left: -11,
+    width: 200, height: 200, borderRadius: 999,
   },
-  logoWrap: {
-    width: 148, height: 148, borderRadius: 38,
-    alignItems: "center", justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25, shadowRadius: 16, elevation: 8,
-  },
-  logo: { width: 120, height: 120 },
   title: {
-    fontFamily: "Outfit-ExtraBold", fontSize: 36,
+    fontFamily: "Outfit-ExtraBold", fontSize: 38,
     color: "#fff", textAlign: "center",
-    letterSpacing: -0.8, marginBottom: 12, lineHeight: 42,
+    letterSpacing: -1, marginBottom: 14, lineHeight: 44,
   },
   sub: {
-    fontFamily: "Outfit-Regular", fontSize: 14,
-    color: "rgba(255,255,255,0.65)", textAlign: "center",
-    lineHeight: 21, marginBottom: 22, paddingHorizontal: 4,
+    fontFamily: "Outfit-Regular", fontSize: 15,
+    color: "rgba(255,255,255,0.6)", textAlign: "center",
+    lineHeight: 23, marginBottom: 28, paddingHorizontal: 4,
   },
   pillRow: {
-    flexDirection: "row", gap: 8, marginBottom: 36, flexWrap: "wrap", justifyContent: "center",
+    flexDirection: "row", gap: 8, marginBottom: 40, flexWrap: "wrap", justifyContent: "center",
   },
   pill: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    borderRadius: 20, borderWidth: 1,
-    paddingHorizontal: 11, paddingVertical: 6,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderRadius: 999, borderWidth: 1,
+    paddingHorizontal: 14, paddingVertical: 8,
   },
-  pillText: { fontFamily: "Outfit-SemiBold", fontSize: 12 },
+  pillText: { fontFamily: "Outfit-SemiBold", fontSize: 13 },
   btnWrap: { width: "100%" },
   btn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    paddingHorizontal: 28, paddingVertical: 16,
-    borderRadius: 16, width: "100%",
+    paddingHorizontal: 28, paddingVertical: 17,
+    borderRadius: 18, width: "100%",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
   },
-  btnText: { fontFamily: "Outfit-Bold", fontSize: 16, color: "#fff" },
+  btnText: { fontFamily: "Outfit-Bold", fontSize: 17, color: "#fff" },
   skip: {
     fontFamily: "Outfit-Medium", fontSize: 13,
-    color: "rgba(255,255,255,0.35)", textAlign: "center",
+    color: "rgba(255,255,255,0.3)", textAlign: "center",
   },
 });
 

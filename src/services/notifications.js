@@ -485,7 +485,7 @@ export const scheduleStudyPlanReminders = async (plan, uid) => {
       try {
         const id = await Notifications.scheduleNotificationAsync({
           content: {
-            title: "📚 Today's study plan",
+            title: "Tally's got your day planned 📚",
             body,
             data: { type: "study-plan-reminder", date: dateStr },
             sound: true,

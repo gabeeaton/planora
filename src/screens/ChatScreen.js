@@ -14,8 +14,7 @@ import {
   FlatList, KeyboardAvoidingView, Platform,
   Alert, Animated, Modal, ScrollView, Image,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../utils/ThemeContext";
@@ -29,14 +28,14 @@ import { useCalendarEvents } from "../hooks/useCalendarEvents";
 import { spacing, radius, typography } from "../utils/theme";
 import * as Haptics from "expo-haptics";
 
-const ACE_LOGO    = require("../assets/logo.png");
+import Mascot from "../components/Mascot";
 const HISTORY_KEY = (uid) => `@planora_chat_${uid}`;
 const MAX_STORED      = 60; // messages kept in AsyncStorage
 const FREE_DAILY_LIMIT = 5;
 const todayKey        = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 const COUNT_KEY       = (uid) => `@planora_chat_count_${uid}_${todayKey()}`;
 
-const COACH_NAME = "Ace"; // ← change to swap the AI character name everywhere
+const COACH_NAME = "Tally"; // ← change to swap the AI character name everywhere
 
 // ── Intro message tail (varies each open) ─────────────────────
 const INTRO_TAILS = [
@@ -59,14 +58,14 @@ const ACTION_STARTERS = [
   { text: "Break this down into subtasks",    sub: "Adds them to your task list",    icon: "git-branch" },
   { text: "Move a task to a different date",  sub: "Reschedules it in your list",    icon: "calendar"   },
   { text: "Mark a task as done",              sub: "Completes it instantly",          icon: "check-circle"},
-  { text: "Log a grade on an assignment",     sub: "Saves it to the task",           icon: "award"      },
+  { text: "What should I work on first?",     sub: "Tally ranks by urgency",         icon: "zap"        },
 ];
 
 // ── Capabilities sheet data ────────────────────────────────────
 const CAPABILITIES = [
   { section: "Ask anything" },
   { icon: "help-circle",    text: "How am I tracking this week?",      sub: "Real assessment of your workload" },
-  { icon: "alert-triangle", text: "What's most urgent right now?",     sub: "Ranked by deadline and grade impact" },
+  { icon: "alert-triangle", text: "What's most urgent right now?",     sub: "Ranked by deadline and priority" },
   { icon: "layers",         text: "Which class needs attention?",      sub: "Based on upcoming due dates" },
   { icon: "message-circle", text: "I'm overwhelmed — what do I do?",  sub: "Step-by-step plan from your tasks" },
   { section: "Actions it can take" },
@@ -149,7 +148,7 @@ const MessageBubble = React.memo(({ item, styles, colors }) => {
   return (
     <Animated.View style={[styles.bubbleRow, isUser && styles.bubbleRowUser, { opacity, transform: [{ translateY }] }]}>
       {!isUser && (
-        <Image source={ACE_LOGO} style={styles.avatar} />
+        <Image source={require("../assets/mascot-rn/assets/mascot.png")} style={{ width: 42, height: 42, resizeMode: "contain" }} />
       )}
       <View style={[
         styles.bubble,
@@ -170,10 +169,9 @@ const MessageBubble = React.memo(({ item, styles, colors }) => {
   );
 });
 
-export default function ChatScreen() {
+export default function ChatScreen({ navigation, route }) {
   const { colors }                   = useTheme();
-  const navigation                   = useNavigation();
-  const route                        = useRoute();
+  const insets                       = useSafeAreaInsets();
   const { user }                     = useAuth();
   const { tasks, patterns, createTask, createManyTasks, editTask, completeTask } = useTasks();
   const { profile }                  = useUserProfile();
@@ -470,7 +468,7 @@ export default function ChatScreen() {
       .slice(0, 3)
       .map((c) => c.name || c.className || c)
       .filter(Boolean);
-    const capLine = "Ask me anything about your week, or just tell me what you need — I can add tasks, move deadlines, break things down, and log grades.";
+    const capLine = "Tell me what's stressing you, ask about your week, or just say what you need — I can add tasks, move deadlines, and break assignments into steps.";
     if (firstName && classes.length > 0) {
       const overflow = (profile?.classes?.length ?? 0) - classes.length;
       const list =
@@ -480,11 +478,11 @@ export default function ChatScreen() {
             (overflow > 0
               ? `, and ${overflow + 1} more`
               : ` and ${classes[classes.length - 1]}`);
-      return `Hey ${firstName} — I'm ${COACH_NAME}, your AI study coach. I've got ${list} loaded and I know what's due. ${capLine}`;
+      return `Hey ${firstName} — I'm Tally, your AI study coach. I've got ${list} loaded and I know exactly what's due. ${capLine}`;
     }
     if (firstName)
-      return `Hey ${firstName} — I'm ${COACH_NAME}, your AI study coach. I know your schedule and deadlines. ${capLine}`;
-    return `Hey — I'm ${COACH_NAME}, your AI study coach. I know your classes and deadlines. ${capLine}`;
+      return `Hey ${firstName} — I'm Tally, your AI study coach. I know your deadlines and I'm here to help you actually get through them. ${capLine}`;
+    return `Hey — I'm Tally, your AI study coach. I know your classes and deadlines, and I'm in your corner. ${capLine}`;
   }, [historyLoaded, messages.length, profile, firstName]);
 
   // ── Inject date separators (or intro) into message list ───
@@ -540,15 +538,15 @@ export default function ChatScreen() {
   }, [styles, colors, send, handleWhereToStart]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 2 }]}>
         <View style={styles.headerAvatar}>
-          <Image source={ACE_LOGO} style={{ width: 44, height: 44 }} resizeMode="contain" />
+          <Mascot variant="alive" size={50} blink={false} />
         </View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{COACH_NAME}</Text>
-          <Text style={styles.headerSub}>Knows your classes, grades & deadlines</Text>
+          <Text style={styles.headerSub}>Your AI study coach · always in your corner</Text>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           <TouchableOpacity onPress={() => { Haptics.selectionAsync().catch(() => {}); clearChat(); }} style={styles.clearBtn}>
@@ -608,7 +606,7 @@ export default function ChatScreen() {
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           ListFooterComponent={typing ? (
             <View style={styles.bubbleRow}>
-              <Image source={ACE_LOGO} style={styles.avatar} />
+              <Image source={require("../assets/mascot-rn/assets/mascot.png")} style={{ width: 42, height: 42, resizeMode: "contain" }} />
               <View style={[styles.bubble, styles.bubbleAI, styles.typingBubble]}>
                 <TypingDots color={colors.accent} />
               </View>
@@ -835,9 +833,6 @@ const makeStyles = (colors) => StyleSheet.create({
   list: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.md, gap: 10 },
   bubbleRow:     { flexDirection: "row", alignItems: "flex-end", gap: 8, marginBottom: 2 },
   bubbleRowUser: { flexDirection: "row-reverse" },
-  avatar: {
-    width: 42, height: 42, flexShrink: 0,
-  },
   bubble: {
     maxWidth: "80%", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10,
   },
