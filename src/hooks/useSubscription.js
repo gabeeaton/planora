@@ -5,6 +5,8 @@
 // ============================================================
 
 import { useState, useEffect, useRef } from "react";
+import { DeviceEventEmitter } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "./useAuth";
 import { useUserProfile } from "./useUserProfile";
 import { configurePurchases, getIsSubscribed, ENTITLEMENT_ID } from "../services/purchases";
@@ -13,11 +15,25 @@ import { setProStatus } from "../services/firebase";
 import { FEATURE_FLAGS } from "../config";
 import Purchases from "react-native-purchases";
 
+export const DEV_SCHOLAR_KEY = "@dev_scholar_override";
+
 export const useSubscription = () => {
   const { user }             = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
   const [rcSubscribed, setRcSubscribed]      = useState(false);
   const [rcLoading, setRcLoading]            = useState(true);
+  const [devOverride, setDevOverride]        = useState(null); // null = no explicit override set
+
+  useEffect(() => {
+    if (!FEATURE_FLAGS.DEV_SCHOLAR_OVERRIDE) return;
+    AsyncStorage.getItem(DEV_SCHOLAR_KEY).then((v) => {
+      if (v === "true") setDevOverride(true);
+      else if (v === "false") setDevOverride(false);
+      // else: leave as null — defer to real subscription
+    });
+    const sub = DeviceEventEmitter.addListener("devScholarToggle", (val) => setDevOverride(val));
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (!user) { setRcSubscribed(false); setRcLoading(false); return; }
@@ -43,14 +59,18 @@ export const useSubscription = () => {
 
   // When RC confirms the subscription has lapsed, sync Firestore so isPro doesn't
   // keep granting access indefinitely after cancellation.
+  // Never runs in dev — RC sandbox key can't verify real purchases and would nuke isPro.
   useEffect(() => {
+    if (__DEV__) return;
     if (rcLoading || !user?.uid || profile == null) return;
     if (!rcSubscribed && profile.isPro) {
       setProStatus(user.uid, false).catch(() => {});
     }
   }, [rcLoading, rcSubscribed, profile?.isPro, user?.uid]);
 
-  const hasProAccess = FEATURE_FLAGS.BETA_PRO_UNLOCKED || rcSubscribed || !!profile?.isPro;
+  // When devOverride is explicitly set (true/false), it takes full precedence over real subscription
+  const hasProAccess = FEATURE_FLAGS.BETA_PRO_UNLOCKED ||
+    (devOverride !== null ? devOverride : (rcSubscribed || !!profile?.isPro));
 
   const prevProRef = useRef(hasProAccess);
   useEffect(() => {

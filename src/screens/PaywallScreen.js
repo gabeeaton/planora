@@ -38,9 +38,9 @@ const TRUST_SIGNALS_NO_TRIAL = [
 ];
 
 const PLANS = [
-  { key: "annual",   label: "Annual",   price: "$2.50", per: "/mo", billing: "Billed as $29.99/yr", badge: "Best Value" },
-  { key: "semester", label: "6 Months", price: "$3.00", per: "/mo", billing: "Billed as $17.99",    badge: null },
-  { key: "monthly",  label: "Monthly",  price: "$4.99", per: "/mo", billing: "Billed monthly",       badge: null },
+  { key: "annual",   label: "Annual",   billedAmount: "$29.99/yr", perMonth: "$2.50/mo", billing: "Billed annually",   badge: "Best Value", isLifetime: false },
+  { key: "lifetime", label: "Lifetime", billedAmount: "$199.99",   perMonth: "forever",  billing: "One-time purchase", badge: "Forever",    isLifetime: true  },
+  { key: "monthly",  label: "Monthly",  billedAmount: "$4.99/mo",  perMonth: null,       billing: "Billed monthly",    badge: null,         isLifetime: false },
 ];
 
 export default function PaywallScreen({ navigation }) {
@@ -180,8 +180,9 @@ export default function PaywallScreen({ navigation }) {
     }
   };
 
-  const activePlan             = PLANS.find((p) => p.key === selectedPlan);
-  const { hasTrial, trialDays } = getTrialInfo(packages[selectedPlan]);
+  const activePlan              = PLANS.find((p) => p.key === selectedPlan);
+  const { hasTrial: _hasTrial, trialDays } = getTrialInfo(packages[selectedPlan]);
+  const hasTrial = _hasTrial && !activePlan?.isLifetime;
 
   return (
     <Animated.View style={[styles.overlay, { opacity: overlayFade }]}>
@@ -278,9 +279,11 @@ export default function PaywallScreen({ navigation }) {
 
                     <View style={{ alignItems: "flex-end" }}>
                       <Text style={[styles.planPrice, selected && styles.planPriceSelected]}>
-                        {plan.price}
+                        {plan.billedAmount}
                       </Text>
-                      <Text style={styles.planPer}>{plan.per}</Text>
+                      {plan.perMonth && (
+                        <Text style={styles.planPer}>{plan.perMonth}</Text>
+                      )}
                     </View>
                   </TouchableOpacity>
                 </Animated.View>
@@ -319,12 +322,14 @@ export default function PaywallScreen({ navigation }) {
               ) : (
                 <>
                   <Text style={styles.ctaBtnText}>
-                    {hasTrial ? `Start ${trialDays}-Day Free Trial` : "Get Scholar"}
+                    {activePlan?.isLifetime ? "Get Scholar Forever" : hasTrial ? `Start ${trialDays}-Day Free Trial` : "Get Scholar"}
                   </Text>
                   <Text style={styles.ctaBtnSub}>
-                    {hasTrial
-                      ? `${trialDays} days free · then ${activePlan?.price}${activePlan?.per} · cancel anytime`
-                      : `${activePlan?.price}${activePlan?.per} · ${activePlan?.billing?.toLowerCase()} · cancel anytime`}
+                    {activePlan?.isLifetime
+                      ? `${activePlan.billedAmount} · one-time · never expires`
+                      : hasTrial
+                        ? `${trialDays} days free · then ${activePlan?.billedAmount} · cancel anytime`
+                        : `${activePlan?.billedAmount}${activePlan?.perMonth ? ` · ${activePlan.perMonth}` : ""} · cancel anytime`}
                   </Text>
                 </>
               )}
@@ -340,11 +345,12 @@ export default function PaywallScreen({ navigation }) {
           </TouchableOpacity>
 
           <Text style={styles.legal}>
-            {hasTrial ? `Free trial ends after ${trialDays} days. ` : ""}{activePlan?.billing?.toLowerCase()}.{" "}
-            Subscription renews automatically unless cancelled at least 24 hours before the end of the period.{" "}
-            <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/terms")}>Terms</Text>
+            {activePlan?.isLifetime
+              ? `One-time purchase of ${activePlan.billedAmount}. No subscription, no renewals. `
+              : `${hasTrial ? `Free trial ends after ${trialDays} days. ` : ""}${activePlan?.billing}. Subscription auto-renews at ${activePlan?.billedAmount} unless cancelled at least 24 hours before the end of the period. `}
+            <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/terms")}>Terms of Use</Text>
             {" "}·{" "}
-            <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/privacy")}>Privacy</Text>
+            <Text style={styles.legalLink} onPress={() => Linking.openURL("https://planoraapp.net/privacy")}>Privacy Policy</Text>
           </Text>
         </Animated.ScrollView>
       </Animated.View>
@@ -498,13 +504,13 @@ const makeStyles = (colors, insets) => StyleSheet.create({
   },
   planBadgeTextSelected: { color: "#fff" },
   planPrice: {
-    fontSize: 20, fontFamily: "Outfit-ExtraBold",
-    color: colors.textSecondary, letterSpacing: -0.5,
+    fontSize: 18, fontFamily: "Outfit-ExtraBold",
+    color: colors.textSecondary, letterSpacing: -0.3,
   },
   planPriceSelected: { color: colors.textPrimary },
   planPer: {
-    fontSize: 11, fontFamily: "Outfit-Medium",
-    color: colors.textMuted,
+    fontSize: 11, fontFamily: "Outfit-Regular",
+    color: colors.textMuted, marginTop: 1,
   },
 
   // ── Feature list ─────────────────────────────────────────────

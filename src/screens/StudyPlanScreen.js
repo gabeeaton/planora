@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Animated, Alert, DeviceEventEmitter, Modal, Pressable,
+  Animated, Alert, DeviceEventEmitter, Modal, Pressable, Platform, Image,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import Mascot from "../components/Mascot";
 import { useTheme } from "../utils/ThemeContext";
 import { useAuth } from "../hooks/useAuth";
@@ -15,7 +15,14 @@ import { useSubscription } from "../hooks/useSubscription";
 import { scheduleStudyPlanReminders, cancelStudyPlanReminders } from "../services/notifications";
 import { generateStudyPlan } from "../services/openai";
 import { useCalendarEvents } from "../hooks/useCalendarEvents";
+import * as Calendar from "expo-calendar";
+
+const CAL_ICONS = {
+  google:  require("../assets/google-calendar.png"),
+  apple:   require("../assets/apple-calendar.png"),
+};
 import { FEATURE_FLAGS } from "../config";
+import { loadPlanStreak, incrementPlanStreak, savePlanSessionDates } from "../utils/streakHelpers";
 import { spacing, radius, getClassColor } from "../utils/theme";
 import { addDays, format, startOfToday, isSameDay } from "date-fns";
 import * as Haptics from "expo-haptics";
@@ -56,10 +63,20 @@ const makeStyles = (colors) => StyleSheet.create({
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: spacing.lg, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    backgroundColor: colors.accent,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.32,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  headerTitle: { fontSize: 18, fontFamily: "Outfit-Bold", color: colors.textPrimary },
-  headerAction: { padding: 4 },
+  headerTitle: { fontSize: 18, fontFamily: "Outfit-Bold", color: "#fff", flex: 1, textAlign: "center" },
+  headerSide: { width: 72 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 4 },
+  headerAction: { padding: 6 },
+  closeBtn: { padding: 6 },
 
   // Detail sheet
   detailBackdrop: {
@@ -120,12 +137,12 @@ const makeStyles = (colors) => StyleSheet.create({
   availList: { paddingHorizontal: spacing.lg, gap: 8 },
   availRow: {
     backgroundColor: colors.isDark ? colors.bgCard : "#fff",
-    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md,
     paddingTop: 12, paddingBottom: 10, paddingLeft: 14, paddingRight: 0,
-    ...(colors.isDark ? {} : {
-      shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
-    }),
+    ...(colors.isDark
+      ? { borderWidth: 1, borderColor: colors.border }
+      : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2 }
+    ),
   },
   availRowTop: { flexDirection: "row", alignItems: "center" },
   availDayInfo: { width: 72 },
@@ -211,9 +228,13 @@ const makeStyles = (colors) => StyleSheet.create({
 
   sessionCard: {
     marginHorizontal: spacing.lg, marginBottom: 8,
-    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md,
     backgroundColor: colors.isDark ? colors.bgCard : "#fff",
     flexDirection: "row", overflow: "hidden",
+    ...(colors.isDark
+      ? { borderWidth: 1, borderColor: colors.border }
+      : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2 }
+    ),
   },
   sessionCheck: {
     width: 44, alignItems: "center", justifyContent: "center",
@@ -234,18 +255,32 @@ const makeStyles = (colors) => StyleSheet.create({
   durationBadge: {
     paddingHorizontal: 10, paddingVertical: 12,
     alignItems: "center", justifyContent: "center",
-    borderLeftWidth: 1, borderLeftColor: colors.border,
+    borderLeftWidth: 1, borderLeftColor: colors.isDark ? colors.border : "#EBEBEB",
     minWidth: 48,
   },
   durationText: { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.textMuted },
   durationUnit: { fontSize: 10, fontFamily: "Outfit-Regular", color: colors.textMuted },
 
-  regenerateBtn: {
-    marginHorizontal: spacing.lg, marginBottom: 32,
+  planStreakRow: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    alignSelf: "flex-start", marginHorizontal: spacing.lg, marginBottom: 12,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: colors.isDark ? colors.bgInput : "#fff",
+    borderWidth: colors.isDark ? 1 : 0,
+    borderColor: colors.isDark ? colors.border : "transparent",
+    ...(colors.isDark ? {} : {
+      shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08, shadowRadius: 4, elevation: 2,
+    }),
+  },
+  planStreakText: { fontSize: 12, fontFamily: "Outfit-SemiBold" },
+
+  planActionsRow: { flexDirection: "row", gap: 10 },
+  planActionBtn: {
     borderRadius: radius.md, paddingVertical: 13, borderWidth: 1,
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
   },
-  regenerateBtnText: { fontSize: 14, fontFamily: "Outfit-SemiBold" },
+  planActionBtnText: { fontSize: 13, fontFamily: "Outfit-SemiBold" },
 
   // Pro gate
   lockedWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 36 },
@@ -366,6 +401,17 @@ const StudyPlanScreen = ({ navigation }) => {
   const [plan, setPlan] = useState(DEMO_MODE ? makeDemoPlan() : null);
   const [loading, setLoading] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+  const [calExporting, setCalExporting] = useState(false);
+  const [calPickerVisible, setCalPickerVisible] = useState(false);
+  const [availableCalendars, setAvailableCalendars] = useState([]);
+  const [selectedCalendarId, setSelectedCalendarId] = useState(null);
+  const calPickerAnim = useRef(new Animated.Value(0)).current;
+  const [planStreak, setPlanStreak] = useState(0);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    loadPlanStreak(user.uid).then(({ count }) => setPlanStreak(count));
+  }, [user?.uid]);
 
   const LOADING_MESSAGES = [
     "Tally is planning your week...",
@@ -459,6 +505,9 @@ const StudyPlanScreen = ({ navigation }) => {
       const updated = prev.map((s) => {
         if (s._key !== key) return s;
         const nowDone = !s.completed;
+        if (nowDone && user?.uid) {
+          incrementPlanStreak(user.uid).then((newCount) => setPlanStreak(newCount)).catch(() => {});
+        }
         return { ...s, completed: nowDone, completedAt: nowDone ? Date.now() : null };
       });
       AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: updated }))
@@ -466,7 +515,7 @@ const StudyPlanScreen = ({ navigation }) => {
         .catch(() => {});
       return updated;
     });
-  }, []);
+  }, [user?.uid]);
 
   const handleGenerate = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -489,6 +538,7 @@ const StudyPlanScreen = ({ navigation }) => {
       AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: merged }))
         .then(() => DeviceEventEmitter.emit("studyPlanUpdated"))
         .catch(() => {});
+      if (user?.uid) savePlanSessionDates(user.uid, merged).catch(() => {});
       if (isPro) scheduleStudyPlanReminders(result, user?.uid).catch(() => {});
     } catch (err) {
       Alert.alert("Couldn't generate plan", err.message ?? "Try again in a moment.");
@@ -496,6 +546,71 @@ const StudyPlanScreen = ({ navigation }) => {
       setLoading(false);
     }
   }, [plan, tasks, profile, patterns, availability, user?.uid]);
+
+  const openCalPicker = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const todayStr = format(startOfToday(), "yyyy-MM-dd");
+    const upcoming = (plan ?? []).filter((s) => !s.completed && !s.missed && s.date >= todayStr);
+    if (upcoming.length === 0) {
+      Alert.alert("Nothing to export", "No upcoming sessions in your plan.");
+      return;
+    }
+    let { status } = await Calendar.getCalendarPermissionsAsync();
+    if (status !== "granted") {
+      ({ status } = await Calendar.requestCalendarPermissionsAsync());
+    }
+    if (status !== "granted") {
+      Alert.alert("Calendar access needed", "Enable calendar access in Settings to export your sessions.");
+      return;
+    }
+    try {
+      const all = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      const writable = all.filter((c) => c.allowsModifications && c.type !== "subscribed");
+      if (writable.length === 0) { Alert.alert("No calendar found", "No writable calendar on this device."); return; }
+      // Prefer Google, then primary, then first writable
+      const preferred = writable.find((c) => c.source?.name?.toLowerCase().includes("google"))
+                     || writable.find((c) => c.isPrimary)
+                     || writable[0];
+      setAvailableCalendars(writable);
+      setSelectedCalendarId(preferred.id);
+      setCalPickerVisible(true);
+      Animated.spring(calPickerAnim, { toValue: 1, useNativeDriver: true, tension: 65, friction: 11 }).start();
+    } catch {
+      Alert.alert("Couldn't load calendars", "Try again.");
+    }
+  }, [plan, calPickerAnim]);
+
+  const closeCalPicker = useCallback(() => {
+    Animated.timing(calPickerAnim, { toValue: 0, duration: 220, useNativeDriver: true })
+      .start(() => setCalPickerVisible(false));
+  }, [calPickerAnim]);
+
+  const confirmExport = useCallback(async () => {
+    const cal = availableCalendars.find((c) => c.id === selectedCalendarId);
+    if (!cal) return;
+    closeCalPicker();
+    const todayStr = format(startOfToday(), "yyyy-MM-dd");
+    const upcoming = (plan ?? []).filter((s) => !s.completed && !s.missed && s.date >= todayStr);
+    setCalExporting(true);
+    try {
+      for (const s of upcoming) {
+        const start = new Date(`${s.date}T08:00:00`);
+        const end   = new Date(start.getTime() + (s.durationMinutes ?? 60) * 60000);
+        await Calendar.createEventAsync(cal.id, {
+          title: s.className ? `${s.className} — ${s.sessionTitle}` : s.sessionTitle,
+          startDate: start,
+          endDate: end,
+          notes: s.activity ?? s.tip ?? "",
+          alarms: [{ relativeOffset: -30 }],
+        });
+      }
+      Alert.alert("Exported!", `${upcoming.length} session${upcoming.length !== 1 ? "s" : ""} added to ${cal.title} at 8 AM each day.`);
+    } catch {
+      Alert.alert("Couldn't export", "Something went wrong — try again.");
+    } finally {
+      setCalExporting(false);
+    }
+  }, [availableCalendars, selectedCalendarId, plan, closeCalPicker]);
 
   const pendingTasks = tasks.filter((t) => !t.completed && t.dueDate);
 
@@ -521,7 +636,7 @@ const StudyPlanScreen = ({ navigation }) => {
   });
 
   return (
-    <View style={[styles.safe, { paddingTop: insets.top }]}>
+    <View style={styles.safe}>
       {loading && (
         <View style={[styles.loadingOverlay, { backgroundColor: colors.bg }]}>
           <Mascot variant="writing" size={130} blink={false} />
@@ -664,18 +779,26 @@ const StudyPlanScreen = ({ navigation }) => {
         </Modal>
       )}
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.headerSide}>
+          {navigation.canGoBack() && (
+            <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Feather name="x" size={22} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
         <Text style={styles.headerTitle}>My Plan</Text>
-        {plan && !loading && (
-          <TouchableOpacity
-            style={styles.headerAction}
-            onPress={openAvailSheet}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name="refresh-cw" size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-        )}
-        {!plan && <View style={{ width: 30 }} />}
+        <View style={[styles.headerSide, { alignItems: "flex-end" }]}>
+          {plan && !loading && (
+            <TouchableOpacity
+              style={styles.headerAction}
+              onPress={openAvailSheet}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather name="refresh-cw" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}>
@@ -693,7 +816,7 @@ const StudyPlanScreen = ({ navigation }) => {
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); navigation.navigate("Paywall"); }}
             >
               <Feather name="zap" size={18} color="#fff" />
-              <Text style={styles.upgradeBtnText}>Upgrade to Pro</Text>
+              <Text style={styles.upgradeBtnText}>Upgrade to Scholar</Text>
             </TouchableOpacity>
           </View>
         ) : !plan ? (
@@ -796,6 +919,15 @@ const StudyPlanScreen = ({ navigation }) => {
               Prep sessions leading up to your deadlines. Times are up to you.
             </Text>
 
+            {planStreak > 0 && (
+              <View style={styles.planStreakRow}>
+                <MaterialCommunityIcons name="fire" size={14} color="#FF6B2C" />
+                <Text style={[styles.planStreakText, { color: "#FF6B2C" }]}>
+                  {planStreak}-day plan streak
+                </Text>
+              </View>
+            )}
+
             {overcommitment && (
               <View style={[styles.overcommitBanner, { backgroundColor: colors.isDark ? "#2D1A1A" : "#FFF0EE", borderColor: "#FF6B6B" }]}>
                 <Feather name="alert-triangle" size={14} color="#FF6B6B" />
@@ -812,7 +944,7 @@ const StudyPlanScreen = ({ navigation }) => {
                 </View>
                 {missedSessions.map((s, idx) => {
                   return (
-                    <View key={idx} style={[styles.sessionCard, { borderColor: colors.border }]}>
+                    <View key={idx} style={styles.sessionCard}>
                       <View style={[styles.sessionAccent, { backgroundColor: colors.textMuted }]} />
                       <View style={styles.sessionBody}>
                         {s.className && (
@@ -909,17 +1041,136 @@ const StudyPlanScreen = ({ navigation }) => {
               );
             })}
 
-            <TouchableOpacity
-              style={[styles.regenerateBtn, { borderColor: colors.border }]}
-              onPress={openAvailSheet}
-              activeOpacity={0.7}
-            >
-              <Feather name="sliders" size={14} color={colors.textMuted} />
-              <Text style={[styles.regenerateBtnText, { color: colors.textMuted }]}>Change availability</Text>
-            </TouchableOpacity>
+            <View style={[styles.planActionsRow, { marginHorizontal: spacing.lg, marginBottom: 32 }]}>
+              <TouchableOpacity
+                style={[styles.planActionBtn, { borderColor: colors.border, flex: 1 }]}
+                onPress={openAvailSheet}
+                activeOpacity={0.7}
+              >
+                <Feather name="sliders" size={14} color={colors.textMuted} />
+                <Text style={[styles.planActionBtnText, { color: colors.textMuted }]}>Availability</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.planActionBtn, { borderColor: colors.border, flex: 1 }]}
+                onPress={openCalPicker}
+                disabled={calExporting}
+                activeOpacity={0.7}
+              >
+                <Feather name="calendar" size={14} color={calExporting ? colors.textMuted : colors.textSecondary} />
+                <Text style={[styles.planActionBtnText, { color: calExporting ? colors.textMuted : colors.textSecondary }]}>
+                  {calExporting ? "Exporting…" : "Export to Calendar"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
       </ScrollView>
+
+      {/* Calendar picker confirmation sheet */}
+      {calPickerVisible && (() => {
+        const todayStr = format(startOfToday(), "yyyy-MM-dd");
+        const upcomingCount = (plan ?? []).filter((s) => !s.completed && !s.missed && s.date >= todayStr).length;
+
+        // Group individual calendars into one row per provider
+        const providerMap = {};
+        for (const cal of availableCalendars) {
+          const src = (cal.source?.name ?? "").toLowerCase();
+          let key, label, color;
+          if (src.includes("google") || src.includes("gmail")) {
+            key = "google"; label = "Google Calendar"; color = "#4285F4";
+          } else if (src.includes("exchange") || src.includes("outlook")) {
+            key = "outlook"; label = "Outlook"; color = "#0072C6";
+          } else if (Platform.OS === "android") {
+            key = "google"; label = "Google Calendar"; color = "#4285F4";
+          } else {
+            key = "apple"; label = "Apple Calendar"; color = "#888";
+          }
+          if (!providerMap[key]) providerMap[key] = { key, label, color, cal };
+          // Prefer the primary calendar within each provider
+          else if (cal.isPrimary) providerMap[key].cal = cal;
+        }
+        const providers = Object.values(providerMap);
+        const selectedProvider = providers.find((p) => p.cal.id === selectedCalendarId) ?? providers[0];
+
+        return (
+          <Modal transparent animationType="none" onRequestClose={closeCalPicker}>
+            <Pressable style={styles.detailBackdrop} onPress={closeCalPicker}>
+              <Animated.View
+                style={[styles.detailSheet, { backgroundColor: colors.bg },
+                  { transform: [{ translateY: calPickerAnim.interpolate({ inputRange: [0,1], outputRange: [400, 0] }) }] }
+                ]}
+              >
+                <Pressable onPress={() => {}}>
+                  <View style={styles.detailHandle} />
+                  <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 14 }}>
+                    <Text style={{ fontSize: 20, fontFamily: "Outfit-Bold", color: colors.textPrimary, marginBottom: 6 }}>
+                      Export to Calendar
+                    </Text>
+                    <Text style={{ fontSize: 15, color: colors.textSecondary, fontFamily: "Outfit-Regular", lineHeight: 21 }}>
+                      {upcomingCount} session{upcomingCount !== 1 ? "s" : ""} will be added at 8 AM each day with a 30-min reminder.
+                    </Text>
+                  </View>
+                  <View style={{ paddingHorizontal: 20, paddingBottom: 16 }}>
+                    <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: colors.textMuted, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 10 }}>
+                      Add to
+                    </Text>
+                    {providers.map((p) => {
+                      const selected = selectedProvider?.key === p.key;
+                      return (
+                        <TouchableOpacity
+                          key={p.key}
+                          style={{
+                            flexDirection: "row", alignItems: "center", paddingVertical: 14, gap: 14,
+                            borderRadius: 12, paddingHorizontal: 12, marginBottom: 4,
+                            backgroundColor: selected ? colors.accentGlow : "transparent",
+                          }}
+                          onPress={() => setSelectedCalendarId(p.cal.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={{
+                            width: 22, height: 22, borderRadius: 11, borderWidth: 2,
+                            borderColor: selected ? colors.accent : colors.border,
+                            alignItems: "center", justifyContent: "center",
+                          }}>
+                            {selected && <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: colors.accent }} />}
+                          </View>
+                          <View style={{ width: 34, height: 34, borderRadius: 8, overflow: "hidden", backgroundColor: CAL_ICONS[p.key] ? "transparent" : p.color + "18", alignItems: "center", justifyContent: "center" }}>
+                            {CAL_ICONS[p.key] ? (
+                              <Image source={CAL_ICONS[p.key]} style={{ width: 34, height: 34 }} resizeMode="contain" />
+                            ) : (
+                              <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.color }}>{p.label[0]}</Text>
+                            )}
+                          </View>
+                          <Text style={{ fontSize: 16, fontFamily: "Outfit-SemiBold", color: selected ? colors.accent : colors.textPrimary, flex: 1 }}>
+                            {p.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 20, paddingBottom: 36 }}>
+                    <TouchableOpacity
+                      style={{ flex: 1, borderRadius: 14, paddingVertical: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.bgInput }}
+                      onPress={closeCalPicker}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ fontSize: 16, fontFamily: "Outfit-SemiBold", color: colors.textSecondary }}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={{ flex: 2, borderRadius: 14, paddingVertical: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.accent }}
+                      onPress={confirmExport}
+                      activeOpacity={0.85}
+                    >
+                      <Feather name="calendar" size={17} color="#fff" />
+                      <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: "#fff" }}>Export {upcomingCount} sessions</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Pressable>
+              </Animated.View>
+            </Pressable>
+          </Modal>
+        );
+      })()}
     </View>
   );
 };

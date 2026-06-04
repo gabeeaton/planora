@@ -37,14 +37,12 @@ export const APP_CONFIG = {
 //   FORCE_ONBOARDING   = true → onboarding runs every launch (never skipped)
 //   FORCE_WALKTHROUGH  = true → walkthrough overlay runs every launch
 export const FEATURE_FLAGS = {
-  BETA_PRO_UNLOCKED:  false,
-  FORCE_ONBOARDING:   false, // flip to true to test onboarding repeatedly
+  BETA_PRO_UNLOCKED:        false,
+  FORCE_ONBOARDING:         false, // flip to true to test onboarding repeatedly
   FORCE_WALKTHROUGH:        false, // flip to true to test walkthrough repeatedly
   FORCE_SEMESTER_PROMPT:    false, // flip to true to test new-semester prompt every launch
-  // Flip to true for App Store screenshots / demo walkthroughs.
-  // All screens show cannedr data; purchases are skipped; no real
-  // API calls.
-  DEMO_MODE: false,
+  DEMO_MODE:                false, // App Store screenshots / demo walkthroughs
+  DEV_SCHOLAR_OVERRIDE:     false, // shows Scholar toggle button in Profile (dev only)
 };
 
 // ── Dev safety check ─────────────────────────────────────────

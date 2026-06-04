@@ -134,10 +134,10 @@ const makeStyles = (colors) => StyleSheet.create({
       ? {}
       : {
           shadowColor: "#6B6B8A",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.18,
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.10,
           shadowRadius: 8,
-          elevation: 5,
+          elevation: 3,
         }),
   },
   header: {
@@ -250,23 +250,26 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
     load();
   };
 
-  const PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+  const PRIORITY_SCORE = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+  const taskScore = (t) => {
+    const ms = t.dueDate ? new Date(t.dueDate).getTime() : null;
+    const days = ms ? Math.ceil((ms - Date.now()) / 86400000) : 99;
+    const urgency = days < 0 ? 10 : days === 0 ? 8 : days === 1 ? 5 : days === 2 ? 3 : days <= 4 ? 2 : 1;
+    const priority = PRIORITY_SCORE[t.aiPriority ?? t.priority] ?? 2;
+    return urgency * priority;
+  };
+  const byScore = (a, b) => taskScore(b) - taskScore(a);
+
   const pending = tasks.filter((t) => !t.completed);
   let focusTasks = focus?.taskIds
     ? focus.taskIds
         .map((id) => tasks.find((t) => t.id === id && !t.completed))
         .filter(Boolean)
+        .sort(byScore)
         .slice(0, 3)
     : [];
   if (focusTasks.length === 0 && pending.length > 0) {
-    focusTasks = [...pending]
-      .sort((a, b) => {
-        const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-        const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-        if (aDate !== bDate) return aDate - bDate;
-        return (PRIORITY_RANK[a.aiPriority ?? a.priority] ?? 1) - (PRIORITY_RANK[b.aiPriority ?? b.priority] ?? 1);
-      })
-      .slice(0, 3);
+    focusTasks = [...pending].sort(byScore).slice(0, 3);
   }
 
   if (loading) {

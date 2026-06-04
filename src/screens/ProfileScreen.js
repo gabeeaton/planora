@@ -12,7 +12,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useAuth }         from "../hooks/useAuth";
 import { useUserProfile }  from "../hooks/useUserProfile";
-import { useSubscription } from "../hooks/useSubscription";
+import { useSubscription, DEV_SCHOLAR_KEY } from "../hooks/useSubscription";
+import { FEATURE_FLAGS } from "../config";
+import { DeviceEventEmitter } from "react-native";
 import { typography, spacing, radius, shadows, COLOR_THEMES } from "../utils/theme";
 import { generateTerms, WORK_TIMES, GRADES, CREDIT_OPTS } from "../utils/termHelpers";
 import { useTheme } from "../utils/ThemeContext";
@@ -347,6 +349,31 @@ const ProfileScreen = ({ navigation }) => {
   const { tasks, streak }                         = useTasks();
 
   const [activeThemeKey, setActiveThemeKeyState] = useState(profile?.colorTheme ?? accentKey);
+  const [devScholar, setDevScholar] = useState(false);
+  const devScholarExplicit = useRef(false);
+
+  useEffect(() => {
+    if (!FEATURE_FLAGS.DEV_SCHOLAR_OVERRIDE) return;
+    AsyncStorage.getItem(DEV_SCHOLAR_KEY).then((v) => {
+      if (v === "true")  { devScholarExplicit.current = true; setDevScholar(true); }
+      else if (v === "false") { devScholarExplicit.current = true; setDevScholar(false); }
+      // else: no stored override — mirror real isPro below
+    });
+  }, []);
+
+  // When no explicit override, mirror the real subscription status
+  useEffect(() => {
+    if (!FEATURE_FLAGS.DEV_SCHOLAR_OVERRIDE) return;
+    if (!devScholarExplicit.current) setDevScholar(isPro);
+  }, [isPro]);
+
+  const toggleDevScholar = async () => {
+    const next = !devScholar;
+    setDevScholar(next);
+    await AsyncStorage.setItem(DEV_SCHOLAR_KEY, String(next));
+    DeviceEventEmitter.emit("devScholarToggle", next);
+    Haptics.selectionAsync().catch(() => {});
+  };
   const [editingName, setEditingName]             = useState(false);
   const [nameInput, setNameInput]                 = useState("");
 
@@ -840,6 +867,32 @@ const ProfileScreen = ({ navigation }) => {
           <Row icon="log-out" label="Sign Out" onPress={handleLogout} danger />
           <Row icon="trash-2" label="Delete Account" onPress={handleDeleteAccount} danger />
         </View>
+
+        {FEATURE_FLAGS.DEV_SCHOLAR_OVERRIDE && (
+          <>
+            <SectionHeader title="Dev Tools" />
+            <View style={styles.card}>
+              <TouchableOpacity
+                style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 14 }}
+                onPress={toggleDevScholar}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View style={[styles.rowIcon, { backgroundColor: devScholar ? colors.accent + "22" : colors.bgInput }]}>
+                    <Feather name="zap" size={16} color={devScholar ? colors.accent : colors.textMuted} />
+                  </View>
+                  <View>
+                    <Text style={[styles.rowLabel, devScholar && { color: colors.accent }]}>Scholar Override</Text>
+                    <Text style={styles.rowValue}>{devScholar ? "ON — you appear as Scholar" : "OFF — free tier"}</Text>
+                  </View>
+                </View>
+                <View style={{ width: 36, height: 20, borderRadius: 10, backgroundColor: devScholar ? colors.accent : colors.border, justifyContent: "center", paddingHorizontal: 2 }}>
+                  <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: "#fff", alignSelf: devScholar ? "flex-end" : "flex-start" }} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         {/* <SectionHeader title="Developer" />
         <View style={styles.card}>

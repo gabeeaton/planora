@@ -598,9 +598,24 @@ export const generateStudyPlan = async (tasks, userProfile, patterns, availabili
     if (a.isBeingAvoided) avoidanceLookup[a.taskId] = a.daysSinceTouched;
   });
 
+  // Pre-classify task type so the AI applies session rules more reliably
+  const detectTaskType = (title) => {
+    const t = title.toLowerCase();
+    if (/\b(exam|midterm|final|comprehensive|cumulative)\b/.test(t)) return "EXAM";
+    if (/\b(quiz|test)\b/.test(t)) return "QUIZ";
+    if (/\b(essay|paper|thesis|research paper|report|write|writing)\b/.test(t)) return "ESSAY";
+    if (/\b(project|presentation|poster|proposal|demo)\b/.test(t)) return "PROJECT";
+    if (/\b(discussion|post|response|reply|forum|db post)\b/.test(t)) return "DISCUSSION";
+    if (/\b(lab|laboratory|experiment)\b/.test(t)) return "LAB";
+    if (/\b(reading|read|chapter|chapters|textbook)\b/.test(t)) return "READING";
+    if (/\b(homework|hw|problem set|pset|worksheet|exercise|assignment)\b/.test(t)) return "HOMEWORK";
+    return "ASSIGNMENT";
+  };
+
   const taskLines = pending.map((t) => {
     const daysUntil = Math.ceil((new Date(t.dueDate) - now) / (1000 * 60 * 60 * 24));
     const est = TASK_DURATION_MINUTES(t.title);
+    const taskType = detectTaskType(t.title);
 
     // Class context: grade + credits
     const clsData  = t.className ? classLookup[t.className] : null;
@@ -629,7 +644,7 @@ export const generateStudyPlan = async (tasks, userProfile, patterns, availabili
     const timeNote    = minsAvailable < est ? " ⚠️ tight on time — tell student to prioritize this" : "";
     const avoidedNote = avoidanceLookup[t.id] ? ` | ⚠️ being avoided (${avoidanceLookup[t.id]}d untouched — front-load this)` : "";
 
-    return `- [ID:${t.id}] ${cls} "${t.title}" — ${urgency}, est. ${est} min${timeNote}${avoidedNote}, priority: ${t.aiPriority ?? t.priority ?? "MEDIUM"}`;
+    return `- [ID:${t.id}] ${cls} [type:${taskType}] "${t.title}" — ${urgency}, est. ${est} min${timeNote}${avoidedNote}, priority: ${t.aiPriority ?? t.priority ?? "MEDIUM"}`;
   }).join("\n");
 
   // ── Build per-day blocked schedule (classes + calendar events) ─────────
@@ -724,6 +739,8 @@ ${patternContext ? `\nSTUDENT BEHAVIORAL PATTERNS (use these actively — they a
 
 5. DAILY CAP: Maximum 4 study sessions per calendar day. If you must choose, prioritize by urgency then priority.
 
+5b. SAME-CLASS DAILY CAP: Maximum 2 sessions for the same class on the same day, unless that class has a deadline within 2 days. Spread different classes across days to avoid neglecting subjects.
+
 6. ZERO-AVAILABILITY OVERRIDE: If a task is due in ≤3 days and no available day before the deadline has study time, schedule the session anyway. In the activity, tell the student directly: "You'll need to carve out time for this — it's due [date] and can't wait."
 
 7. TIGHT TIME (⚠️ tasks): Always schedule these, even on 0-availability days. Activity must explicitly say the student needs to make time — be direct, not soft.
@@ -758,6 +775,12 @@ ${patternContext ? `\nSTUDENT BEHAVIORAL PATTERNS (use these actively — they a
 16. DURATION: Use the est. minutes as a floor. Adjust up for struggling grades or avoided tasks. Keep individual sessions under 120 min.
 
 17. COVERAGE: Every task in the list gets at least one session.
+
+18. REST DAYS — default is NO rest days. Only leave a day with zero sessions if ALL of the following are true:
+    (a) Every pending task has 6+ days until its deadline
+    (b) The student's total remaining work fits comfortably within the available time before all deadlines
+    (c) That day genuinely has no study time set (0h availability) OR the student has already completed all urgent sessions
+    When in doubt, schedule at least one short session rather than leaving a day empty. A missed opportunity to study is always worse than a light session the student can skip if needed.
 
 Output ONLY a raw JSON array — no markdown, no explanation:
 [{

@@ -363,27 +363,25 @@ export const scheduleBatchReminders = async (tasks, bestTime, uid, isPro = false
         } catch (err) { console.warn("batch 24h failed:", err); }
       }
 
-      // ── 2-hour reminders — Scholar only ─────────────────────
-      if (isPro) {
-        const byExactTime = new Map();
-        for (const { task, due } of entries) {
-          const fireAt = new Date(due.getTime() - 2 * 60 * 60 * 1000);
-          if (fireAt < now) continue;
-          const key = fireAt.getTime();
-          if (!byExactTime.has(key)) byExactTime.set(key, { fireAt, tasks: [] });
-          byExactTime.get(key).tasks.push(task);
-        }
+      // ── 2-hour reminders — free for all users ───────────────
+      const byExactTime = new Map();
+      for (const { task, due } of entries) {
+        const fireAt = new Date(due.getTime() - 2 * 60 * 60 * 1000);
+        if (fireAt < now) continue;
+        const key = fireAt.getTime();
+        if (!byExactTime.has(key)) byExactTime.set(key, { fireAt, tasks: [] });
+        byExactTime.get(key).tasks.push(task);
+      }
 
-        for (const { fireAt, tasks: group } of byExactTime.values()) {
-          const { title, body } = _build2hContent(group);
-          try {
-            const id = await Notifications.scheduleNotificationAsync({
-              content: { title, body, data: { type: "batch-2h", date: dateStr }, sound: true },
-              trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },
-            });
-            manifest.push({ id, label: `2h-${fireAt.getTime()}-${dateStr}` });
-          } catch (err) { console.warn("batch 2h failed:", err); }
-        }
+      for (const { fireAt, tasks: group } of byExactTime.values()) {
+        const { title, body } = _build2hContent(group);
+        try {
+          const id = await Notifications.scheduleNotificationAsync({
+            content: { title, body, data: { type: "batch-2h", date: dateStr }, sound: true },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },
+          });
+          manifest.push({ id, label: `2h-${fireAt.getTime()}-${dateStr}` });
+        } catch (err) { console.warn("batch 2h failed:", err); }
       }
     }
 

@@ -109,3 +109,82 @@ export const clearStreak = async (uid) => {
     await AsyncStorage.multiRemove([streakKey(uid), streakDateKey(uid)]);
   } catch {}
 };
+
+// ── Plan streak — days where student completed ≥1 scheduled session ──────────
+
+const planStreakKey      = (uid) => uid ? `@planora_plan_streak_${uid}`       : "@planora_plan_streak";
+const planStreakDateKey  = (uid) => uid ? `@planora_plan_streak_date_${uid}`  : "@planora_plan_streak_date";
+const planSessionDatesKey = (uid) => uid ? `@planora_plan_session_dates_${uid}` : "@planora_plan_session_dates";
+
+export const loadPlanStreak = async (uid) => {
+  try {
+    const results  = await AsyncStorage.multiGet([planStreakKey(uid), planStreakDateKey(uid)]);
+    const countVal = results[0][1];
+    const dateVal  = results[1][1];
+    const count    = countVal ? parseInt(countVal, 10) : 0;
+    return { count: isNaN(count) ? 0 : count, lastDate: dateVal };
+  } catch {
+    return { count: 0, lastDate: null };
+  }
+};
+
+// Call when a plan is generated/updated — saves which dates have sessions scheduled.
+// incrementPlanStreak reads these to distinguish rest days from missed days.
+export const savePlanSessionDates = async (uid, sessions) => {
+  const dates = [...new Set((sessions ?? [])
+    .filter((s) => !s.completed && !s.missed)
+    .map((s) => s.date),
+  )];
+  await AsyncStorage.setItem(planSessionDatesKey(uid), JSON.stringify(dates)).catch(() => {});
+};
+
+// Returns true if any date strictly between lastDate and today had sessions scheduled.
+const _gapHasScheduledSessions = (plannedDates, lastDate, today) => {
+  if (!lastDate || !plannedDates || plannedDates.length === 0) return false;
+  const plannedSet = new Set(plannedDates);
+  const cur = new Date(lastDate + "T00:00:00");
+  const tod = new Date(today   + "T00:00:00");
+  cur.setDate(cur.getDate() + 1); // start the day after lastDate
+  while (cur < tod) {
+    if (plannedSet.has(cur.toISOString().slice(0, 10))) return true;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return false;
+};
+
+// Returns the new plan streak count. Idempotent within a single day.
+// Rest days (no sessions scheduled) carry the streak forward without incrementing.
+// Gap days WITH scheduled sessions that weren't completed break the streak.
+export const incrementPlanStreak = async (uid) => {
+  const today     = getTodayString();
+  const yesterday = getYesterdayString();
+  const { count, lastDate } = await loadPlanStreak(uid);
+
+  if (lastDate === today && count > 0) return count;
+
+  let newCount;
+  if (lastDate === yesterday) {
+    newCount = count + 1;
+  } else if (count > 0) {
+    // Gap of 2+ days. Check whether those gap days had sessions.
+    const gapDays = Math.round(
+      (new Date(today + "T00:00:00") - new Date(lastDate + "T00:00:00")) / 86400000
+    );
+    if (gapDays > 14) {
+      // Streak too stale to recover regardless
+      newCount = 1;
+    } else {
+      const raw = await AsyncStorage.getItem(planSessionDatesKey(uid)).catch(() => null);
+      const plannedDates = raw ? JSON.parse(raw) : [];
+      newCount = _gapHasScheduledSessions(plannedDates, lastDate, today) ? 1 : count + 1;
+    }
+  } else {
+    newCount = 1;
+  }
+
+  await AsyncStorage.multiSet([
+    [planStreakKey(uid),     String(newCount)],
+    [planStreakDateKey(uid), today],
+  ]);
+  return newCount;
+};
