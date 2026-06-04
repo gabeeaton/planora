@@ -67,6 +67,7 @@ export default function Mascot({
   size = 140,
   variant = 'alive',
   blink = true,
+  eager = false,
   onTap,
   style,
 }) {
@@ -123,30 +124,36 @@ export default function Mascot({
       anims.push(triangleLoop(v.c, 2000));
     } else if (variant === 'bounce') {
       // Hop every 3.2s. Keyframes: 0-70% idle, 75% squash, 82% peak, 90% land, 95% settle.
-      anims.push(Animated.loop(
-        Animated.sequence([
-          Animated.delay(2240),                 // 0..70% of 3200ms
-          Animated.timing(v.a, { toValue: 0.25, duration: 160,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }), // →75%
-          Animated.timing(v.a, { toValue: 0.57, duration: 224,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }), // →82%
-          Animated.timing(v.a, { toValue: 0.90, duration: 256,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }), // →90%
-          Animated.timing(v.a, { toValue: 1,    duration: 160,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }), // →95-100%
-          Animated.timing(v.a, { toValue: 0,    duration: 0,    useNativeDriver: true }),
-        ])
-      ));
+      const bounceHop = [
+        Animated.timing(v.a, { toValue: 0.25, duration: 160,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(v.a, { toValue: 0.57, duration: 224,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(v.a, { toValue: 0.90, duration: 256,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(v.a, { toValue: 1,    duration: 160,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(v.a, { toValue: 0,    duration: 0,    useNativeDriver: true }),
+      ];
+      const bounceLoop = Animated.loop(Animated.sequence([Animated.delay(2240), ...bounceHop]));
+      if (eager) {
+        Animated.sequence(bounceHop).start(() => bounceLoop.start());
+      } else {
+        anims.push(bounceLoop);
+      }
     } else if (variant === 'jump') {
       // Bigger airborne hop every 2.8s. Keyframes: 0-60% idle, 65/72/80/88/92/96%.
-      anims.push(Animated.loop(
-        Animated.sequence([
-          Animated.delay(1680),                 // 0..60% of 2800ms
-          Animated.timing(v.a, { toValue: 0.083, duration: 140,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }), // →65%
-          Animated.timing(v.a, { toValue: 0.267, duration: 196,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }), // →72%
-          Animated.timing(v.a, { toValue: 0.50,  duration: 224,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }), // →80%
-          Animated.timing(v.a, { toValue: 0.733, duration: 224,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }), // →88%
-          Animated.timing(v.a, { toValue: 0.867, duration: 112,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }), // →92%
-          Animated.timing(v.a, { toValue: 1,     duration: 112,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }), // →96-100%
-          Animated.timing(v.a, { toValue: 0,     duration: 0,    useNativeDriver: true }),
-        ])
-      ));
+      const jumpHop = [
+        Animated.timing(v.a, { toValue: 0.083, duration: 140,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(v.a, { toValue: 0.267, duration: 196,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(v.a, { toValue: 0.50,  duration: 224,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(v.a, { toValue: 0.733, duration: 224,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(v.a, { toValue: 0.867, duration: 112,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(v.a, { toValue: 1,     duration: 112,  easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(v.a, { toValue: 0,     duration: 0,    useNativeDriver: true }),
+      ];
+      const jumpLoop = Animated.loop(Animated.sequence([Animated.delay(1680), ...jumpHop]));
+      if (eager) {
+        Animated.sequence(jumpHop).start(() => jumpLoop.start());
+      } else {
+        anims.push(jumpLoop);
+      }
     } else if (variant === 'wiggle') {
       // Continuous side-to-side dance, 1.8s period
       anims.push(triangleLoop(v.a, 450, sin));

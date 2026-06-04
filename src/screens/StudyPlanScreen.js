@@ -1351,7 +1351,7 @@ const StudyPlanScreen = ({ navigation }) => {
         <Animated.View style={[styles.momentumSheet, {
           transform: [{ translateY: momentumAnim.interpolate({ inputRange: [0,1], outputRange: [300, 0] }) }],
         }]}>
-          <Mascot variant="bounce" size={80} blink={false} />
+          <Mascot variant="bounce" size={80} blink={false} eager />
           <Text style={styles.momentumTitle}>
             {momentumData.doneTodayCount === momentumData.totalToday && momentumData.totalToday > 0
               ? "All done today!"
