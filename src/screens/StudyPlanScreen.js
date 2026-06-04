@@ -286,6 +286,19 @@ const makeStyles = (colors) => StyleSheet.create({
   momentumSub: { fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginTop: 4, textAlign: "center" },
   momentumStreak: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 10 },
   momentumStreakText: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: "#FF6B2C" },
+  tallyRescheduleBanner: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    marginHorizontal: spacing.lg, marginBottom: 12,
+    borderRadius: radius.md, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 10,
+  },
+  tallyRescheduleTitle: { fontSize: 14, fontFamily: "Outfit-Bold" },
+  tallyRescheduleSub: { fontSize: 12, fontFamily: "Outfit-Regular", marginTop: 2, lineHeight: 16 },
+  tallyRescheduleBtn: {
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7,
+  },
+  tallyRescheduleBtnText: { fontSize: 13, fontFamily: "Outfit-Bold", color: "#fff" },
+
   planStreakRow: {
     flexDirection: "row", alignItems: "center", gap: 5,
     alignSelf: "flex-start", marginHorizontal: spacing.lg, marginBottom: 12,
@@ -678,29 +691,33 @@ const StudyPlanScreen = ({ navigation }) => {
     }, 2800);
   }, [momentumAnim]);
 
-  const handleRescheduleMissed = useCallback(async (session) => {
-    const task = tasks.find((t) => t.id === session.taskId);
-    if (!task) return;
-    setReschedulingTaskId(session.taskId);
+  const handleRescheduleMissed = useCallback(async () => {
+    // Deduplicate by taskId — one API call per unique task
+    const uniqueTaskIds = [...new Set(missedSessions.map((s) => s.taskId).filter(Boolean))];
+    if (uniqueTaskIds.length === 0) return;
+    setReschedulingTaskId(uniqueTaskIds[0]);
     try {
-      const completedForTask = (plan ?? []).filter((s) => s.taskId === session.taskId && s.completed);
-      const newSessions = await adjustTaskSessions(task, availability, completedForTask);
-      const ts = Date.now();
-      setPlan((prev) => {
-        const without = prev.filter((s) => s.taskId !== session.taskId || s.completed);
+      let currentPlan = plan ?? [];
+      for (const taskId of uniqueTaskIds) {
+        const task = tasks.find((t) => t.id === taskId);
+        if (!task) continue;
+        const completedForTask = currentPlan.filter((s) => s.taskId === taskId && s.completed);
+        const newSessions = await adjustTaskSessions(task, availability, completedForTask);
+        const ts = Date.now();
+        const without = currentPlan.filter((s) => s.taskId !== taskId || s.completed);
         const added = newSessions.map((s, i) => ({ ...s, _key: `adj_${ts}_${i}`, missed: false }));
-        const merged = [...without, ...added].sort((a, b) => a.date.localeCompare(b.date));
-        AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: merged }))
-          .then(() => DeviceEventEmitter.emit("studyPlanUpdated"))
-          .catch(() => {});
-        return merged;
-      });
+        currentPlan = [...without, ...added].sort((a, b) => a.date.localeCompare(b.date));
+      }
+      setPlan(currentPlan);
+      AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: currentPlan }))
+        .then(() => DeviceEventEmitter.emit("studyPlanUpdated"))
+        .catch(() => {});
     } catch {
       Alert.alert("Couldn't reschedule", "Try again in a moment.");
     } finally {
       setReschedulingTaskId(null);
     }
-  }, [tasks, plan, availability]);
+  }, [tasks, plan, availability, missedSessions]);
 
   const pendingTasks = tasks.filter((t) => !t.completed && t.dueDate);
 
@@ -1066,16 +1083,33 @@ const StudyPlanScreen = ({ navigation }) => {
               <View style={styles.daySection}>
                 <View style={styles.daySectionHeader}>
                   <Text style={styles.daySectionTitle}>Yesterday · Missed</Text>
-                  <TouchableOpacity
-                    onPress={() => missedSessions.forEach((s) => handleRescheduleMissed(s))}
-                    disabled={!!reschedulingTaskId}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={{ fontSize: 12, fontFamily: "Outfit-SemiBold", color: reschedulingTaskId ? colors.textMuted : colors.accent }}>
-                      {reschedulingTaskId ? "Rescheduling…" : "Ask Tally to reschedule"}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
+
+                {/* Tally reschedule banner */}
+                <TouchableOpacity
+                  style={[styles.tallyRescheduleBanner, { borderColor: colors.accent + "40", backgroundColor: colors.isDark ? colors.accent + "14" : colors.accent + "0A" }]}
+                  onPress={handleRescheduleMissed}
+                  disabled={!!reschedulingTaskId}
+                  activeOpacity={0.75}
+                >
+                  <Mascot variant="alive" size={38} blink={false} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.tallyRescheduleTitle, { color: colors.textPrimary }]}>
+                      {reschedulingTaskId ? "Rescheduling…" : "Tally can fix this"}
+                    </Text>
+                    <Text style={[styles.tallyRescheduleSub, { color: colors.textSecondary }]}>
+                      {reschedulingTaskId
+                        ? "Finding new slots for your missed sessions"
+                        : `Reschedule ${missedSessions.length} missed session${missedSessions.length !== 1 ? "s" : ""} around your week`}
+                    </Text>
+                  </View>
+                  {!reschedulingTaskId && (
+                    <View style={[styles.tallyRescheduleBtn, { backgroundColor: colors.accent }]}>
+                      <Text style={styles.tallyRescheduleBtnText}>Reschedule</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
                 <View style={{ opacity: 0.5 }}>
                 {missedSessions.map((s, idx) => {
                   return (

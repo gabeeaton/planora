@@ -21,6 +21,7 @@ import * as Haptics from "expo-haptics";
 import { useTasks } from "../hooks/useTasks";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../hooks/useAuth";
+import { useSubscription } from "../hooks/useSubscription";
 import { saveUserProfile } from "../services/firebase";
 import { track } from "../services/analytics";
 // ─────────────────────────────────────────────────────────────
@@ -352,6 +353,7 @@ const SyllabusParserScreen = ({ navigation }) => {
   const { createManyTasks }  = useTasks();
   const { profile }          = useUserProfile();
   const { user }             = useAuth();
+  const { isPro }            = useSubscription();
 
   const savedUrl = profile?.icsUrl ?? null;
 
@@ -382,9 +384,8 @@ const SyllabusParserScreen = ({ navigation }) => {
       Animated.timing(successTextAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
     ]).start();
 
-    // Paywall timing — show after import success for free users
-    // Delay so they see the success screen first
-    if (user?.uid) {
+    // Paywall timing — show after import success for free users only, once per user
+    if (user?.uid && !isPro) {
       const paywallKey = `@planora_import_paywall_shown_${user.uid}`;
       AsyncStorage.getItem(paywallKey).then((shown) => {
         if (shown) return;
