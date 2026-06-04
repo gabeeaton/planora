@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { spacing, radius, shadows, typography } from "../utils/theme";
@@ -380,7 +381,18 @@ const SyllabusParserScreen = ({ navigation }) => {
       Animated.spring(successRingAnim, { toValue: 1, speed: 9, bounciness: 12, useNativeDriver: true }),
       Animated.timing(successTextAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
     ]).start();
-  }, [importDone]);
+
+    // Paywall timing — show after import success for free users
+    // Delay so they see the success screen first
+    if (user?.uid) {
+      const paywallKey = `@planora_import_paywall_shown_${user.uid}`;
+      AsyncStorage.getItem(paywallKey).then((shown) => {
+        if (shown) return;
+        AsyncStorage.setItem(paywallKey, "1").catch(() => {});
+        setTimeout(() => navigation.navigate("Paywall"), 2200);
+      }).catch(() => {});
+    }
+  }, [importDone, user?.uid]);
 
   // ── Parse + auto-import (skip review screen) ─────────────
   const parseAndShow = async (text) => {

@@ -49,7 +49,24 @@ export const useSubscription = () => {
 
     // Listen for real-time entitlement updates (e.g. after purchase)
     const listener = Purchases.addCustomerInfoUpdateListener((info) => {
-      setRcSubscribed(info.entitlements.active[ENTITLEMENT_ID] !== undefined);
+      const active = info.entitlements.active[ENTITLEMENT_ID] !== undefined;
+      setRcSubscribed(active);
+
+      // Detect trial end — if no active entitlement but there's a recent expiry, store offer window
+      if (!active && user?.uid) {
+        const expiry = info.entitlements.all?.[ENTITLEMENT_ID]?.expirationDate;
+        if (expiry) {
+          const expiryMs = new Date(expiry).getTime();
+          const nowMs = Date.now();
+          const hoursSinceExpiry = (nowMs - expiryMs) / 3600000;
+          if (hoursSinceExpiry >= 0 && hoursSinceExpiry < 24) {
+            const offerKey = `@planora_trial_discount_shown_${user.uid}`;
+            AsyncStorage.getItem(offerKey).then((shown) => {
+              if (!shown) AsyncStorage.setItem(offerKey, String(nowMs)).catch(() => {});
+            }).catch(() => {});
+          }
+        }
+      }
     });
 
     return () => { if (typeof listener === "function") listener(); else listener?.remove?.(); };
@@ -80,9 +97,23 @@ export const useSubscription = () => {
     prevProRef.current = hasProAccess;
   }, [hasProAccess]);
 
+  // Check if trial discount offer is active (within 24h of trial end)
+  const [trialDiscountActive, setTrialDiscountActive] = useState(false);
+  useEffect(() => {
+    if (!user?.uid) return;
+    const key = `@planora_trial_discount_shown_${user.uid}`;
+    AsyncStorage.getItem(key).then((val) => {
+      if (!val) return;
+      const offerStartMs = parseInt(val, 10);
+      const hoursSince = (Date.now() - offerStartMs) / 3600000;
+      setTrialDiscountActive(!hasProAccess && hoursSince < 24);
+    }).catch(() => {});
+  }, [user?.uid, hasProAccess]);
+
   return {
     isPro: hasProAccess,
     hasProAccess,
     loading,
+    trialDiscountActive,
   };
 };

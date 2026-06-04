@@ -819,7 +819,32 @@ const DashboardScreen = ({ navigation }) => {
       Animated.spring(streakScale, { toValue: 1.35, speed: 50, bounciness: 0, useNativeDriver: true }),
       Animated.spring(streakScale, { toValue: 1,    speed: 18, bounciness: 10, useNativeDriver: true }),
     ]).start();
-  }, [streak]);
+
+    // Streak-based paywall trigger — fires once at 7-day streak for free users
+    if (streak === 7 && !isPro && user?.uid) {
+      const key = `@planora_streak_paywall_shown_${user.uid}`;
+      AsyncStorage.getItem(key).then((shown) => {
+        if (shown) return;
+        AsyncStorage.setItem(key, "1").catch(() => {});
+        setTimeout(() => navigation.navigate("Paywall"), 800);
+      }).catch(() => {});
+    }
+
+    // In-app review prompt at 14-day streak
+    if (streak === 14 && user?.uid) {
+      const reviewKey = `@planora_streak_review_${user.uid}`;
+      AsyncStorage.getItem(reviewKey).then(async (shown) => {
+        if (shown) return;
+        await AsyncStorage.setItem(reviewKey, "1").catch(() => {});
+        setTimeout(async () => {
+          try {
+            const StoreReview = require("expo-store-review");
+            if (await StoreReview.hasAction()) await StoreReview.requestReview();
+          } catch {}
+        }, 1500);
+      }).catch(() => {});
+    }
+  }, [streak, isPro, user?.uid]);
 
   const [tabLoading, setTabLoading] = useState(false);
   const [planTodayCount, setPlanTodayCount] = useState(null);

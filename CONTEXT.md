@@ -271,10 +271,15 @@ Three issues from Apple:
 ## Known Issues / Pending
 - RevenueCat sandbox key must be swapped to production before App Store build
 - `useSubscription.js`: sync effect that writes `isPro: false` to Firestore is guarded with `__DEV__` — only runs in production builds to prevent sandbox key nuking real Scholar status
-- Surgical AI rebuild (regenerate only affected task sessions, not whole plan) — planned but not yet built
-- Monday summary notification — planned but not yet built
-- Session momentum screen — planned but not yet built
-- Completion ring — planned but not yet built
+- Surgical AI rebuild — built (`adjustTaskSessions` in openai.js, "Ask Tally to reschedule" in missed sessions section)
+- Monday summary notification — built (`scheduleMondaySummary` in notifications.js, called on plan generation)
+- Session momentum screen — built (slide-up overlay on session complete, auto-dismisses 2.8s)
+- Completion ring — built (SVG ring at top of Study Plan, live updates)
+- Tally plan comment — built (client-side message after generation, no API call)
+- Paywall timing — built (after import success in SyllabusParserScreen, after chat limit in ChatScreen)
+- Streak paywall trigger — built (7-day streak, once per user)
+- Post-trial discount — built (24h window via RC CustomerInfo expiry, banner in PaywallScreen)
+- In-app review — built (5 completions in useTasks.js + 14-day streak in DashboardScreen)
 - iPad layout not designed for — Apple reviewed on iPad Air M3 during rejection
 
 ---

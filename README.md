@@ -327,15 +327,16 @@ Contribute genuinely to r/college (3.5M), r/GetStudying (500k), r/productivity (
 - [ ] Reply to Apple review message confirming all three issues addressed
 
 ### Before launch (highest ROI)
-1. **Surgical AI rebuild** — when sessions are missed, rebuild only the affected task's sessions instead of full plan regeneration. ~70% cheaper per adjustment, makes plan feel alive.
-2. **Paywall timing** — fire after Canvas import success and after first chat limit hit. Not at app open.
-3. **Streak-based paywall trigger** — at 7-day streak: "You're on a roll. Scholar keeps the momentum going."
-4. **Post-trial dismissal discount** — 20% off Annual for 24 hours after trial ends.
-5. **In-app review prompt** — after completing all tasks for the day, or at 14-day streak. Never randomly.
-6. **Monday summary notification** — Monday 8am push with the week's sessions and first deadline. Drives habitual weekly open.
-7. **Session momentum screen** — brief celebration overlay when completing a study session. Shows progress and plan streak.
-8. **Completion ring** — circular progress ring in Study Plan showing sessions done vs total.
-9. **Verify all feature flags** are `false` in `src/config.js` before production build.
+1. ✅ **Surgical AI rebuild** — `adjustTaskSessions` in openai.js. Rebuilds only missed/changed task sessions via GPT-4o-mini. "Ask Tally to reschedule" button on missed sessions. ~85% cheaper than full regeneration.
+2. ✅ **Paywall timing** — fires after Canvas import success (SyllabusParserScreen, once per user) and after first chat limit hit (ChatScreen). Not at app open.
+3. ✅ **Streak-based paywall trigger** — at 7-day streak for free users, navigates to Paywall once per user lifetime.
+4. ✅ **Post-trial discount** — detected via RevenueCat CustomerInfo expiry. 24h window stored in AsyncStorage. Banner shown in PaywallScreen with promo code messaging.
+5. ✅ **In-app review prompt** — fires at 5 task completions (useTasks.js) and at 14-day streak (DashboardScreen). Once per user via AsyncStorage flag.
+6. ✅ **Monday summary notification** — `scheduleMondaySummary` in notifications.js. Fires Monday 8am with session count and first deadline. Called when plan is generated.
+7. ✅ **Session momentum screen** — slide-up overlay when completing a study session. Shows sessions done today, plan streak, Tally mascot in bounce variant. Auto-dismisses after 2.8s.
+8. ✅ **Completion ring** — SVG circle ring at top of Study Plan showing completed/total sessions. Updates live as sessions are checked off.
+9. ✅ **Tally plan comment** — client-side message shown after plan generation referencing today's first session or first upcoming session. No extra API call.
+10. **Verify all feature flags** are `false` in `src/config.js` before production build.
 
 ### P1 — First 2 months post-launch
 10. **Syllabus scanner** — camera or PDF upload, GPT-4o Vision extracts assignments, due dates, grade weights. Scholar only. ~3 days.

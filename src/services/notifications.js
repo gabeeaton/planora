@@ -852,6 +852,60 @@ export const scheduleWeeklySummary = async (tasks, history, uid) => {
   });
 };
 
+// ── Monday plan summary ───────────────────────────────────────
+
+const mondaySummaryKey = (uid) => `@planora_monday_summary_id_${uid}`;
+
+/**
+ * Schedule a Monday 8am notification when a study plan is generated.
+ * Shows session count + first upcoming deadline to drive weekly opens.
+ */
+export const scheduleMondaySummary = async (sessions, uid) => {
+  if (!uid || FEATURE_FLAGS.DEMO_MODE) return;
+  await _withLock(`monday-${uid}`, async () => {
+    const granted = await checkNotificationPermissions();
+    if (!granted) return;
+
+    try {
+      const prevId = await AsyncStorage.getItem(mondaySummaryKey(uid));
+      if (prevId) {
+        await Notifications.cancelScheduledNotificationAsync(prevId).catch(() => {});
+        await AsyncStorage.removeItem(mondaySummaryKey(uid)).catch(() => {});
+      }
+    } catch {}
+
+    const upcoming = (sessions ?? []).filter((s) => !s.completed && !s.missed);
+    if (upcoming.length === 0) return;
+
+    // Find soonest deadline
+    const soonest = upcoming.reduce((a, b) => (a.taskDueDate && b.taskDueDate && a.date < b.date ? a : b), upcoming[0]);
+    const sessionCount = upcoming.length;
+    const title = "Your week is planned";
+    const body = `${sessionCount} study session${sessionCount !== 1 ? "s" : ""} scheduled${soonest?.className ? ` — first deadline is ${soonest.className} on ${soonest.taskDueDate}` : ""}.`;
+
+    const now = new Date();
+    const nextMonday = new Date(now);
+    const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
+    nextMonday.setDate(now.getDate() + daysUntilMonday);
+    nextMonday.setHours(8, 0, 0, 0);
+
+    // If today is Monday and it's before 8am, fire today
+    if (now.getDay() === 1 && now.getHours() < 8) {
+      nextMonday.setDate(now.getDate());
+    }
+
+    try {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: { title, body, data: { type: "monday-summary" }, sound: true },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: nextMonday },
+      });
+      await AsyncStorage.setItem(mondaySummaryKey(uid), id).catch(() => {});
+    } catch (err) {
+      console.warn("Failed to schedule Monday summary:", err);
+    }
+  });
+};
+
 // ── Morning due-today digest ──────────────────────────────────
 
 const digestNotifKey = (uid) => `@planora_digest_notif_id_${uid}`;

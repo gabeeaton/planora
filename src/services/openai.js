@@ -865,7 +865,80 @@ Output ONLY a raw JSON array — no markdown, no explanation:
   return processed.sort((a, b) => a.date.localeCompare(b.date));
 };
 
-// ── 4. AI Priority Suggestion ────────────────────────────────
+// ── 4. Surgical session rebuild — one task only ───────────────
+// Rebuilds sessions for a single task without touching the rest of the plan.
+// ~85% cheaper than full regeneration. Used for missed session recovery.
+export const adjustTaskSessions = async (task, availability, completedSessionsForTask = []) => {
+  const now = new Date();
+  const todayStr = format(now, "yyyy-MM-dd");
+
+  const resolveDate = (d) => {
+    if (!d) return null;
+    if (d?.toDate) return d.toDate();
+    if (d?.seconds) return new Date(d.seconds * 1000);
+    return new Date(d);
+  };
+
+  const dueDate = resolveDate(task.dueDate);
+  if (!dueDate) throw new Error("Task has no due date");
+
+  const daysUntil = Math.ceil((dueDate - now) / 86400000);
+  const dueDateStr = format(dueDate, "yyyy-MM-dd");
+  const urgency = daysUntil < 0 ? "OVERDUE" : daysUntil === 0 ? "DUE TODAY" : daysUntil === 1 ? "DUE TOMORROW" : `due in ${daysUntil} days`;
+
+  const availLines = availability
+    .filter((d) => d.hours > 0 && d.date >= todayStr && d.date < dueDateStr)
+    .map((d) => `${d.label} (${d.date}): ${d.hours * 60} min`)
+    .join("\n") || `Today (${todayStr}): 120 min`;
+
+  const completedNote = completedSessionsForTask.length > 0
+    ? `\nAlready completed for this task:\n${completedSessionsForTask.map((s) => `- "${s.sessionTitle}" (${s.durationMinutes ?? 0}min)`).join("\n")}`
+    : "";
+
+  const prompt = `You are Tally, an academic coach. Reschedule study sessions for ONE task that was partially missed.
+
+Today: ${todayStr}
+Task: "${task.title}"${task.className ? ` [${task.className}]` : ""} — ${urgency}
+Estimated total time: ${TASK_DURATION_MINUTES(task.title)} min${completedNote}
+
+Available days before deadline:
+${availLines}
+
+Rules:
+- Schedule only before the due date, never on or after it
+- OVERDUE tasks: schedule today only
+- Max 2 sessions for this task across all days
+- Each session under 120 min
+- Session title: 3–7 words, action-verb first, specific
+- Activity: exactly 2 sentences (how to start + what to produce)
+
+Output ONLY a raw JSON array:
+[{"sessionTitle":"...","date":"YYYY-MM-DD","durationMinutes":60,"activity":"..."}]`;
+
+  const content = await callProxy({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.2,
+    max_tokens: 800,
+  });
+
+  const sessions = safeParseJSON(content.trim(), "array");
+  return sessions.map((s) => {
+    let date = s.date;
+    if (daysUntil < 0) date = todayStr;
+    else if (date >= dueDateStr) date = format(addDays(dueDate, -1), "yyyy-MM-dd") >= todayStr ? format(addDays(dueDate, -1), "yyyy-MM-dd") : todayStr;
+    return {
+      ...s,
+      date,
+      taskId: task.id,
+      taskTitle: task.title,
+      className: task.className ?? null,
+      taskDueDate: format(dueDate, "M/d"),
+    };
+  });
+};
+
+// ── 5. AI Priority Suggestion ────────────────────────────────
 
 export const suggestPriorities = async (tasks, patterns, userProfile = null) => {
   if (!tasks || tasks.length === 0) return [];

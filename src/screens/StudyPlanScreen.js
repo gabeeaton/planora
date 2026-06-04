@@ -12,8 +12,9 @@ import { useAuth } from "../hooks/useAuth";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useTasks } from "../hooks/useTasks";
 import { useSubscription } from "../hooks/useSubscription";
-import { scheduleStudyPlanReminders, cancelStudyPlanReminders } from "../services/notifications";
-import { generateStudyPlan } from "../services/openai";
+import { scheduleStudyPlanReminders, cancelStudyPlanReminders, scheduleMondaySummary } from "../services/notifications";
+import { generateStudyPlan, adjustTaskSessions } from "../services/openai";
+import Svg, { Circle } from "react-native-svg";
 import { useCalendarEvents } from "../hooks/useCalendarEvents";
 import * as Calendar from "expo-calendar";
 
@@ -261,6 +262,30 @@ const makeStyles = (colors) => StyleSheet.create({
   durationText: { fontSize: 13, fontFamily: "Outfit-Bold", color: colors.textMuted },
   durationUnit: { fontSize: 10, fontFamily: "Outfit-Regular", color: colors.textMuted },
 
+  tallyComment: {
+    flexDirection: "row", alignItems: "flex-start", gap: 10,
+    marginHorizontal: spacing.lg, marginBottom: 14,
+    backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+    borderRadius: radius.md, padding: 12,
+    ...(colors.isDark
+      ? { borderWidth: 1, borderColor: colors.border }
+      : { shadowColor: "#6B6B8A", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 }
+    ),
+  },
+  tallyCommentText: { flex: 1, fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, lineHeight: 19 },
+  ringWrap: { alignItems: "center", marginVertical: 16, gap: 6 },
+  ringLabel: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
+  momentumSheet: {
+    position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 99,
+    backgroundColor: colors.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40,
+    shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 20,
+    alignItems: "center",
+  },
+  momentumTitle: { fontSize: 20, fontFamily: "Outfit-Bold", color: colors.textPrimary, marginTop: 12, textAlign: "center" },
+  momentumSub: { fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginTop: 4, textAlign: "center" },
+  momentumStreak: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 10 },
+  momentumStreakText: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: "#FF6B2C" },
   planStreakRow: {
     flexDirection: "row", alignItems: "center", gap: 5,
     alignSelf: "flex-start", marginHorizontal: spacing.lg, marginBottom: 12,
@@ -406,6 +431,17 @@ const StudyPlanScreen = ({ navigation }) => {
   const [availableCalendars, setAvailableCalendars] = useState([]);
   const [selectedCalendarId, setSelectedCalendarId] = useState(null);
   const calPickerAnim = useRef(new Animated.Value(0)).current;
+
+  // Session momentum sheet
+  const [momentumData, setMomentumData] = useState(null);
+  const momentumAnim = useRef(new Animated.Value(0)).current;
+  const momentumTimer = useRef(null);
+
+  // Tally comment shown after plan generation
+  const [tallyComment, setTallyComment] = useState(null);
+
+  // Surgical rebuild
+  const [reschedulingTaskId, setReschedulingTaskId] = useState(null);
   const [planStreak, setPlanStreak] = useState(0);
 
   useEffect(() => {
@@ -506,7 +542,13 @@ const StudyPlanScreen = ({ navigation }) => {
         if (s._key !== key) return s;
         const nowDone = !s.completed;
         if (nowDone && user?.uid) {
-          incrementPlanStreak(user.uid).then((newCount) => setPlanStreak(newCount)).catch(() => {});
+          incrementPlanStreak(user.uid).then((newCount) => {
+            setPlanStreak(newCount);
+            const todayStr = format(startOfToday(), "yyyy-MM-dd");
+            const todaySessions = updated.filter((x) => x.date === todayStr && !x.missed);
+            const doneTodayCount = todaySessions.filter((x) => x.completed || x._key === key).length;
+            showMomentum({ doneTodayCount, totalToday: todaySessions.length, planStreak: newCount });
+          }).catch(() => {});
         }
         return { ...s, completed: nowDone, completedAt: nowDone ? Date.now() : null };
       });
@@ -515,7 +557,7 @@ const StudyPlanScreen = ({ navigation }) => {
         .catch(() => {});
       return updated;
     });
-  }, [user?.uid]);
+  }, [user?.uid, showMomentum, planStreak]);
 
   const handleGenerate = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -540,6 +582,20 @@ const StudyPlanScreen = ({ navigation }) => {
         .catch(() => {});
       if (user?.uid) savePlanSessionDates(user.uid, merged).catch(() => {});
       if (isPro) scheduleStudyPlanReminders(result, user?.uid).catch(() => {});
+      if (user?.uid) scheduleMondaySummary(merged, user.uid).catch(() => {});
+
+      // Build a Tally comment from the plan — no API call, client-side
+      const todayStr2 = format(startOfToday(), "yyyy-MM-dd");
+      const todaySessions = merged.filter((s) => s.date === todayStr2 && !s.missed && !s.completed);
+      const soonest = [...merged].filter((s) => !s.missed && !s.completed)
+        .sort((a, b) => a.date.localeCompare(b.date))[0];
+      if (todaySessions.length > 0) {
+        setTallyComment(`Locked in. You have ${todaySessions.length} session${todaySessions.length !== 1 ? "s" : ""} today — start with ${todaySessions[0].sessionTitle.toLowerCase()}.`);
+      } else if (soonest) {
+        setTallyComment(`Plan's ready. First up: ${soonest.sessionTitle} on ${format(new Date(soonest.date + "T12:00:00"), "EEEE")}.`);
+      } else {
+        setTallyComment("You're all set for the week.");
+      }
     } catch (err) {
       Alert.alert("Couldn't generate plan", err.message ?? "Try again in a moment.");
     } finally {
@@ -611,6 +667,40 @@ const StudyPlanScreen = ({ navigation }) => {
       setCalExporting(false);
     }
   }, [availableCalendars, selectedCalendarId, plan, closeCalPicker]);
+
+  const showMomentum = useCallback((data) => {
+    setMomentumData(data);
+    Animated.spring(momentumAnim, { toValue: 1, useNativeDriver: true, tension: 65, friction: 11 }).start();
+    if (momentumTimer.current) clearTimeout(momentumTimer.current);
+    momentumTimer.current = setTimeout(() => {
+      Animated.timing(momentumAnim, { toValue: 0, duration: 220, useNativeDriver: true })
+        .start(() => setMomentumData(null));
+    }, 2800);
+  }, [momentumAnim]);
+
+  const handleRescheduleMissed = useCallback(async (session) => {
+    const task = tasks.find((t) => t.id === session.taskId);
+    if (!task) return;
+    setReschedulingTaskId(session.taskId);
+    try {
+      const completedForTask = (plan ?? []).filter((s) => s.taskId === session.taskId && s.completed);
+      const newSessions = await adjustTaskSessions(task, availability, completedForTask);
+      const ts = Date.now();
+      setPlan((prev) => {
+        const without = prev.filter((s) => s.taskId !== session.taskId || s.completed);
+        const added = newSessions.map((s, i) => ({ ...s, _key: `adj_${ts}_${i}`, missed: false }));
+        const merged = [...without, ...added].sort((a, b) => a.date.localeCompare(b.date));
+        AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: merged }))
+          .then(() => DeviceEventEmitter.emit("studyPlanUpdated"))
+          .catch(() => {});
+        return merged;
+      });
+    } catch {
+      Alert.alert("Couldn't reschedule", "Try again in a moment.");
+    } finally {
+      setReschedulingTaskId(null);
+    }
+  }, [tasks, plan, availability]);
 
   const pendingTasks = tasks.filter((t) => !t.completed && t.dueDate);
 
@@ -915,6 +1005,41 @@ const StudyPlanScreen = ({ navigation }) => {
           </>
         ) : (
           <>
+            {/* Completion ring */}
+            {(() => {
+              const total = plan.filter((s) => !s.missed).length;
+              const done  = plan.filter((s) => s.completed).length;
+              if (total === 0) return null;
+              const pct  = done / total;
+              const r    = 36;
+              const circ = 2 * Math.PI * r;
+              const dash = circ * pct;
+              return (
+                <View style={styles.ringWrap}>
+                  <Svg width={90} height={90}>
+                    <Circle cx={45} cy={45} r={r} stroke={colors.border} strokeWidth={7} fill="none" />
+                    <Circle cx={45} cy={45} r={r} stroke={colors.accent} strokeWidth={7} fill="none"
+                      strokeDasharray={`${dash} ${circ - dash}`}
+                      strokeDashoffset={circ / 4}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                  <Text style={styles.ringLabel}>{done} of {total} sessions done</Text>
+                </View>
+              );
+            })()}
+
+            {/* Tally comment after generation */}
+            {tallyComment && (
+              <View style={styles.tallyComment}>
+                <Mascot variant="alive" size={36} blink={false} />
+                <Text style={styles.tallyCommentText}>{tallyComment}</Text>
+                <TouchableOpacity onPress={() => setTallyComment(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Feather name="x" size={14} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
+
             <Text style={styles.planHint}>
               Prep sessions leading up to your deadlines. Times are up to you.
             </Text>
@@ -938,10 +1063,20 @@ const StudyPlanScreen = ({ navigation }) => {
             )}
 
             {missedSessions.length > 0 && (
-              <View style={[styles.daySection, { opacity: 0.5 }]}>
+              <View style={styles.daySection}>
                 <View style={styles.daySectionHeader}>
                   <Text style={styles.daySectionTitle}>Yesterday · Missed</Text>
+                  <TouchableOpacity
+                    onPress={() => missedSessions.forEach((s) => handleRescheduleMissed(s))}
+                    disabled={!!reschedulingTaskId}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={{ fontSize: 12, fontFamily: "Outfit-SemiBold", color: reschedulingTaskId ? colors.textMuted : colors.accent }}>
+                      {reschedulingTaskId ? "Rescheduling…" : "Ask Tally to reschedule"}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
+                <View style={{ opacity: 0.5 }}>
                 {missedSessions.map((s, idx) => {
                   return (
                     <View key={idx} style={styles.sessionCard}>
@@ -968,6 +1103,7 @@ const StudyPlanScreen = ({ navigation }) => {
                     </View>
                   );
                 })}
+                </View>
               </View>
             )}
 
@@ -1171,6 +1307,31 @@ const StudyPlanScreen = ({ navigation }) => {
           </Modal>
         );
       })()}
+
+      {/* Session momentum sheet */}
+      {momentumData && (
+        <Animated.View style={[styles.momentumSheet, {
+          transform: [{ translateY: momentumAnim.interpolate({ inputRange: [0,1], outputRange: [300, 0] }) }],
+        }]}>
+          <Mascot variant="bounce" size={80} blink={false} />
+          <Text style={styles.momentumTitle}>
+            {momentumData.doneTodayCount === momentumData.totalToday && momentumData.totalToday > 0
+              ? "All done today!"
+              : `${momentumData.doneTodayCount} of ${momentumData.totalToday} done today`}
+          </Text>
+          <Text style={styles.momentumSub}>
+            {momentumData.doneTodayCount === momentumData.totalToday && momentumData.totalToday > 0
+              ? "You cleared your sessions. That's a locked-in day."
+              : "Keep it going — you're building momentum."}
+          </Text>
+          {momentumData.planStreak > 1 && (
+            <View style={styles.momentumStreak}>
+              <MaterialCommunityIcons name="fire" size={14} color="#FF6B2C" />
+              <Text style={styles.momentumStreakText}>{momentumData.planStreak}-day plan streak</Text>
+            </View>
+          )}
+        </Animated.View>
+      )}
     </View>
   );
 };

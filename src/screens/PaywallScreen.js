@@ -8,6 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import { spacing, radius, shadows } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useAuth } from "../hooks/useAuth";
+import { useSubscription } from "../hooks/useSubscription";
 import { getOfferings, purchasePackage, restorePurchases } from "../services/purchases";
 import { setProStatus } from "../services/firebase";
 import { invalidateTodayFocusCache } from "../services/openai";
@@ -46,6 +47,7 @@ const PLANS = [
 export default function PaywallScreen({ navigation }) {
   const { colors }   = useTheme();
   const { user }     = useAuth();
+  const { trialDiscountActive } = useSubscription();
   const insets       = useSafeAreaInsets();
   const styles       = makeStyles(colors, insets);
 
@@ -245,6 +247,17 @@ export default function PaywallScreen({ navigation }) {
               ))}
             </View>
           </View>
+
+          {/* ── Trial discount banner ── */}
+          {trialDiscountActive && (
+            <View style={{ marginHorizontal: 20, marginBottom: 12, borderRadius: 12, backgroundColor: colors.accent + "18", borderWidth: 1, borderColor: colors.accent + "44", padding: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Feather name="zap" size={14} color={colors.accent} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: colors.accent }}>Limited offer — 20% off Annual</Text>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginTop: 2 }}>Expires in 24 hours. Use promo code WELCOME20 at checkout.</Text>
+              </View>
+            </View>
+          )}
 
           {/* ── Plan cards ── */}
           <View style={[styles.plansWrap, { marginTop: 16 }]}>
