@@ -551,20 +551,24 @@ const StudyPlanScreen = ({ navigation }) => {
   const toggleSessionDone = useCallback((key) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setPlan((prev) => {
-      const updated = prev.map((s) => {
-        if (s._key !== key) return s;
-        const nowDone = !s.completed;
-        if (nowDone && user?.uid) {
+      const updated = prev.map((s) =>
+        s._key === key ? { ...s, completed: !s.completed, completedAt: !s.completed ? Date.now() : null } : s
+      );
+      const session = updated.find((s) => s._key === key);
+      if (session?.completed) {
+        const todayStr = format(startOfToday(), "yyyy-MM-dd");
+        const todaySessions = updated.filter((x) => x.date === todayStr && !x.missed);
+        const doneTodayCount = todaySessions.filter((x) => x.completed).length;
+        // Show momentum immediately — don't wait for AsyncStorage
+        setTimeout(() => showMomentum({ doneTodayCount, totalToday: todaySessions.length, planStreak }), 0);
+        // Update streak in background, refresh number when done
+        if (user?.uid) {
           incrementPlanStreak(user.uid).then((newCount) => {
             setPlanStreak(newCount);
-            const todayStr = format(startOfToday(), "yyyy-MM-dd");
-            const todaySessions = updated.filter((x) => x.date === todayStr && !x.missed);
-            const doneTodayCount = todaySessions.filter((x) => x.completed || x._key === key).length;
-            showMomentum({ doneTodayCount, totalToday: todaySessions.length, planStreak: newCount });
+            setMomentumData((d) => d ? { ...d, planStreak: newCount } : d);
           }).catch(() => {});
         }
-        return { ...s, completed: nowDone, completedAt: nowDone ? Date.now() : null };
-      });
+      }
       AsyncStorage.setItem(PLAN_CACHE_KEY, JSON.stringify({ plan: updated }))
         .then(() => DeviceEventEmitter.emit("studyPlanUpdated"))
         .catch(() => {});
