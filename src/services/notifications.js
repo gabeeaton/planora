@@ -483,7 +483,7 @@ export const scheduleStudyPlanReminders = async (plan, uid) => {
       try {
         const id = await Notifications.scheduleNotificationAsync({
           content: {
-            title: "Tally's got your day planned 📚",
+            title: "Your study sessions for today",
             body,
             data: { type: "study-plan-reminder", date: dateStr },
             sound: true,
@@ -596,13 +596,14 @@ export const scheduleStreakReminder = async (streak, bestTime, uid, tasks = []) 
     try {
       const id = await Notifications.scheduleNotificationAsync({
         content: {
-          title: `🔥 ${streak} day streak — keep it going!`,
-          body: "Complete a task today to keep your streak going.",
+          title: `${streak}-day streak — don't break it`,
+          body: "You haven't completed a task today yet.",
           data: { type: "streak-reminder" },
           sound: true,
         },
         trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+          weekday: 3, // Wednesday — mid-week nudge, not every day
           hour,
           minute: 0,
         },

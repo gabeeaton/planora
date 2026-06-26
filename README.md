@@ -32,11 +32,11 @@ The moment the app says something true about their behavior they didn't tell it 
 - Task list with AI priority badges (HIGH / MEDIUM / LOW) — updated dynamically as deadlines approach
 - Tally's Brief — AI-generated daily coaching message based on tasks, deadlines, and behavioral patterns
 - Tally's Picks — AI picks 2–3 tasks to focus on right now, sorted by urgency × importance score
-- Behavioral insight strip — surfaces patterns: "You have 3 things due Thursday and you usually finish the day before"
+- Today's plan strip — today's scheduled study sessions with count and first session name
 - Avoidance indicator on task cards — shows "Xd untouched" when a task is being avoided (free)
 - ICS re-sync banner — appears after a semester switch, prompts user to re-sync their calendar feed
 - Streak tracker — consecutive days with at least one task completed
-- Stats strip — today / pending / done counts always visible above scroll content
+- Streak milestone banners — animated banner on 3/7/14/30/60/100-day streaks
 - Sync button in header — quick access to calendar import from anywhere
 
 ### Study Plan (flagship Scholar feature)
@@ -46,11 +46,14 @@ The moment the app says something true about their behavior they didn't tell it 
 - Task type pre-classification (EXAM, ESSAY, DISCUSSION, etc.) applied before AI call for more reliable session rules
 - Same-class daily cap — max 2 sessions per class per day unless deadline within 2 days
 - Rest day logic — AI only schedules rest days when all deadlines are 6+ days away
+- Completion ring — SVG circle at top of plan showing completed/total sessions, updates live
 - Plan streak tracking — consecutive days completing at least one scheduled session
+- Tally plan comment — client-side coaching note shown after plan generation, references today's first session
+- Missed sessions surfaced at top of plan with "Ask Tally to reschedule" — surgical AI rebuild that only regenerates affected sessions (~85% cheaper than full regeneration)
+- Session momentum screen — slide-up overlay when completing a study session, shows sessions done today and plan streak
 - Export to Calendar — exports all sessions to Google Calendar, Apple Calendar, or Outlook with provider picker
 - Notifications fire for each scheduled session
 - Plan cached to avoid regenerating on every open
-- Missed sessions detected and surfaced at top of plan
 - No direct competitor does this
 
 ### AI Coach (Tally)
@@ -78,6 +81,7 @@ The moment the app says something true about their behavior they didn't tell it 
 - Avoidance alert push notification (Scholar only)
 - Weekly digest every Sunday: what's coming up this week (free)
 - Study Plan session reminders (Scholar)
+- Monday summary notification — fires Monday 8am with session count and first upcoming deadline
 - Streak reminder — fires at the student's peak productive time based on history
 
 ### Stats Screen
@@ -97,8 +101,8 @@ The moment the app says something true about their behavior they didn't tell it 
 - Re-sync banner on Dashboard prompts users after a semester switch
 
 ### Focus Mode
-- Pomodoro timer (25/5 min default)
-- Tied to a specific task
+- Full-screen focus timer tied to a specific task
+- Selectable session length: 15, 25, 45, or 60 minutes
 - Completion triggers haptic feedback and animation
 
 ### Profile
@@ -117,7 +121,7 @@ The moment the app says something true about their behavior they didn't tell it 
 - Collects: name, school, semester, classes (name + credit hours + current grade)
 - ICS import available inline during onboarding
 - Notification permissions with "explain before you ask" approach
-- Walkthrough overlay on first dashboard open highlights key features
+- Walkthrough overlay on first dashboard open — spotlights key features and tab bar items
 - Paywall offered after onboarding completes for non-subscriber users
 
 ---
@@ -127,28 +131,29 @@ The moment the app says something true about their behavior they didn't tell it 
 | Plan | Price | Billed |
 |---|---|---|
 | Free | $0 | — |
+| Scholar Annual | $29.99/yr · **Most Popular** | $2.50/mo equivalent |
 | Scholar Monthly | $4.99/mo | Monthly |
-| Scholar Annual | $29.99/yr · **Best Value** | $2.50/mo equivalent |
 | Scholar Lifetime | $199.99 | One-time, forever |
 
-Paywall order: Annual → Lifetime → Monthly. Annual is default selected.
+Paywall order: Annual → Monthly → Lifetime. Annual is default selected.
 
 7-day free trial on Monthly and Annual. No trial on Lifetime (App Store rules prohibit trials on non-consumables).
 
-Managed via RevenueCat. Entitlement ID: `Planora Pro`.
+The Lifetime tier exists as a pricing anchor — $199.99 makes $29.99/year feel like an obvious deal. Annual saves 40% vs monthly.
 
-The Lifetime tier exists as a pricing anchor — $199.99 makes $29.99/year feel like an obvious deal — and captures long-term users (a sophomore using through graduation gets more value than the subscription total).
+Managed via RevenueCat. Entitlement ID: `Planora Pro`.
 
 ### Free vs. Scholar
 
 **Free (permanently useful):**
 - Canvas/ICS import
 - Unlimited task creation
-- AI priority ranking (5 AI chat messages/day)
+- AI priority ranking
+- 5 AI chat messages/day
 - 24h and 2h deadline reminders
 - Avoidance indicator on task cards
 - Basic stats (completion rate, streak, overdue count, per-class health)
-- Focus Mode (25/5 Pomodoro)
+- Focus Mode
 - Calendar view
 - Semester progress tracking
 - Weekly digest notification
@@ -156,20 +161,14 @@ The Lifetime tier exists as a pricing anchor — $199.99 makes $29.99/year feel 
 **Scholar — the adaptive layer:**
 - Study Plan generation (no direct competitor)
 - Plan streak tracking
+- Completion ring
+- Session momentum screen
+- Missed session reschedule (surgical AI rebuild)
 - Export sessions to calendar (Google, Apple, Outlook)
 - Unlimited AI Coach + persistent cross-device chat history
 - Avoidance alert push notifications
 - Study Plan session reminders
-- Syllabus scanner — PDF/photo → tasks (P1)
-- Proactive Tally check-ins (P1)
-- Custom Focus Mode intervals (P1)
-- Pre-exam cram notifications (P1)
-- Color accent themes (P1)
-
-**Add-ons (post $1k MRR):**
-- SMS reminders — $0.99/month via Twilio
-- Parent visibility dashboard — $4.99/month separate purchase
-- Extra AI message pack — 50 messages for $0.99 one-time consumable
+- Monday summary notification
 
 ---
 
@@ -210,10 +209,9 @@ One viral TikTok from a creator with 100k+ followers compresses this timeline by
 - Design is premium for the category
 
 ### What's not solved yet
-- Study Plan is manually triggered — not yet a living document. Students have to remember to open and regenerate. Auto-rebuild when sessions are missed is the most important missing piece.
+- Study Plan is a living document but still manually triggered — students have to open the app and regenerate. Auto-rebuild on a schedule is the most important missing piece.
 - Tally's coaching is only as good as its context. Without assignment-level grade weights (coming via Syllabus Scanner), Tally is smart-sounding deadline sorting.
 - No viral loop beyond completion share cards
-- Paywall timing not yet optimized to fire at peak value moments
 
 ---
 
@@ -323,6 +321,7 @@ Contribute genuinely to r/college (3.5M), r/GetStudying (500k), r/productivity (
 - [ ] Add EULA link to App Description (`https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`)
 - [ ] Verify `https://planoraapp.net/privacy` and `https://planoraapp.net/terms` are live
 - [ ] Swap RevenueCat sandbox key → production key in EAS secrets
+- [ ] Flip `FORCE_ONBOARDING` and `FORCE_WALKTHROUGH` to `false` in `src/config.js`
 - [ ] Build and submit new binary via `eas build --platform ios` + `eas submit`
 - [ ] Reply to Apple review message confirming all three issues addressed
 
@@ -333,26 +332,26 @@ Contribute genuinely to r/college (3.5M), r/GetStudying (500k), r/productivity (
 4. ✅ **Post-trial discount** — detected via RevenueCat CustomerInfo expiry. 24h window stored in AsyncStorage. Banner shown in PaywallScreen with promo code messaging.
 5. ✅ **In-app review prompt** — fires at 5 task completions (useTasks.js) and at 14-day streak (DashboardScreen). Once per user via AsyncStorage flag.
 6. ✅ **Monday summary notification** — `scheduleMondaySummary` in notifications.js. Fires Monday 8am with session count and first deadline. Called when plan is generated.
-7. ✅ **Session momentum screen** — slide-up overlay when completing a study session. Shows sessions done today, plan streak, Tally mascot in bounce variant. Auto-dismisses after 2.8s.
+7. ✅ **Session momentum screen** — slide-up overlay when completing a study session. Shows sessions done today, plan streak, Tally mascot. Auto-dismisses after 2.8s.
 8. ✅ **Completion ring** — SVG circle ring at top of Study Plan showing completed/total sessions. Updates live as sessions are checked off.
 9. ✅ **Tally plan comment** — client-side message shown after plan generation referencing today's first session or first upcoming session. No extra API call.
-10. **Verify all feature flags** are `false` in `src/config.js` before production build.
+10. [ ] **Verify all feature flags** are `false` in `src/config.js` before production build.
 
 ### P1 — First 2 months post-launch
-10. **Syllabus scanner** — camera or PDF upload, GPT-4o Vision extracts assignments, due dates, grade weights. Scholar only. ~3 days.
-11. **Proactive Tally check-ins** — if next 7 days contain 3+ assignments or any exam, Tally proactively surfaces: "Heavy week coming. Want me to build your study schedule?"
-12. **Custom Focus Mode intervals** — free users get 25/5 only. Scholar sets any interval.
-13. **Pre-exam cram notification** — night before any exam: "Your CHEM 201 midterm is tomorrow. You've completed 4 of 6 prep sessions."
-14. **Scholar color accent themes** — Scholar-exclusive accent colors beyond the default.
-15. **Referral program** — "Give a friend 1 week free, get 1 week free." After first 500 users.
-16. **Progress prediction** — "At your current pace, CHEM sessions will be 2 days late." Surfaces in Study Plan.
+11. **Syllabus scanner** — camera or PDF upload, GPT-4o Vision extracts assignments, due dates, grade weights. Scholar only. ~3 days.
+12. **Proactive Tally check-ins** — if next 7 days contain 3+ assignments or any exam, Tally proactively surfaces: "Heavy week coming. Want me to build your study schedule?"
+13. **Custom Focus Mode intervals** — currently 15/25/45/60 min. Scholar-exclusive custom input.
+14. **Pre-exam cram notification** — night before any exam: "Your CHEM 201 midterm is tomorrow. You've completed 4 of 6 prep sessions."
+15. **Scholar color accent themes** — Scholar-exclusive accent colors beyond the default.
+16. **Referral program** — "Give a friend 1 week free, get 1 week free." After first 500 users.
+17. **Progress prediction** — "At your current pace, CHEM sessions will be 2 days late." Surfaces in Study Plan.
 
 ### P2 — 3–6 months post-launch
-17. **Canvas OAuth via Chrome extension** — pulls assignment-level grade weights, submission status, and rubric details. The data Tally needs to say genuinely non-obvious things.
-18. **Google Calendar two-way sync** — tasks with due dates appear in Google Calendar, events pull into Planora schedule. Scholar only.
-19. **Android launch** — ~4 days technical work, 7–14 days Play review.
-20. **AI flashcard generation** — upload notes or PDF, Tally generates flashcards. Scholar only.
-21. **Semester comparison stats** — "Your completion rate is 23% higher than last semester." Needs one full semester of history.
+18. **Canvas OAuth via Chrome extension** — pulls assignment-level grade weights, submission status, and rubric details. The data Tally needs to say genuinely non-obvious things.
+19. **Google Calendar two-way sync** — tasks with due dates appear in Google Calendar, events pull into Planora schedule. Scholar only.
+20. **Android launch** — ~4 days technical work, 7–14 days Play review.
+21. **AI flashcard generation** — upload notes or PDF, Tally generates flashcards. Scholar only.
+22. **Semester comparison stats** — "Your completion rate is 23% higher than last semester." Needs one full semester of history.
 
 ---
 
@@ -367,6 +366,7 @@ Contribute genuinely to r/college (3.5M), r/GetStudying (500k), r/productivity (
 - **expo-notifications** — push notifications
 - **expo-calendar** — read calendar events, write study sessions to device calendar
 - **expo-haptics** — haptic feedback throughout
+- **react-native-svg** — completion ring, spotlight overlay
 - **PostHog** — product analytics
 - **Sentry** — crash reporting (`@sentry/react-native`)
 - **Outfit** font family (5 weights via `@expo-google-fonts/outfit`)
@@ -399,12 +399,14 @@ EXPO_PUBLIC_POSTHOG_KEY=
 Feature flags in `src/config.js`:
 ```js
 BETA_PRO_UNLOCKED:     false  // true = everyone gets Scholar
-FORCE_ONBOARDING:      false  // run onboarding every launch
-FORCE_WALKTHROUGH:     false  // run walkthrough every launch
-FORCE_SEMESTER_PROMPT: false  // show new-semester prompt every launch
+FORCE_ONBOARDING:      false  // true = onboarding runs every launch (dev only)
+FORCE_WALKTHROUGH:     false  // true = walkthrough runs every launch (dev only)
+FORCE_SEMESTER_PROMPT: false  // true = new-semester prompt every launch (dev only)
 DEMO_MODE:             false  // canned data for App Store screenshots
 DEV_SCHOLAR_OVERRIDE:  false  // Scholar toggle in Profile (dev only)
 ```
+
+**Note:** `FORCE_ONBOARDING` and `FORCE_WALKTHROUGH` are currently `true` in the repo for development. Flip both to `false` before any production build.
 
 To suppress Sentry source map upload errors during local builds:
 ```

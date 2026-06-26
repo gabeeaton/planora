@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Animated, Alert, DeviceEventEmitter, Modal, Pressable, Platform, Image,
@@ -56,7 +57,6 @@ const TIME_PRESETS = [
   { label: "3h",  value: 3 },
   { label: "4h",  value: 4 },
   { label: "5h",  value: 5 },
-  { label: "6h",  value: 6 },
 ];
 
 const makeStyles = (colors) => StyleSheet.create({
@@ -206,10 +206,6 @@ const makeStyles = (colors) => StyleSheet.create({
   generateBtnText: { color: "#fff", fontSize: 16, fontFamily: "Outfit-Bold" },
 
   // Plan display
-  planHint: {
-    fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary,
-    paddingHorizontal: spacing.lg, paddingTop: 20, paddingBottom: 6, lineHeight: 20,
-  },
   daySection: { marginTop: 16 },
   daySectionHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
@@ -219,11 +215,11 @@ const makeStyles = (colors) => StyleSheet.create({
   daySectionMins: { fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.textMuted },
   deadlineRow: {
     marginHorizontal: spacing.lg, marginBottom: 6,
-    borderRadius: radius.md, borderWidth: 1,
-    paddingHorizontal: 12, paddingVertical: 9,
-    flexDirection: "row", alignItems: "center", gap: 8,
+    borderRadius: 8, borderWidth: 1,
+    paddingHorizontal: 10, paddingVertical: 6,
+    flexDirection: "row", alignItems: "center", gap: 6,
   },
-  deadlineTitle: { fontSize: 13, fontFamily: "Outfit-SemiBold", lineHeight: 18 },
+  deadlineTitle: { fontSize: 12, fontFamily: "Outfit-SemiBold", lineHeight: 16, flex: 1 },
   deadlineClass: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#888", marginTop: 1 },
   deadlineDue: { fontSize: 11, fontFamily: "Outfit-Bold" },
 
@@ -246,12 +242,12 @@ const makeStyles = (colors) => StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   sessionAccent: { width: 4 },
-  sessionBody: { flex: 1, paddingVertical: 11, paddingHorizontal: 11 },
+  sessionBody: { flex: 1, paddingVertical: 12, paddingHorizontal: 12 },
   sessionClassTag: {
     paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
   },
   sessionClassText: { fontSize: 10, fontFamily: "Outfit-Bold" },
-  sessionTitle: { fontSize: 14, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, lineHeight: 20 },
+  sessionTitle: { fontSize: 15, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, lineHeight: 21 },
   sessionSourceTask: { fontSize: 11, fontFamily: "Outfit-Regular", color: colors.textMuted, marginTop: 3 },
   durationBadge: {
     paddingHorizontal: 10, paddingVertical: 12,
@@ -311,7 +307,7 @@ const makeStyles = (colors) => StyleSheet.create({
       shadowOpacity: 0.08, shadowRadius: 4, elevation: 2,
     }),
   },
-  planStreakText: { fontSize: 12, fontFamily: "Outfit-SemiBold" },
+  planStreakText: { fontSize: 12, fontFamily: "Outfit-SemiBold", lineHeight: 14, includeFontPadding: false },
 
   planActionsRow: { flexDirection: "row", gap: 10 },
   planActionBtn: {
@@ -320,19 +316,6 @@ const makeStyles = (colors) => StyleSheet.create({
   },
   planActionBtnText: { fontSize: 13, fontFamily: "Outfit-SemiBold" },
 
-  // Pro gate
-  lockedWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 36 },
-  lockedIcon: {
-    width: 64, height: 64, borderRadius: 32,
-    alignItems: "center", justifyContent: "center", marginBottom: 20,
-  },
-  lockedTitle: { fontSize: 20, fontFamily: "Outfit-Bold", color: colors.textPrimary, textAlign: "center", marginBottom: 8 },
-  lockedBody: { fontSize: 15, fontFamily: "Outfit-Regular", color: colors.textSecondary, textAlign: "center", lineHeight: 22, marginBottom: 28 },
-  upgradeBtn: {
-    borderRadius: radius.md, paddingVertical: 15, paddingHorizontal: 36,
-    flexDirection: "row", alignItems: "center", gap: 8,
-  },
-  upgradeBtnText: { color: "#fff", fontSize: 16, fontFamily: "Outfit-Bold" },
 });
 
 const StudyPlanScreen = ({ navigation }) => {
@@ -432,6 +415,26 @@ const StudyPlanScreen = ({ navigation }) => {
   });
 
   const [availability, setAvailability] = useState(weekDays);
+  const [availExpanded, setAvailExpanded] = useState(false);
+
+  // Refresh availability dates when screen comes into focus — weekDays uses startOfToday() which
+  // goes stale if the tab stays mounted overnight
+  useFocusEffect(useCallback(() => {
+    const fresh = Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(startOfToday(), i);
+      const dow = date.getDay();
+      const isWeekend = dow === 0 || dow === 6;
+      return {
+        label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : format(date, "EEEE"),
+        date: format(date, "yyyy-MM-dd"),
+        dateLabel: format(date, "MMM d"),
+        dateObj: date,
+        hours: isWeekend ? 3 : 2,
+      };
+    });
+    setAvailability((prev) => fresh.map((d, i) => ({ ...d, hours: prev[i]?.hours ?? d.hours })));
+  }, []));
+
   const [selectedSession, setSelectedSession] = useState(null);
   const detailSheetAnim = useRef(new Animated.Value(0)).current;
   const [showAvailSheet, setShowAvailSheet] = useState(false);
@@ -488,17 +491,17 @@ const StudyPlanScreen = ({ navigation }) => {
     return { scheduledHrs, availableHrs, overMins: scheduledMins - availableMins };
   }, [plan, availability]);
 
-  // Load cached plan on mount — show yesterday's sessions as missed for 24h, drop older ones
+  // Load cached plan on mount — keep up to 4 days of history, mark past uncompleted as missed
   useEffect(() => {
     if (DEMO_MODE) return;
     AsyncStorage.getItem(PLAN_CACHE_KEY).then((raw) => {
       if (!raw) return;
       try {
         const { plan: cached } = JSON.parse(raw);
-        const todayStr     = format(startOfToday(), "yyyy-MM-dd");
-        const yesterdayStr = format(addDays(startOfToday(), -1), "yyyy-MM-dd");
+        const todayStr    = format(startOfToday(), "yyyy-MM-dd");
+        const cutoffStr   = format(addDays(startOfToday(), -4), "yyyy-MM-dd");
         const filtered = cached
-          .filter((s) => s.date >= yesterdayStr)
+          .filter((s) => s.date >= cutoffStr)
           .map((s, i) => ({
             ...s,
             _key: s._key ?? `loaded_${i}`,
@@ -548,6 +551,16 @@ const StudyPlanScreen = ({ navigation }) => {
     }).start(() => setShowAvailSheet(false));
   }, [availSheetAnim]);
 
+  const showMomentum = useCallback((data) => {
+    setMomentumData(data);
+    Animated.spring(momentumAnim, { toValue: 1, useNativeDriver: true, tension: 65, friction: 11 }).start();
+    if (momentumTimer.current) clearTimeout(momentumTimer.current);
+    momentumTimer.current = setTimeout(() => {
+      Animated.timing(momentumAnim, { toValue: 0, duration: 220, useNativeDriver: true })
+        .start(() => setMomentumData(null));
+    }, 2800);
+  }, [momentumAnim]);
+
   const toggleSessionDone = useCallback((key) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setPlan((prev) => {
@@ -578,6 +591,7 @@ const StudyPlanScreen = ({ navigation }) => {
 
   const handleGenerate = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+
     const completedSessions = (plan ?? []).filter((s) => s.completed);
     setLoading(true);
     setPlan(null);
@@ -586,7 +600,9 @@ const StudyPlanScreen = ({ navigation }) => {
       return;
     }
     try {
-      const result = await generateStudyPlan(tasks, profile, patterns, availability, completedSessions, {
+      // Free users get a 3-day rolling plan; Scholar gets the full 7 days
+      const availForPlan = isPro ? availability : availability.slice(0, 3);
+      const result = await generateStudyPlan(tasks, profile, patterns, availForPlan, completedSessions, {
         classSchedule: profile?.classSchedule ?? [],
         calEvents: calEvents ?? [],
       });
@@ -618,7 +634,7 @@ const StudyPlanScreen = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
-  }, [plan, tasks, profile, patterns, availability, user?.uid]);
+  }, [plan, tasks, profile, patterns, availability, user?.uid, isPro, navigation]);
 
   const openCalPicker = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -685,16 +701,6 @@ const StudyPlanScreen = ({ navigation }) => {
     }
   }, [availableCalendars, selectedCalendarId, plan, closeCalPicker]);
 
-  const showMomentum = useCallback((data) => {
-    setMomentumData(data);
-    Animated.spring(momentumAnim, { toValue: 1, useNativeDriver: true, tension: 65, friction: 11 }).start();
-    if (momentumTimer.current) clearTimeout(momentumTimer.current);
-    momentumTimer.current = setTimeout(() => {
-      Animated.timing(momentumAnim, { toValue: 0, duration: 220, useNativeDriver: true })
-        .start(() => setMomentumData(null));
-    }, 2800);
-  }, [momentumAnim]);
-
   const handleRescheduleMissed = useCallback(async () => {
     // Deduplicate by taskId — one API call per unique task
     const uniqueTaskIds = [...new Set(missedSessions.map((s) => s.taskId).filter(Boolean))];
@@ -739,7 +745,7 @@ const StudyPlanScreen = ({ navigation }) => {
           if (!raw || isNaN(raw.getTime())) return false;
           return isSameDay(raw, d.dateObj);
         }),
-      })).filter((d) => d.sessions.length > 0 || d.deadlines.length > 0)
+      })).filter((d) => d.sessions.length > 0 || d.deadlines.length > 0 || d.hours > 0)
     : [];
 
   const detailTranslateY = detailSheetAnim.interpolate({
@@ -750,7 +756,7 @@ const StudyPlanScreen = ({ navigation }) => {
     <View style={styles.safe}>
       {loading && (
         <View style={[styles.loadingOverlay, { backgroundColor: colors.bg }]}>
-          <Mascot variant="writing" size={130} blink={false} />
+          <Mascot variant="still" size={130} blink={false} />
           <Text style={[styles.loadingBigLabel, { color: colors.textPrimary }]}>
             {LOADING_MESSAGES[loadingMsgIdx]}
           </Text>
@@ -786,8 +792,18 @@ const StudyPlanScreen = ({ navigation }) => {
                     )}
                   </View>
                 </View>
-                {selectedSession.activity && (
+                {selectedSession.activity && isPro && (
                   <Text style={[styles.detailActivity, { color: colors.textSecondary }]}>{selectedSession.activity}</Text>
+                )}
+                {!isPro && (
+                  <TouchableOpacity
+                    style={{ marginHorizontal: 20, marginBottom: 16, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.accent + "40", backgroundColor: colors.accent + "0C", flexDirection: "row", alignItems: "center", gap: 8 }}
+                    onPress={() => { closeDetail(); navigation.navigate("Paywall"); }}
+                    activeOpacity={0.75}
+                  >
+                    <Feather name="lock" size={12} color={colors.accent} />
+                    <Text style={{ fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.accent }}>Scholar unlocks Tally's session guidance</Text>
+                  </TouchableOpacity>
                 )}
                 <TouchableOpacity
                   style={[styles.detailDoneBtn, { backgroundColor: selectedSession.completed ? colors.bgInput : colors.accent }]}
@@ -828,7 +844,7 @@ const StudyPlanScreen = ({ navigation }) => {
                       onPress={() => { tap(); setAllHours(h); }}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.setAllChipText, { color: colors.textSecondary }]}>All {h}h</Text>
+                      <Text style={[styles.setAllChipText, { color: colors.textSecondary }]}>{h}h each</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -899,134 +915,133 @@ const StudyPlanScreen = ({ navigation }) => {
           )}
         </View>
         <Text style={styles.headerTitle}>My Plan</Text>
-        <View style={[styles.headerSide, { alignItems: "flex-end" }]}>
-          {plan && !loading && (
-            <TouchableOpacity
-              style={styles.headerAction}
-              onPress={openAvailSheet}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="refresh-cw" size={18} color="#fff" />
-            </TouchableOpacity>
-          )}
-        </View>
+        <View style={styles.headerSide} />
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}>
-        {!isPro ? (
-          <View style={styles.lockedWrap}>
-            <View style={[styles.lockedIcon, { backgroundColor: colors.accent + "22" }]}>
-              <Feather name="lock" size={28} color={colors.accent} />
+        {!plan ? (
+          <View style={{ flex: 1, justifyContent: "center" }}>
+            {/* Hero prompt */}
+            <View style={{ alignItems: "center", paddingHorizontal: spacing.lg, paddingBottom: 8 }}>
+              <Mascot variant="still" size={72} blink={false} />
+              <Text style={{ fontSize: 22, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, textAlign: "center", marginTop: 14, letterSpacing: -0.4 }}>
+                Build your week
+              </Text>
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: colors.textSecondary, textAlign: "center", marginTop: 6, lineHeight: 21 }}>
+                Tally maps sessions around your deadlines and free time.
+              </Text>
             </View>
-            <Text style={styles.lockedTitle}>AI Study Planner</Text>
-            <Text style={styles.lockedBody}>
-              Build a personalized weekly study schedule based on your tasks, deadlines, and availability — powered by GPT-4o.
-            </Text>
+
+            {/* Availability summary — card style, collapsible */}
             <TouchableOpacity
-              style={[styles.upgradeBtn, { backgroundColor: colors.accent }]}
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); navigation.navigate("Paywall"); }}
+              style={{
+                flexDirection: "row", alignItems: "center", gap: 10,
+                marginHorizontal: spacing.lg, marginTop: 24,
+                marginBottom: availExpanded ? 10 : 0,
+                backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+                borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+                paddingHorizontal: 14, paddingVertical: 12,
+                ...(colors.isDark ? {} : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 }),
+              }}
+              onPress={() => { tap(); setAvailExpanded((v) => !v); }}
+              activeOpacity={0.75}
             >
-              <Feather name="zap" size={18} color="#fff" />
-              <Text style={styles.upgradeBtnText}>Upgrade to Scholar</Text>
+              <Feather name="clock" size={14} color={colors.accent} />
+              <Text style={{ fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textPrimary, flex: 1 }}>
+                {(() => {
+                  const totalHrs = availability.reduce((s, d) => s + d.hours, 0);
+                  return `${totalHrs}h available this week`;
+                })()}
+              </Text>
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: colors.textMuted, marginRight: 4 }}>Adjust</Text>
+              <Feather name={availExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.textMuted} />
             </TouchableOpacity>
-          </View>
-        ) : !plan ? (
-          <>
-            <Text style={styles.pickerHint}>
-              How much free time do you have each day? Tally will build your sessions around it.
-            </Text>
 
-            <View style={[styles.setAllRow, { paddingHorizontal: spacing.lg }]}>
-              {[1, 2, 3, 4].map((h) => (
-                <TouchableOpacity
-                  key={h}
-                  style={[styles.setAllChip, { borderColor: colors.border, backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7" }]}
-                  onPress={() => { tap(); setAllHours(h); }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.setAllChipText, { color: colors.textSecondary }]}>All {h}h</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {availExpanded && (
+              <>
+                <View style={[styles.setAllRow, { paddingHorizontal: spacing.lg }]}>
+                  {[1, 2, 3, 4].map((h) => (
+                    <TouchableOpacity
+                      key={h}
+                      style={[styles.setAllChip, { borderColor: colors.border, backgroundColor: colors.isDark ? colors.bgInput : "#F5F5F7" }]}
+                      onPress={() => { tap(); setAllHours(h); }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.setAllChipText, { color: colors.textSecondary }]}>{h}h each</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-            <View style={styles.availList}>
-              {availability.map((day, i) => {
-                const dayInfo = scheduleByDay[i];
-                return (
-                  <View key={day.date} style={styles.availRow}>
-                    {/* Top row: day label + hour chips */}
-                    <View style={styles.availRowTop}>
-                      <View style={styles.availDayInfo}>
-                        <Text style={styles.availDayName}>{day.label}</Text>
-                        <Text style={styles.availDayDate}>{day.dateLabel}</Text>
-                      </View>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={styles.availChipScroll}
-                        contentContainerStyle={styles.availChipRow}
-                      >
-                        {TIME_PRESETS.map(({ label, value }) => {
-                          const selected = day.hours === value;
-                          return (
-                            <TouchableOpacity
-                              key={value}
-                              style={[styles.availChip, selected && styles.availChipSelected]}
-                              onPress={() => { tap(); setHours(i, value); }}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={[styles.availChipText, selected && styles.availChipTextSelected]}>
-                                {label}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
-                    </View>
-
-                    {/* Schedule pills: classes + calendar events */}
-                    {dayInfo?.events?.length > 0 && (
-                      <View style={styles.availScheduleRow}>
-                        {dayInfo.events.map((evt) => (
-                          <View
-                            key={evt.id}
-                            style={[styles.availSchedulePill, evt.isClass && styles.availSchedulePillClass]}
-                          >
-                            <Feather
-                              name={evt.isClass ? "book" : "calendar"}
-                              size={9}
-                              color={evt.isClass ? colors.accent : colors.textMuted}
-                            />
-                            <Text style={[styles.availScheduleText, evt.isClass && styles.availScheduleTextClass]}>
-                              {evt.title}{evt.time ? ` · ${evt.time}` : ""}
-                            </Text>
+                <View style={styles.availList}>
+                  {availability.map((day, i) => {
+                    const dayInfo = scheduleByDay[i];
+                    return (
+                      <View key={day.date} style={styles.availRow}>
+                        <View style={styles.availRowTop}>
+                          <View style={styles.availDayInfo}>
+                            <Text style={styles.availDayName}>{day.label}</Text>
+                            <Text style={styles.availDayDate}>{day.dateLabel}</Text>
                           </View>
-                        ))}
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.availChipScroll} contentContainerStyle={styles.availChipRow}>
+                            {TIME_PRESETS.map(({ label, value }) => {
+                              const selected = day.hours === value;
+                              return (
+                                <TouchableOpacity key={value} style={[styles.availChip, selected && styles.availChipSelected]} onPress={() => { tap(); setHours(i, value); }} activeOpacity={0.7}>
+                                  <Text style={[styles.availChipText, selected && styles.availChipTextSelected]}>{label}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                        {dayInfo?.events?.length > 0 && (
+                          <View style={styles.availScheduleRow}>
+                            {dayInfo.events.map((evt) => (
+                              <View key={evt.id} style={[styles.availSchedulePill, evt.isClass && styles.availSchedulePillClass]}>
+                                <Feather name={evt.isClass ? "book" : "calendar"} size={9} color={evt.isClass ? colors.accent : colors.textMuted} />
+                                <Text style={[styles.availScheduleText, evt.isClass && styles.availScheduleTextClass]}>{evt.title}{evt.time ? ` · ${evt.time}` : ""}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
                       </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
+                    );
+                  })}
+                </View>
+              </>
+            )}
 
             {!loading && (
-              <Animated.View style={{ transform: [{ scale: generateScale }] }}>
-                <TouchableOpacity
-                  style={[styles.generateBtn, { backgroundColor: colors.accent }]}
-                  onPress={handleGenerate}
-                  onPressIn={() => Animated.spring(generateScale, { toValue: 0.96, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
-                  onPressOut={() => Animated.spring(generateScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start()}
-                  activeOpacity={1}
-                >
-                  <Feather name="edit-3" size={18} color="#fff" />
-                  <Text style={styles.generateBtnText}>Build My Plan</Text>
-                </TouchableOpacity>
-              </Animated.View>
+              <>
+                <Animated.View style={{ transform: [{ scale: generateScale }], marginTop: availExpanded ? 16 : 28 }}>
+                  <TouchableOpacity
+                    style={[styles.generateBtn, { backgroundColor: colors.accent }]}
+                    onPress={handleGenerate}
+                    onPressIn={() => Animated.spring(generateScale, { toValue: 0.96, useNativeDriver: true, speed: 80, bounciness: 0 }).start()}
+                    onPressOut={() => Animated.spring(generateScale, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 4 }).start()}
+                    activeOpacity={1}
+                  >
+                    <Feather name="edit-3" size={18} color="#fff" />
+                    <Text style={styles.generateBtnText}>Build My Plan</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+                {!isPro && (
+                  <TouchableOpacity
+                    style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 10 }}
+                    onPress={() => navigation.navigate("Paywall")}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="lock" size={11} color={colors.textMuted} />
+                    <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: colors.textMuted }}>
+                      3-day plan · <Text style={{ color: colors.accent, fontFamily: "Outfit-SemiBold" }}>Scholar unlocks the full week</Text>
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
             )}
-          </>
+          </View>
         ) : (
           <>
-            {/* Completion ring */}
+            {/* Progress section — ring with count inside, streak grouped below */}
             {(() => {
               const total = plan.filter((s) => !s.missed).length;
               const done  = plan.filter((s) => s.completed).length;
@@ -1037,15 +1052,27 @@ const StudyPlanScreen = ({ navigation }) => {
               const dash = circ * pct;
               return (
                 <View style={styles.ringWrap}>
-                  <Svg width={90} height={90}>
-                    <Circle cx={45} cy={45} r={r} stroke={colors.border} strokeWidth={7} fill="none" />
-                    <Circle cx={45} cy={45} r={r} stroke={colors.accent} strokeWidth={7} fill="none"
-                      strokeDasharray={`${dash} ${circ - dash}`}
-                      strokeDashoffset={circ / 4}
-                      strokeLinecap="round"
-                    />
-                  </Svg>
-                  <Text style={styles.ringLabel}>{done} of {total} sessions done</Text>
+                  <View>
+                    <Svg width={90} height={90}>
+                      <Circle cx={45} cy={45} r={r} stroke={colors.border} strokeWidth={7} fill="none" />
+                      <Circle cx={45} cy={45} r={r} stroke={colors.accent} strokeWidth={7} fill="none"
+                        strokeDasharray={`${dash} ${circ - dash}`}
+                        strokeDashoffset={circ / 4}
+                        strokeLinecap="round"
+                      />
+                    </Svg>
+                    <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+                      <Text style={{ fontSize: 18, fontFamily: "Outfit-ExtraBold", color: colors.textPrimary, letterSpacing: -0.5 }}>{done}</Text>
+                      <Text style={{ fontSize: 9, fontFamily: "Outfit-Regular", color: colors.textMuted }}>of {total}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.ringLabel}>sessions done</Text>
+                  {planStreak > 0 && (
+                    <View style={[styles.planStreakRow, { marginHorizontal: 0, marginBottom: 0, alignSelf: "center" }]}>
+                      <MaterialCommunityIcons name="fire" size={14} color="#FF6B2C" />
+                      <Text style={[styles.planStreakText, { color: "#FF6B2C" }]}>{planStreak}-day streak</Text>
+                    </View>
+                  )}
                 </View>
               );
             })()}
@@ -1053,24 +1080,11 @@ const StudyPlanScreen = ({ navigation }) => {
             {/* Tally comment after generation */}
             {tallyComment && (
               <View style={styles.tallyComment}>
-                <Mascot variant="alive" size={36} blink={false} />
+                <Mascot variant="still" size={36} blink={false} />
                 <Text style={styles.tallyCommentText}>{tallyComment}</Text>
                 <TouchableOpacity onPress={() => setTallyComment(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Feather name="x" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
-              </View>
-            )}
-
-            <Text style={styles.planHint}>
-              Prep sessions leading up to your deadlines. Times are up to you.
-            </Text>
-
-            {planStreak > 0 && (
-              <View style={styles.planStreakRow}>
-                <MaterialCommunityIcons name="fire" size={14} color="#FF6B2C" />
-                <Text style={[styles.planStreakText, { color: "#FF6B2C" }]}>
-                  {planStreak}-day plan streak
-                </Text>
               </View>
             )}
 
@@ -1089,8 +1103,22 @@ const StudyPlanScreen = ({ navigation }) => {
                   <Text style={styles.daySectionTitle}>Yesterday · Missed</Text>
                 </View>
 
-                {/* Tally reschedule banner */}
-                <TouchableOpacity
+                {/* Tally reschedule banner — Scholar only */}
+                {!isPro && (
+                  <TouchableOpacity
+                    style={[styles.tallyRescheduleBanner, { borderColor: colors.accent + "40", backgroundColor: colors.isDark ? colors.accent + "14" : colors.accent + "0A" }]}
+                    onPress={() => navigation.navigate("Paywall")}
+                    activeOpacity={0.75}
+                  >
+                    <Mascot variant="still" size={38} blink={false} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.tallyRescheduleTitle, { color: colors.textPrimary }]}>Tally can fix this</Text>
+                      <Text style={[styles.tallyRescheduleSub, { color: colors.textSecondary }]}>Scholar lets Tally reschedule missed sessions automatically</Text>
+                    </View>
+                    <Feather name="lock" size={14} color={colors.accent} />
+                  </TouchableOpacity>
+                )}
+                {isPro && <TouchableOpacity
                   style={[styles.tallyRescheduleBanner, { borderColor: colors.accent + "40", backgroundColor: colors.isDark ? colors.accent + "14" : colors.accent + "0A" }]}
                   onPress={handleRescheduleMissed}
                   disabled={!!reschedulingTaskId}
@@ -1099,20 +1127,20 @@ const StudyPlanScreen = ({ navigation }) => {
                   <Mascot variant="alive" size={38} blink={false} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.tallyRescheduleTitle, { color: colors.textPrimary }]}>
-                      {reschedulingTaskId ? "Rescheduling…" : "Tally can fix this"}
+                      {reschedulingTaskId ? "Finding new slots…" : "Tally can fix this"}
                     </Text>
                     <Text style={[styles.tallyRescheduleSub, { color: colors.textSecondary }]}>
                       {reschedulingTaskId
-                        ? "Finding new slots for your missed sessions"
-                        : `Reschedule ${missedSessions.length} missed session${missedSessions.length !== 1 ? "s" : ""} around your week`}
+                        ? "Rebuilding your plan around what you missed"
+                        : `${missedSessions.length} missed session${missedSessions.length !== 1 ? "s" : ""} — I'll move them to days that still work`}
                     </Text>
                   </View>
                   {!reschedulingTaskId && (
                     <View style={[styles.tallyRescheduleBtn, { backgroundColor: colors.accent }]}>
-                      <Text style={styles.tallyRescheduleBtnText}>Reschedule</Text>
+                      <Text style={styles.tallyRescheduleBtnText}>Fix it</Text>
                     </View>
                   )}
-                </TouchableOpacity>
+                </TouchableOpacity>}
 
                 <View style={{ opacity: 0.5 }}>
                 {missedSessions.map((s, idx) => {
@@ -1157,24 +1185,39 @@ const StudyPlanScreen = ({ navigation }) => {
                   {day.deadlines.map((t) => {
                     const accentColor = getClassColor(t.className, colors.isDark);
                     return (
-                      <View key={t.id} style={[styles.deadlineRow, { borderColor: accentColor + "55", backgroundColor: accentColor + "11" }]}>
-                        <Feather name="flag" size={12} color={accentColor} style={{ marginTop: 1 }} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.deadlineTitle, { color: accentColor }]}>{t.title}</Text>
-                          {t.className && <Text style={styles.deadlineClass}>{t.className}</Text>}
-                        </View>
+                      <View key={t.id} style={[styles.deadlineRow, { borderColor: accentColor + "44", backgroundColor: accentColor + "0D" }]}>
+                        <Feather name="flag" size={11} color={accentColor} />
+                        <Text style={[styles.deadlineTitle, { color: accentColor }]} numberOfLines={1}>
+                          {t.className ? `${t.className} · ` : ""}{t.title}
+                        </Text>
                         <Text style={[styles.deadlineDue, { color: accentColor }]}>Due</Text>
                       </View>
                     );
                   })}
 
-                  {day.sessions.map((s, idx) => {
+                  {day.sessions.length === 0 && day.deadlines.length === 0 ? (
+                    <View style={{
+                      marginHorizontal: spacing.lg, marginBottom: 4,
+                      borderRadius: radius.md, borderWidth: 1,
+                      borderColor: colors.border, borderStyle: "dashed",
+                      paddingHorizontal: 14, paddingVertical: 10,
+                      flexDirection: "row", alignItems: "center", gap: 8,
+                    }}>
+                      <Feather name="coffee" size={13} color={colors.textMuted} />
+                      <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: colors.textMuted, flex: 1 }}>
+                        Rest day
+                      </Text>
+                      <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: colors.textMuted, opacity: 0.6 }}>
+                        Tally left this one open
+                      </Text>
+                    </View>
+                  ) : day.sessions.map((s, idx) => {
                     const key = s._key ?? `${s.date}_${idx}`;
                     const accentColor = getClassColor(s.className, colors.isDark);
                     return (
                       <TouchableOpacity
                         key={key}
-                        style={[styles.sessionCard, s.completed && { opacity: 0.4 }]}
+                        style={[styles.sessionCard, s.completed && { opacity: 0.62 }]}
                         onPress={() => openDetail(s)}
                         activeOpacity={0.75}
                       >
@@ -1192,11 +1235,6 @@ const StudyPlanScreen = ({ navigation }) => {
                         </TouchableOpacity>
                         <View style={[styles.sessionAccent, { backgroundColor: accentColor }]} />
                         <View style={styles.sessionBody}>
-                          {s.className && (
-                            <View style={[styles.sessionClassTag, { backgroundColor: accentColor + "22", alignSelf: "flex-start", marginBottom: 4 }]}>
-                              <Text style={[styles.sessionClassText, { color: accentColor }]}>{s.className}</Text>
-                            </View>
-                          )}
                           <Text style={[styles.sessionTitle, s.completed && { textDecorationLine: "line-through", color: colors.textMuted }]}>
                             {s.sessionTitle}
                           </Text>
@@ -1221,21 +1259,48 @@ const StudyPlanScreen = ({ navigation }) => {
                 onPress={openAvailSheet}
                 activeOpacity={0.7}
               >
-                <Feather name="sliders" size={14} color={colors.textMuted} />
-                <Text style={[styles.planActionBtnText, { color: colors.textMuted }]}>Availability</Text>
+                <Feather name="refresh-cw" size={14} color={colors.textMuted} />
+                <Text style={[styles.planActionBtnText, { color: colors.textMuted }]}>Rebuild Plan</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.planActionBtn, { borderColor: colors.border, flex: 1 }]}
-                onPress={openCalPicker}
+                onPress={isPro ? openCalPicker : () => navigation.navigate("Paywall")}
                 disabled={calExporting}
                 activeOpacity={0.7}
               >
-                <Feather name="calendar" size={14} color={calExporting ? colors.textMuted : colors.textSecondary} />
-                <Text style={[styles.planActionBtnText, { color: calExporting ? colors.textMuted : colors.textSecondary }]}>
+                <Feather name={isPro ? "calendar" : "lock"} size={14} color={colors.textMuted} />
+                <Text style={[styles.planActionBtnText, { color: colors.textMuted }]}>
                   {calExporting ? "Exporting…" : "Export to Calendar"}
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {__DEV__ && (
+              <View style={{ flexDirection: "row", gap: 8, justifyContent: "center", marginTop: 16, marginBottom: 4, marginHorizontal: spacing.lg }}>
+                <TouchableOpacity
+                  style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: colors.high + "60" }}
+                  onPress={() => { AsyncStorage.removeItem(PLAN_CACHE_KEY).then(() => setPlan(null)).catch(() => {}); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.high }}>Clear plan</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: colors.medium + "60" }}
+                  onPress={() => {
+                    const yesterdayStr = format(addDays(startOfToday(), -1), "yyyy-MM-dd");
+                    setPlan((prev) => {
+                      if (!prev) return prev;
+                      const first = prev.find((s) => !s.completed && !s.missed);
+                      if (!first) return prev;
+                      return prev.map((s) => s._key === first._key ? { ...s, date: yesterdayStr, missed: true } : s);
+                    });
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-SemiBold", color: colors.medium }}>Sim missed</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </>
         )}
       </ScrollView>
@@ -1351,7 +1416,7 @@ const StudyPlanScreen = ({ navigation }) => {
         <Animated.View style={[styles.momentumSheet, {
           transform: [{ translateY: momentumAnim.interpolate({ inputRange: [0,1], outputRange: [300, 0] }) }],
         }]}>
-          <Mascot variant="bounce" size={80} blink={false} eager />
+          <Mascot variant="still" size={80} blink={false} />
           <Text style={styles.momentumTitle}>
             {momentumData.doneTodayCount === momentumData.totalToday && momentumData.totalToday > 0
               ? "All done today!"

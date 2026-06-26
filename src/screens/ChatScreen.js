@@ -147,9 +147,6 @@ const MessageBubble = React.memo(({ item, styles, colors }) => {
   const isUser = item.role === "user";
   return (
     <Animated.View style={[styles.bubbleRow, isUser && styles.bubbleRowUser, { opacity, transform: [{ translateY }] }]}>
-      {!isUser && (
-        <Image source={require("../assets/mascot-rn/assets/mascot.png")} style={{ width: 42, height: 42, resizeMode: "contain" }} />
-      )}
       <View style={[
         styles.bubble,
         isUser ? styles.bubbleUser : styles.bubbleAI,
@@ -542,7 +539,7 @@ export default function ChatScreen({ navigation, route }) {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 2 }]}>
         <View style={styles.headerAvatar}>
-          <Mascot variant="alive" size={50} blink={false} />
+          <Mascot variant="still" size={50} blink={false} />
         </View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{COACH_NAME}</Text>
@@ -606,7 +603,6 @@ export default function ChatScreen({ navigation, route }) {
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           ListFooterComponent={typing ? (
             <View style={styles.bubbleRow}>
-              <Image source={require("../assets/mascot-rn/assets/mascot.png")} style={{ width: 42, height: 42, resizeMode: "contain" }} />
               <View style={[styles.bubble, styles.bubbleAI, styles.typingBubble]}>
                 <TypingDots color={colors.accent} />
               </View>

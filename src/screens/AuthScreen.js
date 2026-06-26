@@ -26,16 +26,6 @@ const makeStyles = (colors) => StyleSheet.create({
   kav:       { flex: 1 },
   container: { flexGrow: 1, paddingHorizontal: spacing.lg, justifyContent: "center", paddingVertical: spacing.lg },
 
-  // ── Background decoration ──
-  orb1: {
-    position: "absolute", width: 320, height: 320, borderRadius: 160,
-    backgroundColor: colors.accentGlow, top: -100, right: -100,
-  },
-  orb2: {
-    position: "absolute", width: 220, height: 220, borderRadius: 110,
-    backgroundColor: colors.accentGlow, bottom: 60, left: -80,
-  },
-
   // ── Brand header ──
   brand:   { marginBottom: spacing.xl, alignItems: "center" },
   logoImg: { width: 216, height: 60 },
@@ -289,8 +279,6 @@ const AuthScreen = ({ navigation }) => {
   if (mode === "forgot") {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.orb1} pointerEvents="none" />
-        <View style={styles.orb2} pointerEvents="none" />
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kav}>
           <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
             <View style={styles.brand}>
@@ -315,8 +303,6 @@ const AuthScreen = ({ navigation }) => {
   // ── Login / Register ──────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.orb1} pointerEvents="none" />
-      <View style={styles.orb2} pointerEvents="none" />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kav}>
         <Animated.ScrollView
           contentContainerStyle={styles.container}

@@ -17,7 +17,7 @@ import {
   Animated,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { spacing, radius, typography, getClassColor } from "../utils/theme";
 import { useTheme } from "../utils/ThemeContext";
 import { useTasks } from "../hooks/useTasks";
@@ -893,7 +893,7 @@ const StatsScreen = ({ navigation }) => {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         {streak > 0 && (
           <View style={styles.streakPill}>
-            <Text>🔥</Text>
+            <MaterialCommunityIcons name="fire" size={14} color="#FF6B2C" />
             <View>
               <Text style={styles.streakText}>
                 {streak} day{streak !== 1 ? "s" : ""}

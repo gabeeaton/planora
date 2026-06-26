@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Alert,
   Animated, ScrollView, useWindowDimensions, DeviceEventEmitter,
 } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import Mascot from "./Mascot";
 import { Feather } from "@expo/vector-icons";
@@ -17,7 +18,7 @@ const STEPS = [
   { key: "intro", isIntro: true },
   {
     key:   "insightStrip",
-    icon:  "cpu",
+    icon:  "message-circle",
     title: "Tally's read on your week",
     desc:  "Every time you open the app, Tally scans your deadlines, grades, and patterns — then gives you a coaching note. No fluff, just what you need to hear.",
     tooltipSide: "below",
@@ -25,10 +26,10 @@ const STEPS = [
     optional: true,
   },
   {
-    key:   "statsBar",
-    icon:  "activity",
-    title: "Your day at a glance",
-    desc:  "See how many tasks are due today, how many are pending, and how many you've completed this semester.",
+    key:   "planCard",
+    icon:  "book-open",
+    title: "Today's plan",
+    desc:  "Your study sessions for today — Tally scheduled these around your deadlines and free time. Tap to see the full week.",
     tooltipSide: "below",
     pad: 4,
     optional: true,
@@ -37,28 +38,10 @@ const STEPS = [
     key:   "todayFocus",
     icon:  "zap",
     title: "What to work on next",
-    desc:  "Tally ranks your highest-priority task and puts it front and center. Tap Start to jump in, or swipe to move on.",
+    desc:  "Tally ranks your highest-priority tasks and puts them front and center so you always know where to start.",
     tooltipSide: "below",
     pad: 4,
     optional: true,
-  },
-  {
-    key:   "todaySchedule",
-    icon:  "calendar",
-    title: "Today's schedule",
-    desc:  "Your classes and calendar events for today, shown in order. Add recurring class times in Profile → Class Schedule.",
-    tooltipSide: "below",
-    pad: 4,
-    optional: true,
-  },
-  {
-    key:      "aceBtn",
-    icon:     "message-circle",
-    title:    "Meet Tally",
-    desc:     "Tap the Tally button anytime to ask what to work on, get study advice, or talk through your workload.",
-    tooltipSide: "above",
-    optional: true,
-    pad: 6,
   },
   {
     key:      "priorityBadge",
@@ -69,12 +52,12 @@ const STEPS = [
     optional: true,
   },
   {
-    key:      "focusBtn",
-    icon:     "clock",
-    title:    "Focus Mode",
-    desc:     "Tap the clock on any task to start a full-screen Pomodoro timer — just you and the assignment.",
+    key:   "focusTab",
+    icon:  "edit-3",
+    title: "Your study plan",
+    desc:  "Tally maps your whole week — sessions scheduled around your deadlines and free time. Free users get 3 days, Scholar unlocks the full week.",
     tooltipSide: "above",
-    optional: true,
+    pad: 6,
   },
   {
     key:   "tasksTab",
@@ -82,27 +65,15 @@ const STEPS = [
     title: "All your tasks",
     desc:  "Every assignment, exam, and project in one place. Tap Add in the header to log a new one.",
     tooltipSide: "above",
+    pad: 6,
   },
   {
     key:   "chatTab",
     icon:  "message-circle",
     title: "Chat with Tally",
-    desc:  "Have a full conversation — ask what to work on next, get study tips, or talk through your entire workload.",
+    desc:  "Ask what to work on next, get study tips, or talk through your whole workload. Tally can even create tasks for you from the chat.",
     tooltipSide: "above",
-  },
-  {
-    key:   "calendarTab",
-    icon:  "calendar",
-    title: "Your schedule",
-    desc:  "See your calendar events alongside your deadlines. Tap Plan to let Tally build your study week.",
-    tooltipSide: "above",
-  },
-  {
-    key:   "focusTab",
-    icon:  "clock",
-    title: "Focus sessions",
-    desc:  "Start a study session from here. Pick a task, set a timer, and work distraction-free until it's done.",
-    tooltipSide: "above",
+    pad: 6,
   },
 ];
 
@@ -218,12 +189,12 @@ function IntroScreen({ colors, onNext, onDismiss }) {
         </Animated.View>
 
         {/* Title */}
-        <Animated.Text style={[intro.title, { opacity: titleOpacity, transform: [{ translateY: titleSlide }] }]}>
+        <Animated.Text style={[intro.title, { color: colors.isDark ? "#fff" : colors.textPrimary, opacity: titleOpacity, transform: [{ translateY: titleSlide }] }]}>
           Hi, I'm Tally.
         </Animated.Text>
 
         {/* Subtitle */}
-        <Animated.Text style={[intro.sub, { opacity: subOpacity, transform: [{ translateY: subSlide }] }]}>
+        <Animated.Text style={[intro.sub, { color: colors.isDark ? "rgba(255,255,255,0.6)" : colors.textSecondary, opacity: subOpacity, transform: [{ translateY: subSlide }] }]}>
           I track your deadlines, figure out what actually matters, and coach you through the semester — so nothing sneaks up on you.
         </Animated.Text>
 
@@ -257,7 +228,7 @@ function IntroScreen({ colors, onNext, onDismiss }) {
         {/* Skip */}
         <Animated.View style={{ opacity: btnOpacity, marginTop: 14 }}>
           <TouchableOpacity onPress={handleSkip} hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}>
-            <Text style={intro.skip}>Skip tour</Text>
+            <Text style={[intro.skip, { color: colors.isDark ? "rgba(255,255,255,0.3)" : colors.textMuted }]}>Skip tour</Text>
           </TouchableOpacity>
         </Animated.View>
       </ScrollView>
@@ -266,7 +237,8 @@ function IntroScreen({ colors, onNext, onDismiss }) {
 }
 
 // ── Main overlay ─────────────────────────────────────────────────
-export default function WalkthroughOverlay({ onDone, fabBottom = 0 }) {
+
+export default function WalkthroughOverlay({ onDone, fabBottom = 0, navigateToTab }) {
   const { colors }                = useTheme();
   const { width: SW, height: SH } = useWindowDimensions();
   const targets = useWalkthroughTargets();
@@ -353,13 +325,16 @@ export default function WalkthroughOverlay({ onDone, fabBottom = 0 }) {
 
   const dismiss = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (navigateToTab) navigateToTab("Dashboard");
     Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(onDone);
   };
+
+  const CARD_BG = colors.isDark ? colors.bgCard : "#fff";
 
   // ── Intro step ──────────────────────────────────────────────
   if (current.isIntro) {
     return (
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.96)", zIndex: 999 }]} pointerEvents="auto">
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.isDark ? "rgba(0,0,0,0.96)" : "#fff", zIndex: 999 }]} pointerEvents="auto">
         <IntroScreen colors={colors} onNext={advance} onDismiss={dismiss} />
       </View>
     );
@@ -370,14 +345,15 @@ export default function WalkthroughOverlay({ onDone, fabBottom = 0 }) {
     <Animated.View
       style={[
         styles.card,
-        { backgroundColor: colors.bgCard, left: CARD_MARGIN, right: CARD_MARGIN },
+        { backgroundColor: CARD_BG, left: CARD_MARGIN, right: CARD_MARGIN },
+        !colors.isDark && { shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 12 },
         style,
         { transform: [{ translateY: slideAnim }] },
       ]}
       pointerEvents="auto"
     >
       {side === "below" && (
-        <View style={[styles.arrowUp, { left: arrowLeft, borderBottomColor: colors.bgCard }]} />
+        <View style={[styles.arrowUp, { left: arrowLeft, borderBottomColor: CARD_BG }]} />
       )}
       <View style={styles.cardInner}>
         <View style={[styles.iconBadge, { backgroundColor: colors.accentGlow }]}>
@@ -392,7 +368,7 @@ export default function WalkthroughOverlay({ onDone, fabBottom = 0 }) {
         <View style={styles.dots}>
           {DOT_STEPS.map((_, i) => (
             <View key={i} style={[styles.dot, {
-              backgroundColor: i === dotIndex ? colors.accent : colors.border,
+              backgroundColor: i === dotIndex ? colors.accent : colors.isDark ? colors.border : "#D0D0D8",
               width: i === dotIndex ? 14 : 6,
             }]} />
           ))}
@@ -409,7 +385,7 @@ export default function WalkthroughOverlay({ onDone, fabBottom = 0 }) {
         </View>
       </View>
       {side === "above" && (
-        <View style={[styles.arrowDown, { left: arrowLeft, borderTopColor: colors.bgCard }]} />
+        <View style={[styles.arrowDown, { left: arrowLeft, borderTopColor: CARD_BG }]} />
       )}
     </Animated.View>
   );
@@ -456,22 +432,41 @@ export default function WalkthroughOverlay({ onDone, fabBottom = 0 }) {
   return (
     <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]} pointerEvents="auto">
 
-      {/* Dark overlay — 4 strips create a clean rectangular cutout, no corner artifacts */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={{ position: "absolute", left: 0, right: 0, top: 0, height: sy, backgroundColor: DARK }} />
-        <View style={{ position: "absolute", left: 0, right: 0, top: sy + sh, bottom: 0, backgroundColor: DARK }} />
-        <View style={{ position: "absolute", left: 0, width: Math.max(0, sx), top: sy, height: sh, backgroundColor: DARK }} />
-        <View style={{ position: "absolute", left: sx + sw, right: 0, top: sy, height: sh, backgroundColor: DARK }} />
+      {/* Dark overlay with clean rounded cutout — single SVG path, no seam artifacts */}
+      <Svg
+        width={SW} height={SH}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      >
+        <Path
+          fillRule="evenodd"
+          fill={DARK}
+          d={[
+            `M 0 0 L ${SW} 0 L ${SW} ${SH} L 0 ${SH} Z`,
+            `M ${sx + br} ${sy}`,
+            `L ${sx + sw - br} ${sy}`,
+            `Q ${sx + sw} ${sy} ${sx + sw} ${sy + br}`,
+            `L ${sx + sw} ${sy + sh - br}`,
+            `Q ${sx + sw} ${sy + sh} ${sx + sw - br} ${sy + sh}`,
+            `L ${sx + br} ${sy + sh}`,
+            `Q ${sx} ${sy + sh} ${sx} ${sy + sh - br}`,
+            `L ${sx} ${sy + br}`,
+            `Q ${sx} ${sy} ${sx + br} ${sy} Z`,
+          ].join(" ")}
+        />
+      </Svg>
 
-        {/* Accent ring around spotlight */}
-        <View style={{
+      {/* Accent ring — sits on top of SVG overlay */}
+      <View
+        pointerEvents="none"
+        style={{
           position: "absolute",
           left: sx, top: sy, width: sw, height: sh,
           borderRadius: br,
           borderWidth: 2,
           borderColor: colors.accent,
-        }} />
-      </View>
+        }}
+      />
 
       {renderCard(tooltipStyle, side, arrowLeft)}
     </Animated.View>

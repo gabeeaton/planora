@@ -20,12 +20,12 @@ import { track } from "../services/analytics";
 const DEMO_MODE = FEATURE_FLAGS.DEMO_MODE;
 
 const FEATURES = [
-  { icon: "cpu",            label: "AI Priority Coach",      desc: "Stops you from spending three hours on a low-stakes assignment when an exam is tomorrow." },
-  { icon: "message-circle", label: "Unlimited AI Chat",      desc: "Free plan caps at 5 messages. Scholar is unlimited because real academic coaching takes more than 5." },
-  { icon: "bell",           label: "2-Hour Deadline Alerts", desc: "A nudge the morning of a deadline is too late. Scholar warns you with 2 hours to spare." },
-  { icon: "edit-3",         label: "Weekly Study Plan",      desc: "Tally maps your whole week every Sunday so you're never staring down three due dates at once." },
-  { icon: "alert-triangle", label: "Avoidance Alerts",       desc: "Catch yourself procrastinating before it becomes an all-nighter." },
-  { icon: "refresh-cw",     label: "Persistent Chat History", desc: "Your Tally conversations stay synced across devices so you can pick up any strategy where you left off." },
+  { icon: "edit-3",         label: "Full 7-Day Study Plan",       desc: "Tally maps your entire week — free users get a 3-day preview. Scholar unlocks the full picture." },
+  { icon: "zap",            label: "Session Coaching",            desc: "Tally writes a how-to-start guide for every study session: what to open, what to produce, how long it should take." },
+  { icon: "refresh-cw",     label: "Reschedule Missed Sessions",  desc: "Miss a day? Tally finds new slots and rebuilds your plan automatically — no manual fixing." },
+  { icon: "calendar",       label: "Export to Calendar",          desc: "Push your study sessions to Google, Apple, or Outlook Calendar in one tap." },
+  { icon: "message-circle", label: "Unlimited AI Chat",           desc: "Free plan caps at 5 messages a day. Scholar is unlimited — because real coaching takes more than 5." },
+  { icon: "alert-triangle", label: "Avoidance Alerts",            desc: "Tally notices when you've been avoiding a task and calls you out before it becomes an all-nighter." },
 ];
 
 const TRUST_SIGNALS_TRIAL = [
@@ -39,9 +39,9 @@ const TRUST_SIGNALS_NO_TRIAL = [
 ];
 
 const PLANS = [
-  { key: "annual",   label: "Annual",   billedAmount: "$29.99/yr", perMonth: "$2.50/mo", billing: "Billed annually",   badge: "Best Value", isLifetime: false },
-  { key: "lifetime", label: "Lifetime", billedAmount: "$199.99",   perMonth: "forever",  billing: "One-time purchase", badge: "Forever",    isLifetime: true  },
-  { key: "monthly",  label: "Monthly",  billedAmount: "$4.99/mo",  perMonth: null,       billing: "Billed monthly",    badge: null,         isLifetime: false },
+  { key: "annual",   label: "Annual",   billedAmount: "$29.99/yr", perMonth: "$2.50/mo", billing: "7-day free trial · then $29.99/yr", badge: "Most Popular", savings: "Save 40% vs monthly", isLifetime: false },
+  { key: "monthly",  label: "Monthly",  billedAmount: "$4.99/mo",  perMonth: null,       billing: "7-day free trial · then $4.99/mo",  badge: null,           savings: null,                  isLifetime: false },
+  { key: "lifetime", label: "Lifetime", billedAmount: "$199.99",   perMonth: "one-time", billing: "Pay once, own forever",             badge: null,           savings: null,                  isLifetime: true  },
 ];
 
 export default function PaywallScreen({ navigation }) {
@@ -186,6 +186,7 @@ export default function PaywallScreen({ navigation }) {
   const { hasTrial: _hasTrial, trialDays } = getTrialInfo(packages[selectedPlan]);
   const hasTrial = _hasTrial && !activePlan?.isLifetime;
 
+
   return (
     <Animated.View style={[styles.overlay, { opacity: overlayFade }]}>
       <Animated.View style={[styles.root, { transform: [{ translateY: sheetY }] }]}>
@@ -219,19 +220,12 @@ export default function PaywallScreen({ navigation }) {
         >
           {/* ── Hero ── */}
           <View style={styles.hero}>
-            {/* Layered decorative orbs */}
-            <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-              <View style={styles.heroOrb1} />
-              <View style={styles.heroOrb2} />
-              <View style={styles.heroOrb3} />
-            </View>
-
             <Image
               source={require("../assets/logo-full-purple.png")}
               style={{ width: 180, height: 50, marginBottom: 14 }}
               resizeMode="contain"
             />
-            <Text style={styles.heroLabel}>SCHOLAR PLAN</Text>
+            <Text style={styles.heroLabel}>7-DAY FREE TRIAL</Text>
             <Text style={styles.heroTitle}>Stop cramming.{"\n"}Start winning.</Text>
 
             {/* Trust signals — honest, verifiable */}
@@ -288,6 +282,9 @@ export default function PaywallScreen({ navigation }) {
                         )}
                       </View>
                       <Text style={styles.planBilling}>{plan.billing}</Text>
+                      {plan.savings && (
+                        <Text style={styles.planSavings}>{plan.savings}</Text>
+                      )}
                     </View>
 
                     <View style={{ alignItems: "flex-end" }}>
@@ -413,18 +410,6 @@ const makeStyles = (colors, insets) => StyleSheet.create({
     borderBottomColor: colors.accent + "20",
     overflow: "hidden",
   },
-  heroOrb1: {
-    position: "absolute", width: 240, height: 240, borderRadius: 120,
-    backgroundColor: colors.accent + "30", top: -100, right: -70,
-  },
-  heroOrb2: {
-    position: "absolute", width: 160, height: 160, borderRadius: 80,
-    backgroundColor: colors.accent + "20", bottom: -50, left: -50,
-  },
-  heroOrb3: {
-    position: "absolute", width: 100, height: 100, borderRadius: 50,
-    backgroundColor: colors.accent + "18", top: 10, left: -20,
-  },
   heroIconWrap: {
     width: 68, height: 68, borderRadius: 16,
     alignItems: "center", justifyContent: "center",
@@ -524,6 +509,19 @@ const makeStyles = (colors, insets) => StyleSheet.create({
   planPer: {
     fontSize: 11, fontFamily: "Outfit-Regular",
     color: colors.textMuted, marginTop: 1,
+  },
+  planSavings: {
+    fontSize: 11, fontFamily: "Outfit-SemiBold",
+    color: colors.accent, marginTop: 2,
+  },
+  trialChip: {
+    backgroundColor: colors.accent,
+    borderRadius: 6,
+    paddingHorizontal: 7, paddingVertical: 2,
+  },
+  trialChipText: {
+    fontSize: 10, fontFamily: "Outfit-ExtraBold",
+    color: "#fff", letterSpacing: 0.2,
   },
 
   // ── Feature list ─────────────────────────────────────────────

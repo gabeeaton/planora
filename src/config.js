@@ -38,8 +38,8 @@ export const APP_CONFIG = {
 //   FORCE_WALKTHROUGH  = true → walkthrough overlay runs every launch
 export const FEATURE_FLAGS = {
   BETA_PRO_UNLOCKED:        false,
-  FORCE_ONBOARDING:         false, // flip to true to test onboarding repeatedly
-  FORCE_WALKTHROUGH:        false, // flip to true to test walkthrough repeatedly
+  FORCE_ONBOARDING:         true, // flip to true to test onboarding repeatedly
+  FORCE_WALKTHROUGH:        true  , // flip to true to test walkthrough repeatedly
   FORCE_SEMESTER_PROMPT:    false, // flip to true to test new-semester prompt every launch
   DEMO_MODE:                false, // App Store screenshots / demo walkthroughs
   DEV_SCHOLAR_OVERRIDE:     false, // shows Scholar toggle button in Profile (dev only)

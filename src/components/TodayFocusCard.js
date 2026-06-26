@@ -277,7 +277,7 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
       <View style={styles.card}>
         <View style={styles.shimmer}>
           <ActivityIndicator size={14} color={colors.accent} />
-          <Text style={styles.shimmerText}>Ace is reading your week...</Text>
+          <Text style={styles.shimmerText}>Tally is reading your week...</Text>
         </View>
       </View>
     );
@@ -313,7 +313,7 @@ const TodayFocusCard = ({ tasks, userProfile, patterns, onTaskHighlight, navigat
   return (
     <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       <View style={styles.header}>
-        <Mascot variant="alive" size={42} />
+        <Mascot variant="still" size={42} blink={false} />
         <Text style={styles.headerLabel}>Tally's picks</Text>
         <TouchableOpacity onPress={retry} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Feather name="refresh-cw" size={13} color={colors.textMuted} />

@@ -700,14 +700,24 @@ export const generateStudyPlan = async (tasks, userProfile, patterns, availabili
     return `  ${d.label} (${d.date}): ${parts.join(", ")} → ${netFree}min net study time`;
   }).filter(Boolean).join("\n");
 
+  // Cap today's available hours by how much time is realistically left in the day
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  const STUDY_DAY_END = 22; // assume study day ends at 10pm
+  const hoursLeftToday = Math.max(0, STUDY_DAY_END - currentHour);
+
   const availLines = availability
     .filter((d) => d.hours > 0)
     .map((d) => {
+      const isToday = d.date === todayStr;
+      const effectiveHours = isToday ? Math.min(d.hours, hoursLeftToday) : d.hours;
+      if (isToday && effectiveHours < 0.25) return null; // <15 min left, skip today
       const classMins = classMinsPerDay[d.date] ?? 0;
-      const netFree = Math.max(0, d.hours * 60 - classMins);
+      const netFree = Math.max(0, effectiveHours * 60 - classMins);
       const classNote = classMins > 0 ? ` (${classMins}min in class, ${netFree}min net free)` : "";
-      return `${d.label} (${d.date}): ${d.hours * 60} min selected${classNote}`;
+      const timeNote = isToday && effectiveHours < d.hours ? ` [~${Math.round(effectiveHours * 60)}min left today]` : "";
+      return `${d.label} (${d.date}): ${Math.round(effectiveHours * 60)} min available${classNote}${timeNote}`;
     })
+    .filter(Boolean)
     .join("\n");
 
   const name = userProfile?.name ? `Student: ${userProfile.name}. ` : "";
@@ -886,10 +896,19 @@ export const adjustTaskSessions = async (task, availability, completedSessionsFo
   const dueDateStr = format(dueDate, "yyyy-MM-dd");
   const urgency = daysUntil < 0 ? "OVERDUE" : daysUntil === 0 ? "DUE TODAY" : daysUntil === 1 ? "DUE TOMORROW" : `due in ${daysUntil} days`;
 
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  const hoursLeftToday = Math.max(0, 22 - currentHour);
+
   const availLines = availability
     .filter((d) => d.hours > 0 && d.date >= todayStr && d.date < dueDateStr)
-    .map((d) => `${d.label} (${d.date}): ${d.hours * 60} min`)
-    .join("\n") || `Today (${todayStr}): 120 min`;
+    .map((d) => {
+      const isToday = d.date === todayStr;
+      const effectiveHours = isToday ? Math.min(d.hours, hoursLeftToday) : d.hours;
+      if (isToday && effectiveHours < 0.25) return null;
+      return `${d.label} (${d.date}): ${Math.round(effectiveHours * 60)} min`;
+    })
+    .filter(Boolean)
+    .join("\n") || `Today (${todayStr}): ${Math.round(Math.min(2, hoursLeftToday) * 60)} min`;
 
   const completedNote = completedSessionsForTask.length > 0
     ? `\nAlready completed for this task:\n${completedSessionsForTask.map((s) => `- "${s.sessionTitle}" (${s.durationMinutes ?? 0}min)`).join("\n")}`

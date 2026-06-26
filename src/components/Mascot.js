@@ -239,7 +239,7 @@ export default function Mascot({
 
   if (variant === 'alive') {
     // --- float layer (outermost): translateY 4px → -6px ---
-    const floatY = v.a.interpolate({ inputRange: [0, 1], outputRange: [4, -6] });
+    const floatY = v.a.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
     floatTransforms = [{ translateY: floatY }];
 
     // --- breathe layer (middle): scale 1 → 1.04, pivot at bottom (92%) ---

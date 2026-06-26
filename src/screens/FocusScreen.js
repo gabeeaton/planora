@@ -89,10 +89,6 @@ export default function FocusScreen({ navigation }) {
     <View style={s.safe}>
       {/* Purple header */}
       <View style={[s.header, { paddingTop: insets.top + 2 }]}>
-        <View style={StyleSheet.absoluteFill} pointerEvents="none" collapsable={false}>
-          <View style={s.decoOrb} />
-          <View style={[s.decoOrb, { width: 60, height: 60, right: 70, top: 8, opacity: 0.6 }]} />
-        </View>
         <View style={s.headerTopRow}>
           <View style={{ flex: 1, marginRight: 12 }}>
             <Text style={s.headerTitle}>Focus</Text>
@@ -263,13 +259,6 @@ const makeStyles = (colors) => StyleSheet.create({
     fontFamily: "Outfit-Regular",
     color: "rgba(255,255,255,0.72)",
     marginTop: 2,
-  },
-  decoOrb: {
-    position: "absolute",
-    width: 100, height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(255,255,255,0.10)",
-    right: -30, top: -30,
   },
   planBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,

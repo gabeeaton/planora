@@ -7,6 +7,7 @@
 // ============================================================
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { DeviceEventEmitter } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   subscribeTasks,
@@ -29,8 +30,6 @@ import {
 } from "../services/offlineStorage";
 import {
   updateOverdueBadge,
-  scheduleDailyDigest,
-  scheduleWeeklySummary,
   scheduleBatchReminders,
   scheduleOverdueNudges,
   syncNotificationWindow,
@@ -141,26 +140,10 @@ export const TasksProvider = ({ children }) => {
   useEffect(() => {
     if (!user?.uid) return;
     const timer = setTimeout(() => {
-      scheduleDailyDigest(tasks, bestTimeRef.current, user.uid);
-    }, 12000);
-    return () => clearTimeout(timer);
-  }, [tasks, user?.uid, patterns?.productiveTimeOfDay?.bestTime]);
-
-  useEffect(() => {
-    if (!user?.uid) return;
-    const timer = setTimeout(() => {
       scheduleOverdueNudges(tasks, bestTimeRef.current, user.uid);
     }, 12000);
     return () => clearTimeout(timer);
   }, [tasks, user?.uid]);
-
-  useEffect(() => {
-    if (!user?.uid) return;
-    const timer = setTimeout(() => {
-      scheduleWeeklySummary(tasks, history, user.uid);
-    }, 12000);
-    return () => clearTimeout(timer);
-  }, [tasks, history, user?.uid, patterns?.productiveTimeOfDay?.bestTime]);
 
   useEffect(() => {
     if (!user) {
@@ -296,15 +279,24 @@ export const TasksProvider = ({ children }) => {
         const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: true } : t);
         scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid, isProRef.current).catch(() => {});
         scheduleOverdueNudges(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
-        scheduleDailyDigest(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
         loadTaskHistory(user.uid, 100).then((fresh) => { setHistory(fresh); cacheTaskHistory(fresh); }).catch(() => {});
+        // Clear this task's future sessions from the study plan — no point studying for something already done
+        AsyncStorage.getItem("@planora_study_plan_cache").then((raw) => {
+          if (!raw) return;
+          const { plan } = JSON.parse(raw);
+          const today = new Date().toISOString().slice(0, 10);
+          const updated = plan.filter((s) => !(s.taskId === task.id && !s.completed && s.date >= today));
+          if (updated.length !== plan.length) {
+            AsyncStorage.setItem("@planora_study_plan_cache", JSON.stringify({ plan: updated })).catch(() => {});
+            DeviceEventEmitter.emit("studyPlanUpdated");
+          }
+        }).catch(() => {});
       } else {
         // ── Undoing completion ────────────────────────────────
         removeTaskHistory(task.id).catch(() => {}); // clean up pattern data
         const updatedTasks = tasksRef.current.map((t) => t.id === task.id ? { ...t, completed: false } : t);
         scheduleBatchReminders(updatedTasks, bestTimeRef.current, user?.uid, isProRef.current).catch(() => {});
         scheduleOverdueNudges(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
-        scheduleDailyDigest(updatedTasks, bestTimeRef.current, user?.uid).catch(() => {});
         loadTaskHistory(user.uid, 100).then((fresh) => { setHistory(fresh); cacheTaskHistory(fresh); }).catch(() => {});
       }
     } catch (err) {

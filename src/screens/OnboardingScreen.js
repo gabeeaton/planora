@@ -119,9 +119,9 @@ const makeStyles = (colors) =>
       textTransform: "uppercase",
     },
     input: {
-      backgroundColor: colors.bgInput,
+      backgroundColor: colors.isDark ? colors.bgInput : "#fff",
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.isDark ? colors.border : "#E0E0E8",
       borderRadius: radius.sm,
       paddingHorizontal: 12,
       paddingVertical: 10,
@@ -133,14 +133,16 @@ const makeStyles = (colors) =>
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: colors.bgCard,
+      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
       borderRadius: radius.md,
       padding: spacing.md,
       marginBottom: spacing.sm,
-      borderWidth: 1,
+      borderWidth: colors.isDark ? 1 : 0,
       borderColor: colors.border,
+      ...(colors.isDark ? {} : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2 }),
     },
     optionBtnSelected: {
+      borderWidth: 1,
       borderColor: colors.accent,
       backgroundColor: colors.accentGlow,
     },
@@ -152,10 +154,9 @@ const makeStyles = (colors) =>
     optionTextSelected: { color: colors.accent, fontFamily: "Outfit-Bold" },
     systemToggleRow: {
       flexDirection: "row",
-      backgroundColor: colors.bgElevated,
+      backgroundColor: colors.isDark ? colors.bgElevated : "#F0F0F5",
       borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
+      borderWidth: 0,
       overflow: "hidden",
       marginBottom: spacing.sm,
       padding: 3,
@@ -179,12 +180,13 @@ const makeStyles = (colors) =>
     systemToggleText: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textSecondary },
     systemToggleTextActive: { color: "#fff" },
     classCard: {
-      backgroundColor: colors.bgCard,
+      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
       borderRadius: radius.md,
       padding: spacing.md,
       marginBottom: spacing.md,
-      borderWidth: 1,
+      borderWidth: colors.isDark ? 1 : 0,
       borderColor: colors.border,
+      ...(colors.isDark ? {} : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2 }),
     },
     classCardHeader: {
       flexDirection: "row",
@@ -210,11 +212,13 @@ const makeStyles = (colors) =>
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: radius.full,
-      borderWidth: 1,
+      borderWidth: colors.isDark ? 1 : 0,
       borderColor: colors.border,
-      backgroundColor: colors.bgCard,
+      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+      ...(colors.isDark ? {} : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1 }),
     },
     chipSmSelected: {
+      borderWidth: 1,
       borderColor: colors.accent,
       backgroundColor: colors.accentGlow,
     },
@@ -314,9 +318,9 @@ const makeStyles = (colors) =>
     schoolSearchWrap: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: colors.bgInput,
+      backgroundColor: colors.isDark ? colors.bgInput : "#fff",
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.isDark ? colors.border : "#E0E0E8",
       borderRadius: radius.md,
       paddingLeft: 10,
       marginBottom: 4,
@@ -333,9 +337,9 @@ const makeStyles = (colors) =>
     lmsDomainWrap: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: colors.bgInput,
+      backgroundColor: colors.isDark ? colors.bgInput : "#fff",
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.isDark ? colors.border : "#E0E0E8",
       borderRadius: radius.md,
       paddingLeft: 10,
       marginBottom: spacing.sm,
@@ -396,12 +400,13 @@ const makeStyles = (colors) =>
     urlInputWrap: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: colors.bgInput,
+      backgroundColor: colors.isDark ? colors.bgInput : "#fff",
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.isDark ? colors.border : "#E0E0E8",
       borderRadius: radius.md,
       paddingLeft: 14,
       marginBottom: spacing.sm,
+      ...(colors.isDark ? {} : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1 }),
     },
     urlInput: {
       flex: 1,
@@ -722,13 +727,14 @@ const makeStyles = (colors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      backgroundColor: colors.bgCard,
+      backgroundColor: colors.isDark ? colors.bgCard : "#fff",
       borderRadius: radius.md,
-      borderWidth: 1,
+      borderWidth: colors.isDark ? 1 : 0,
       borderColor: colors.border,
       paddingHorizontal: spacing.md,
       paddingVertical: 18,
       position: "relative",
+      ...(colors.isDark ? {} : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2 }),
     },
     lmsPlatformText: {
       fontSize: 15,
@@ -1035,7 +1041,7 @@ const OnboardingScreen = ({ navigation }) => {
   const { profile } = useUserProfile();
 
   const isEditing = useRef(!!profile?.onboardingComplete && !FEATURE_FLAGS.FORCE_ONBOARDING).current;
-  const STEP_COUNT = isEditing ? 4 : 6;
+  const STEP_COUNT = isEditing ? 4 : 4;
   const { createTask, removeTask, createManyTasks } = useTasks();
 
   const [step, setStepp] = useState(0);
@@ -1279,21 +1285,19 @@ const OnboardingScreen = ({ navigation }) => {
       if (step_n === 3) return !!workTime || isEditing;
       return false;
     }
-    if (step_n === 3 && importingTasks) return false;
+    if (step_n === 2 && importingTasks) return false;
     return true;
   };
 
   const handleNext = async () => {
     if (!isEditing) {
-      // step 1: if no LMS chosen, skip past import steps to personalization
-      if (step_n === 1 && !importLms) { goToStep(4); return; }
-      // step 3: if tasks parsed, import them first
-      if (step_n === 3 && importParsedTasks?.length) {
+      // Step 2 (import): if tasks are parsed but not yet imported, import now then advance
+      if (step_n === 2 && importParsedTasks?.length) {
         await handleImportTasksNow();
-        goToStep(4);
+        goToStep(3);
         return;
       }
-      // last step: request notifications then finish
+      // Last step: request notifications then finish
       if (step_n === STEP_COUNT - 1) {
         await requestNotificationPermissions().catch(() => {});
         handleFinish();
@@ -1397,9 +1401,9 @@ const OnboardingScreen = ({ navigation }) => {
 
   const renderStep0 = () => (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Let's get you set up</Text>
+      <Text style={styles.stepTitle}>First, about you</Text>
       <Text style={styles.stepSubtitle}>
-        A few quick details so the AI can plan your semester around you.
+        A few quick details so Tally can plan your semester around you.
       </Text>
 
       <Text style={styles.fieldLabel}>YOUR NAME (optional)</Text>
@@ -1418,14 +1422,14 @@ const OnboardingScreen = ({ navigation }) => {
       <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>
         SCHOOL SYSTEM
       </Text>
-      <View style={styles.systemToggleRow}>
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: spacing.sm }}>
         {["semester", "quarter"].map((sys) => (
           <TouchableOpacity
             key={sys}
-            style={[styles.systemToggleBtn, schoolSystem === sys && styles.systemToggleBtnActive]}
+            style={[styles.chipSm, { paddingVertical: 9, paddingHorizontal: 18 }, schoolSystem === sys && styles.chipSmSelected]}
             onPress={() => { tap(); setSchoolSystem(sys); setSemester(null); }}
           >
-            <Text style={[styles.systemToggleText, schoolSystem === sys && styles.systemToggleTextActive]}>
+            <Text style={[styles.chipSmText, { fontSize: 13 }, schoolSystem === sys && styles.chipSmTextSelected]}>
               {sys.charAt(0).toUpperCase() + sys.slice(1)}
             </Text>
           </TouchableOpacity>
@@ -1776,10 +1780,10 @@ const OnboardingScreen = ({ navigation }) => {
           marginBottom: spacing.lg,
         }}>
           <Text style={[styles.stepTitle, { textAlign: "center", fontSize: 30 }]}>
-            Your whole semester,{"\n"}organized.
+            Know what to study.{"\n"}Know when to start.
           </Text>
           <Text style={[styles.stepSubtitle, { textAlign: "center", marginBottom: 0 }]}>
-            Import your classes once — Planora tracks every deadline, coaches you with AI, and keeps your streak alive.
+            Connect your schedule once. Tally plans your sessions, ranks what matters, and keeps you ahead of every deadline.
           </Text>
         </Animated.View>
 
@@ -1819,14 +1823,15 @@ const OnboardingScreen = ({ navigation }) => {
     );
   };
 
-  const renderPersonalization = () => (
+  // ── NEW: renderSetup (step 1) — name + school system + term + year ──
+  const renderSetup = () => (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Tell us about you</Text>
+      <Text style={styles.stepTitle}>First, about you</Text>
       <Text style={styles.stepSubtitle}>
-        Helps the AI personalize your plan. All optional.
+        Quick setup — helps Tally personalize everything around your semester.
       </Text>
 
-      <Text style={styles.fieldLabel}>YOUR NAME (optional)</Text>
+      <Text style={styles.fieldLabel}>YOUR NAME (OPTIONAL)</Text>
       <TextInput
         style={styles.input}
         placeholder="e.g. Alex"
@@ -1880,58 +1885,185 @@ const OnboardingScreen = ({ navigation }) => {
         ))}
       </View>
 
-      <Text style={styles.fieldLabel}>WHEN DO YOU WORK BEST?</Text>
+    </View>
+  );
+
+  // ── NEW: renderPreferences (step 3 / last) — work time only ──────
+  const renderPreferences = () => (
+    <View style={styles.stepContainer}>
+      <View style={{ alignItems: "center", marginBottom: spacing.lg }}>
+        <Mascot variant="alive" size={80} blink={false} />
+      </View>
+      <Text style={styles.stepTitle}>When do you work best?</Text>
+      <Text style={styles.stepSubtitle}>
+        Tally schedules your hardest sessions during your peak hours.
+      </Text>
       {WORK_TIMES.map((t) => (
-        <ScalePressable key={t} style={[styles.optionBtn, workTime === t && styles.optionBtnSelected]} onPress={() => { tap(); setWorkTime(workTime === t ? null : t); }}>
+        <ScalePressable
+          key={t}
+          style={[styles.optionBtn, workTime === t && styles.optionBtnSelected]}
+          onPress={() => { tap(); setWorkTime(t); }}
+        >
           <Text style={[styles.optionText, workTime === t && styles.optionTextSelected]}>{t}</Text>
           {workTime === t && <Feather name="check" size={16} color={colors.accent} />}
         </ScalePressable>
       ))}
-
-      <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>HOW WOULD YOU DESCRIBE YOURSELF?</Text>
-      {[
-        { key: "on-top",         label: "I stay on top of things" },
-        { key: "procrastinator", label: "I tend to procrastinate" },
-        { key: "structured",     label: "I need structure to stay on track" },
-      ].map((s) => (
-        <ScalePressable key={s.key} style={[styles.optionBtn, learningStyle === s.key && styles.optionBtnSelected]} onPress={() => { tap(); setLearningStyle(s.key); }}>
-          <Text style={[styles.optionText, learningStyle === s.key && styles.optionTextSelected]}>{s.label}</Text>
-          {learningStyle === s.key && <Feather name="check" size={16} color={colors.accent} />}
-        </ScalePressable>
-      ))}
     </View>
   );
 
-  const renderNotifications = () => (
-    <View style={styles.stepContainer}>
-      <View style={[styles.importHeroIcon, { alignSelf: "center", width: 80, height: 80, borderRadius: 40, marginBottom: spacing.lg }]}>
-        <Feather name="bell" size={32} color={colors.accent} />
-      </View>
-      <Text style={[styles.stepTitle, { textAlign: "center" }]}>Stay ahead of every deadline</Text>
-      <Text style={[styles.stepSubtitle, { textAlign: "center" }]}>
-        Planora works best when it can remind you before things are due.
-      </Text>
+  // ── NEW: renderImport (step 2) — LMS picker + directions + paste in one step ──
+  const renderImport = () => {
+    const dirSteps = importLms === "Canvas" ? CANVAS_STEPS() : (LMS_STEPS[importLms] ?? []);
 
-      <View style={styles.successCard}>
-        {[
-          { icon: "clock", label: "24 hours before every deadline" },
-          { icon: "sun", label: "Morning digest of today's tasks" },
-          { icon: "zap", label: "Streak reminder to keep your momentum" },
-        ].map((item, i) => (
-          <View key={i} style={[styles.notifBenefit, i === 2 && styles.notifBenefitLast]}>
-            <View style={styles.notifIconWrap}>
-              <Feather name={item.icon} size={16} color={colors.accent} />
-            </View>
-            <Text style={[styles.successRowTitle, { fontSize: 14 }]}>{item.label}</Text>
+    // Success state
+    if (importedCount > 0) {
+      const detectedClassNames = [...new Set(importedTasks.map(t => t.className).filter(Boolean))];
+      const highCount = importedTasks.filter(t => t.priority === "HIGH").length;
+      return (
+        <Animated.View style={[styles.stepContainer, { opacity: importSuccessAnim, transform: [{ translateY: importSuccessAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>
+          <View style={styles.successIconWrap}>
+            <Animated.View style={{ transform: [{ scale: successIconAnim }] }}>
+              <View style={styles.successIconLg}><Feather name="check" size={40} color={colors.low} /></View>
+            </Animated.View>
           </View>
-        ))}
-      </View>
+          <Text style={styles.successTitle}>{importedCount} task{importedCount !== 1 ? "s" : ""} loaded</Text>
+          <Text style={styles.successSubtitle}>Your semester is ready to plan around.</Text>
+          <View style={styles.successBadgeRow}>
+            {detectedClassNames.length > 0 && <View style={styles.successBadge}><Feather name="book-open" size={11} color={colors.accent} /><Text style={styles.successBadgeText}>{detectedClassNames.length} {detectedClassNames.length === 1 ? "class" : "classes"}</Text></View>}
+            {highCount > 0 && <View style={[styles.successBadge, { borderColor: colors.high + "50", backgroundColor: colors.high + "12" }]}><Feather name="alert-circle" size={11} color={colors.high} /><Text style={[styles.successBadgeText, { color: colors.high }]}>{highCount} urgent</Text></View>}
+          </View>
+          {importedTasks.length > 0 && (
+            <View style={styles.successCard}>
+              {importedTasks.slice(0, 4).map((t, i) => {
+                const isLast = i === Math.min(3, importedTasks.length - 1) && importedCount <= 4;
+                const d = t.dueDate ? (t.dueDate instanceof Date ? t.dueDate : new Date(t.dueDate)) : null;
+                const dateLabel = d && !isNaN(d) ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+                const dotColor = t.priority === "HIGH" ? colors.high : t.priority === "MEDIUM" ? colors.medium : colors.accent;
+                return (
+                  <View key={i} style={[styles.successRow, isLast && styles.successRowLast]}>
+                    <View style={[styles.successRowDot, { backgroundColor: dotColor }]} />
+                    <Text style={styles.successRowTitle} numberOfLines={1}>{t.title}</Text>
+                    {dateLabel ? <Text style={styles.successRowDate}>{dateLabel}</Text> : null}
+                  </View>
+                );
+              })}
+              {importedCount > 4 && <Text style={styles.successMore}>+{importedCount - 4} more tasks</Text>}
+            </View>
+          )}
+        </Animated.View>
+      );
+    }
 
-      <Text style={[styles.successNote, { marginTop: spacing.sm }]}>
-        You can adjust notification preferences anytime in settings.
-      </Text>
-    </View>
-  );
+    // Parsed preview
+    if (importParsedTasks) return (
+      <View style={styles.stepContainer}>
+        <Text style={styles.stepTitle}>Ready to import</Text>
+        <View style={styles.parsedPreview}>
+          <View style={styles.parsedHeader}>
+            <Feather name="check-circle" size={16} color={colors.low} />
+            <Text style={styles.parsedTitle}>{importParsedTasks.length} assignments found</Text>
+          </View>
+          {importParsedTasks.slice(0, 5).map((t, i) => {
+            const dotColor = t.priority === "HIGH" ? colors.high : t.priority === "MEDIUM" ? colors.medium : colors.accent;
+            return (
+              <View key={i} style={styles.parsedItem}>
+                <View style={[styles.parsedDot, { backgroundColor: dotColor }]} />
+                <Text style={styles.parsedText} numberOfLines={1}>{t.title}</Text>
+                {t.className ? <Text style={{ fontSize: 10, color: colors.textMuted, fontFamily: "Outfit-SemiBold" }}>{t.className}</Text> : null}
+              </View>
+            );
+          })}
+          {importParsedTasks.length > 5 && <Text style={[styles.stepText, { color: colors.textMuted, marginTop: 6 }]}>+ {importParsedTasks.length - 5} more</Text>}
+        </View>
+        <TouchableOpacity style={styles.skipBtn} onPress={() => { tap(); setImportParsedTasks(null); setImportError(null); }}>
+          <Text style={styles.skipBtnText}>← Try a different link</Text>
+        </TouchableOpacity>
+      </View>
+    );
+
+    // No LMS selected yet — show picker
+    if (!importLms) return (
+      <View style={styles.stepContainer}>
+        <Text style={styles.stepTitle}>Import your semester</Text>
+        <Text style={styles.stepSubtitle}>Connect your school's calendar and every deadline loads automatically.</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {LMS_OPTIONS.map(lms => {
+            const c = colors.isDark ? lms.darkColor : lms.color;
+            return (
+              <TouchableOpacity
+                key={lms.key}
+                style={[styles.lmsPlatformBtn, importLms === lms.key && { borderColor: c, backgroundColor: c + "18" }]}
+                onPress={() => { tap(); setImportLms(lms.key); }}
+              >
+                <Image source={lms.logo} style={{ width: 28, height: 28, borderRadius: 7 }} resizeMode="contain" />
+                <Text style={[styles.lmsPlatformText, importLms === lms.key && { color: c, fontFamily: "Outfit-Bold" }]}>{lms.key}</Text>
+                {importLms === lms.key && <Feather name="check" size={13} color={c} style={{ position: "absolute", top: 8, right: 8 }} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text style={[styles.stepSubtitle, { marginTop: spacing.lg, marginBottom: 0, textAlign: "center", fontSize: 13 }]}>
+          Don't see yours? Tap Skip below — you can always import later.
+        </Text>
+      </View>
+    );
+
+    // LMS selected — show directions + URL input together
+    return (
+      <View style={styles.stepContainer}>
+        <TouchableOpacity onPress={() => { tap(); setImportLms(null); setImportIcsUrl(""); setImportError(null); }} style={[styles.importBackBtn]}>
+          <Feather name="arrow-left" size={14} color={colors.textMuted} />
+          <Text style={styles.importBackText}>Back</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.stepTitle}>Get your link</Text>
+        <Text style={styles.stepSubtitle}>Follow these steps in {importLms}, then paste the link below.</Text>
+
+        {dirSteps.length > 0 && (
+          <View style={[styles.stepsCard, { marginBottom: spacing.md }]}>
+            {dirSteps.map((text, i) => (
+              <View key={i} style={styles.stepRow}>
+                <View style={styles.stepNum}><Text style={styles.stepNumText}>{i + 1}</Text></View>
+                <Text style={styles.stepText}>{text}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.urlInputWrap}>
+          <TextInput
+            style={styles.urlInput}
+            placeholder="https://..."
+            placeholderTextColor={colors.textMuted}
+            value={importIcsUrl}
+            onChangeText={v => { setImportIcsUrl(v); setImportError(null); }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+          <TouchableOpacity
+            style={[styles.fetchBtn, (importIcsLoading || !importIcsUrl.trim()) && { opacity: 0.5 }]}
+            onPress={() => { tap(); handleImportFetchUrl(); }}
+            disabled={importIcsLoading || !importIcsUrl.trim()}
+          >
+            {importIcsLoading ? <ActivityIndicator size={13} color="#fff" /> : <Feather name="download-cloud" size={13} color="#fff" />}
+            <Text style={styles.fetchBtnText}>{importIcsLoading ? "Loading..." : "Import"}</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.orRow}><View style={styles.orLine} /><Text style={styles.orText}>OR PICK A FILE</Text><View style={styles.orLine} /></View>
+        <TouchableOpacity style={[styles.pickFileBtn, importIcsLoading && { opacity: 0.5 }]} onPress={() => { tap(); handleImportPickFile(); }} disabled={importIcsLoading}>
+          <Feather name="upload" size={15} color={colors.textMuted} />
+          <Text style={styles.pickFileBtnText}>Pick a .ics file from Files</Text>
+        </TouchableOpacity>
+        {importError && (
+          <View style={styles.errorRow}>
+            <Feather name="alert-circle" size={13} color={colors.high} />
+            <Text style={styles.errorText}>{importError}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   // ── Import step renderers (new-user steps 1-3) ───────────────
 
@@ -2099,28 +2231,27 @@ const OnboardingScreen = ({ navigation }) => {
 
   const steps = isEditing
     ? [renderStep0, renderStep4, renderStep1, renderStep2]
-    : [renderValueProp, renderLmsPicker, renderLmsDirections, renderLmsPaste, renderPersonalization, renderNotifications];
+    : [renderValueProp, renderSetup, renderImport, renderPreferences];
 
   const getNextLabel = () => {
     if (saving) return "Saving...";
     if (isEditing && step_n === STEP_COUNT - 1) return "Save Changes";
     if (!isEditing && step_n === 0) return "Get started";
-    if (!isEditing && step_n === 1) return importLms ? "Next" : "Skip import";
-    if (!isEditing && step_n === 2) return "I have the link";
-    if (!isEditing && step_n === 3) {
+    if (!isEditing && step_n === 2) {
       if (importingTasks) return "Adding...";
       if (importParsedTasks?.length) return `Add ${importParsedTasks.length} tasks`;
       if (importedCount > 0) return "Next";
-      return "Skip for now";
+      if (importLms && !importIcsUrl.trim()) return "Skip for now";
+      return importLms ? "Skip for now" : "Skip import";
     }
-    if (!isEditing && step_n === STEP_COUNT - 1) return "Enable & Get Started";
+    if (!isEditing && step_n === STEP_COUNT - 1) return "Get Started";
     return "Next";
   };
 
   const getNextIcon = () => {
     if (saving) return null;
     if (isEditing && step_n === STEP_COUNT - 1) return "check";
-    if (!isEditing && step_n === STEP_COUNT - 1) return "bell";
+    if (!isEditing && step_n === STEP_COUNT - 1) return "arrow-right";
     if (!isEditing && step_n === 0) return "arrow-right";
     return "arrow-right";
   };

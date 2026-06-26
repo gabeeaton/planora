@@ -228,13 +228,14 @@ const aceStyles = StyleSheet.create({
 // ── Floating Ace / Planora FAB ────────────────────────────────
 // Separate component so it can call useSetWalkthroughTarget inside WalkthroughProvider
 
-const AceFabInner = ({ bottom, onPress }) => {
+const AceFabInner = ({ bottom, onPress, walkthroughActive }) => {
   const setTarget = useSetWalkthroughTarget();
   const fabRef    = useRef(null);
   return (
     <View
       ref={fabRef}
       style={[aceStyles.aceBtnWrap, { bottom }]}
+      pointerEvents={walkthroughActive ? "none" : "auto"}
       onLayout={() => {
         fabRef.current?.measureInWindow((x, y, w, h) => {
           if (w > 0 && h > 0) setTarget("aceBtn", { cx: x + w / 2, cy: y + h / 2, w, h, r: 25 });
@@ -257,6 +258,7 @@ const MainTabs = () => (
     <Tab.Screen name="Dashboard" component={DashboardScreen} />
     <Tab.Screen name="Focus"     component={StudyPlanScreen} />
     <Tab.Screen name="Tasks"     component={TasksScreen} />
+    <Tab.Screen name="Calendar"  component={CalendarScreen} />
     <Tab.Screen name="Chat"      component={ChatScreen} />
   </Tab.Navigator>
 );
@@ -390,7 +392,7 @@ const MainTabsWithModal = ({ navigation }) => {
     update();
     return navigation.addListener("state", update);
   }, [navigation]);
-  const onChatTab = tabIndex === 3; // Dashboard(0), Plan(1), Tasks(2), Chat(3)
+  const onChatTab = tabIndex === 4; // Dashboard(0), Plan(1), Tasks(2), Calendar(3), Chat(4)
   const { colors } = useTheme();
 
   const aceBtnBottom = Math.max(insets.bottom, 8) + 62 + 14;
@@ -431,10 +433,11 @@ const MainTabsWithModal = ({ navigation }) => {
           onSave={handleSave}
         />
 
-        {/* Floating Planora FAB — hidden on Chat tab */}
+        {/* Floating Planora FAB — hidden on Chat tab, non-interactive during walkthrough */}
         {!onChatTab && (
           <AceFabInner
             bottom={aceBtnBottom}
+            walkthroughActive={showWalkthrough}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
               setAcePopupVisible(true);
@@ -448,7 +451,13 @@ const MainTabsWithModal = ({ navigation }) => {
           onOpenFullChat={() => navigation.navigate("Chat")}
         />
 
-        {showWalkthrough && <WalkthroughOverlay onDone={handleWalkthroughDone} fabBottom={aceBtnBottom + 54 + 12} />}
+        {showWalkthrough && (
+          <WalkthroughOverlay
+            onDone={handleWalkthroughDone}
+            fabBottom={aceBtnBottom + 54 + 12}
+            navigateToTab={(tabName) => navigation.navigate(tabName)}
+          />
+        )}
 
         <NewSemesterPrompt
           visible={showNewSemester}

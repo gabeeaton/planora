@@ -194,11 +194,6 @@ export default function CalendarScreen({ navigation }) {
 
       {/* ── Accent strip (FIXED — never scrolls) ── */}
       <View style={[s.accentStrip, { paddingTop: insets.top + 2 }]}>
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <View style={s.decoOrb} />
-          <View style={[s.decoOrb, { width: 60, height: 60, right: 70, top: 6, opacity: 0.6 }]} />
-        </View>
-
         {/* Title + Plan button */}
         <View style={s.stripTopRow}>
           <Text style={s.stripTitle}>Calendar</Text>
@@ -453,10 +448,6 @@ const makeStyles = (colors) => StyleSheet.create({
     shadowOpacity: 0.32,
     shadowRadius: 16,
     elevation: 8,
-  },
-  decoOrb: {
-    position: "absolute", width: 100, height: 100, borderRadius: 50,
-    backgroundColor: "rgba(255,255,255,0.10)", right: -30, top: -30,
   },
   stripTopRow: {
     flexDirection: "row", alignItems: "center",

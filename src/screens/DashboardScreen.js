@@ -37,10 +37,9 @@ import { useUserProfile } from "../hooks/useUserProfile";
 import { useSubscription } from "../hooks/useSubscription";
 import TaskCard from "../components/TaskCard";
 import StatsBar from "../components/StatsBar";
-import TodayFocusCard from "../components/TodayFocusCard";
 import NotificationPermissionPrompt, { NOTIF_PROMPT_KEY } from "../components/NotificationPermissionPrompt";
 import { DashboardSkeleton, TaskListSkeleton, CalendarSkeleton } from "../components/SkeletonLoader";
-import { invalidateTodayFocusCache, polishAceBrief } from "../services/openai";
+import { polishAceBrief } from "../services/openai";
 import { checkAndScheduleAvoidanceAlerts, scheduleStreakReminder } from "../services/notifications";
 import * as Notifications from "expo-notifications";
 import { typography, spacing, radius, shadows, getClassColor } from "../utils/theme";
@@ -159,6 +158,7 @@ const makeStyles = (colors, insets) =>
       borderWidth: colors.isDark ? 1 : 0, borderColor: colors.border,
       borderLeftWidth: 4, borderLeftColor: colors.accent,
       overflow: "hidden",
+      marginBottom: 12,
       ...(colors.isDark ? {} : {
         shadowColor: "#6B6B8A", shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.10, shadowRadius: 8, elevation: 3,
@@ -172,11 +172,8 @@ const makeStyles = (colors, insets) =>
       fontSize: 14, fontFamily: "Outfit-ExtraBold",
       color: colors.accent, letterSpacing: 0.2, flex: 1,
     },
-    aceCardSparkle: {
-      fontSize: 15, color: colors.accent, opacity: 0.75,
-    },
     aceCardMessage: {
-      fontSize: 15, fontFamily: "Outfit-Medium", fontStyle: "italic",
+      fontSize: 15, fontFamily: "Outfit-Medium",
       color: colors.textPrimary, lineHeight: 25,
       paddingHorizontal: spacing.md, paddingTop: 2, paddingBottom: 20,
     },
@@ -214,16 +211,6 @@ const makeStyles = (colors, insets) =>
     headerSummaryRow: { flexDirection: "row", alignItems: "center", gap: 5 },
     headerSummaryDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "rgba(255,120,120,0.85)" },
     headerSummaryText: { fontSize: 11, fontFamily: "Outfit-SemiBold", color: "rgba(255,255,255,0.65)" },
-    decoOrb: {
-      position: "absolute",
-      width: 100, height: 100,
-      borderRadius: 50,
-    },
-    decoSparkle: {
-      position: "absolute",
-      fontFamily: "Outfit-ExtraBold",
-    },
-
     subGreetingBanner: {
       marginHorizontal: spacing.lg,
       marginTop: 10,
@@ -277,23 +264,26 @@ const makeStyles = (colors, insets) =>
     scrollContent: { paddingHorizontal: spacing.lg, paddingTop: 12, paddingBottom: insets.bottom + 90 },
 
     planCard: {
-      flexDirection: "row", alignItems: "center",
-      borderRadius: radius.md, borderWidth: 1,
-      borderColor: colors.isDark ? colors.border : "#E0E0EE",
+      flexDirection: "row", alignItems: "center", gap: 12,
       backgroundColor: colors.isDark ? colors.bgCard : "#fff",
+      borderRadius: 16,
+      borderLeftWidth: 4, borderLeftColor: colors.accent,
+      borderWidth: colors.isDark ? 1 : 0, borderColor: colors.border,
       paddingHorizontal: 14, paddingVertical: 13,
-      marginBottom: spacing.sm, gap: 10,
-      shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: colors.isDark ? 0 : 0.05, shadowRadius: 4, elevation: 1,
-    },
-    planCardIconWrap: {
-      width: 32, height: 32, borderRadius: 10,
-      alignItems: "center", justifyContent: "center",
-      backgroundColor: colors.accent + "18",
+      marginBottom: 12,
+      ...(colors.isDark ? {} : {
+        shadowColor: "#6B6B8A", shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
+      }),
     },
     planCardText: { flex: 1 },
-    planCardTitle: { fontSize: 13, fontFamily: "Outfit-SemiBold", color: colors.textPrimary },
-    planCardSub: { fontSize: 11, fontFamily: "Outfit-Regular", color: colors.textMuted, marginTop: 1 },
+    planCardTitle: { fontSize: 14, fontFamily: "Outfit-Bold", color: colors.textPrimary },
+    planCardSub: { fontSize: 12, fontFamily: "Outfit-Regular", color: colors.textSecondary, marginTop: 2, lineHeight: 17 },
+    planCardBadge: {
+      paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full,
+      backgroundColor: colors.accent + "18",
+    },
+    planCardBadgeText: { fontSize: 13, fontFamily: "Outfit-ExtraBold", color: colors.accent, letterSpacing: -0.3 },
 
     insightStrip: {
       flexDirection: "row",
@@ -342,7 +332,7 @@ const makeStyles = (colors, insets) =>
       borderRadius: 16, borderWidth: 1,
       borderColor: colors.accent + "35",
       backgroundColor: colors.isDark ? colors.accent + "14" : colors.accent + "0C",
-      padding: 14, marginTop: 6, marginBottom: spacing.sm,
+      padding: 14, marginBottom: 12,
     },
     icsResyncTop: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
     icsResyncIconWrap: {
@@ -375,8 +365,7 @@ const makeStyles = (colors, insets) =>
       borderColor: colors.low + "30",
       backgroundColor: colors.isDark ? colors.low + "12" : colors.low + "0D",
       padding: 14,
-      marginTop: 6,
-      marginBottom: spacing.sm,
+      marginBottom: 12,
     },
     allDoneIconWrap: {
       width: 36, height: 36, borderRadius: 12,
@@ -751,8 +740,8 @@ const DashboardScreen = ({ navigation }) => {
   const studyPlanBtnRef  = useRef(null);
   const syllabusBtnRef   = useRef(null);
   const statsBarRef         = useRef(null);
-  const todayFocusRef       = useRef(null);
   const insightStripRef     = useRef(null);
+  const planCardRef         = useRef(null);
   const todayScheduleRef    = useRef(null);
   const focusBtnRegistered      = useRef(false);
   const firstPendingIdRef       = useRef(null);
@@ -932,15 +921,22 @@ const DashboardScreen = ({ navigation }) => {
     scheduleStreakReminder(streak, bestTime, user?.uid, tasks);
   }, [streak, tasks, patterns?.productiveTimeOfDay?.bestTime, user?.uid]);
 
+  const [planDoneToday, setPlanDoneToday] = useState(0);
+  const [planTotalToday, setPlanTotalToday] = useState(0);
+
   const loadTodayPlanSessions = useCallback(() => {
     AsyncStorage.getItem("@planora_study_plan_cache").then((raw) => {
       if (!raw) return;
       try {
         const { plan } = JSON.parse(raw);
         const todayStr = format(startOfToday(), "yyyy-MM-dd");
-        const sessions = plan.filter((s) => s.date === todayStr && !s.completed && !s.missed);
-        setPlanTodayCount(sessions.length > 0 ? sessions.length : 0);
-        setTodayPlanSessions(sessions);
+        const allToday = plan.filter((s) => s.date === todayStr && !s.missed);
+        const pending  = allToday.filter((s) => !s.completed);
+        const done     = allToday.filter((s) => s.completed).length;
+        setPlanTodayCount(pending.length);
+        setTodayPlanSessions(pending);
+        setPlanDoneToday(done);
+        setPlanTotalToday(allToday.length);
       } catch {}
     }).catch(() => {});
   }, []);
@@ -986,7 +982,7 @@ const DashboardScreen = ({ navigation }) => {
 
     const sub = DeviceEventEmitter.addListener("walkthroughStep", (key) => {
       if (key === "statsBar")      scrollToElement(statsBarRef,      "statsBar",      14);
-      if (key === "todayFocus")    scrollToElement(todayFocusRef,    "todayFocus",    16);
+      if (key === "planCard")       scrollToElement(planCardRef,       "planCard",       12);
       if (key === "todaySchedule") scrollToElement(todayScheduleRef, "todaySchedule", 16);
       if (key === "priorityBadge") scrollToFirstTask("priorityBadge", priorityBadgeRef, 6);
       if (key === "focusBtn")      scrollToFirstTask("focusBtn",      focusBtnRef,      10);
@@ -1216,7 +1212,6 @@ const DashboardScreen = ({ navigation }) => {
     if (!task.completed) {
       setCompletingIds((prev) => new Set([...prev, task.id]));
       completeTask(task);
-      invalidateTodayFocusCache();
       burstRef.current?.trigger(getClassColor(task.className, colors.isDark));
 
     } else {
@@ -1227,7 +1222,6 @@ const DashboardScreen = ({ navigation }) => {
         return next;
       });
       completeTask(task);
-      invalidateTodayFocusCache();
     }
   };
   const serializeTask = (task) => ({
@@ -1670,17 +1664,6 @@ const DashboardScreen = ({ navigation }) => {
     <View style={styles.safe}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 2 }]}>
-        {/* Decorative background — sparkles + glow orb */}
-        <View style={StyleSheet.absoluteFill} pointerEvents="none" collapsable={false}>
-          <View style={[styles.decoOrb, { backgroundColor: "rgba(255,255,255,0.12)", right: -30, top: -30 }]} />
-          <View style={[styles.decoOrb, { width: 60, height: 60, backgroundColor: "rgba(255,255,255,0.07)", right: 60, top: 10 }]} />
-          <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.45)", top: 8, right: 100, fontSize: 10 }]}>✦</Text>
-          <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.28)", top: 22, right: 50, fontSize: 6 }]}>✦</Text>
-          <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.35)", top: 40, right: 120, fontSize: 7 }]}>✦</Text>
-          <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.25)", bottom: 20, right: 80, fontSize: 9 }]}>✦</Text>
-          <Text style={[styles.decoSparkle, { color: "rgba(255,255,255,0.30)", bottom: 35, right: 30, fontSize: 5 }]}>✦</Text>
-        </View>
-
         {/* Row 1 — greeting + avatar on same line */}
         <View style={styles.headerTopRow}>
           <Text style={[styles.greeting, { flex: 1 }]}>
@@ -1795,7 +1778,7 @@ const DashboardScreen = ({ navigation }) => {
             ]}
           >
             <View style={[styles.allDoneIconWrap, { backgroundColor: colors.low + "22" }]}>
-              <Text style={{ fontSize: 18 }}>✓</Text>
+              <Feather name="check" size={18} color={colors.low} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.allDoneTitle, { color: colors.low }]}>All done for today</Text>
@@ -1841,53 +1824,63 @@ const DashboardScreen = ({ navigation }) => {
             onLayout={() => setTimeout(() => measureBtn(insightStripRef, "insightStrip", 16), 150)}
           >
             <View style={styles.aceCardHeader}>
-              <Mascot variant="alive" size={44} />
-              <Text style={styles.aceCardName}>Tally's Brief</Text>
-              <Text style={styles.aceCardSparkle}>✦</Text>
+              <Mascot variant="still" size={44} blink={false} />
+              <Text style={styles.aceCardName}>Tally</Text>
+              <Feather name="zap" size={13} color={colors.accent} style={{ opacity: 0.6 }} />
             </View>
             <Text style={styles.aceCardMessage}>{polishedBrief ?? aceBrief}</Text>
           </View>
         )}
 
-        {/* Today's Focus — AI picks */}
-        {tasks.length > 0 && (
-          <View
-            ref={todayFocusRef}
+        {/* Today's plan sessions */}
+        {planTotalToday > 0 && (
+          <TouchableOpacity
+            ref={planCardRef}
             collapsable={false}
-            style={{ marginTop: 12 }}
-            onLayout={() => setTimeout(() => measureBtn(todayFocusRef, "todayFocus", 16), 150)}
+            style={styles.planCard}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); navigation.navigate("Focus"); }}
+            activeOpacity={0.75}
+            onLayout={() => setTimeout(() => measureBtn(planCardRef, "planCard", 12), 150)}
           >
-            <TodayFocusCard
-              tasks={tasks}
-              userProfile={profile}
-              patterns={patterns}
-              onTaskHighlight={setHighlightedTaskId}
-              navigation={navigation}
-              isPro={isPro}
-              todaySessions={isPro ? todayPlanSessions : []}
-              focusOverride={DEMO_MODE ? {
-                taskIds: ["d0", "d1", "d2"],
-                insight: "Your Chem midterm is tomorrow and you have a quiz today — lecture notes first, they pull double duty.",
-              } : undefined}
+            <View style={styles.planCardText}>
+              <Text style={styles.planCardTitle}>
+                {planDoneToday === planTotalToday ? "All sessions done today" : "Study sessions today"}
+              </Text>
+              <Text style={styles.planCardSub}>
+                {(() => {
+                  if (planDoneToday === planTotalToday) return "Locked in. Clean day.";
+                  const first = todayPlanSessions[0]?.sessionTitle;
+                  const totalMins = todayPlanSessions.reduce((s, x) => s + (x.durationMinutes ?? 0), 0);
+                  const timeStr = totalMins >= 60
+                    ? `${Math.floor(totalMins / 60)}h${totalMins % 60 > 0 ? ` ${totalMins % 60}min` : ""}`
+                    : `${totalMins}min`;
+                  return first ? `${timeStr} · start with "${first.toLowerCase()}"` : `${timeStr} planned`;
+                })()}
+              </Text>
+            </View>
+            <View style={styles.planCardBadge}>
+              <Text style={styles.planCardBadgeText}>
+                {planDoneToday}/{planTotalToday}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Today's / Upcoming schedule */}
+        {(todayDisplayEvents.length > 0 || upcomingDisplayEvents.length > 0) && (
+          <View
+            style={{ marginTop: 12 }}
+            ref={todayScheduleRef}
+            onLayout={() => setTimeout(() => measureBtn(todayScheduleRef, "todaySchedule", 16), 200)}
+          >
+            <TodaySchedule
+              events={scheduleView === "today" ? todayDisplayEvents : upcomingDisplayEvents}
+              view={scheduleView}
+              onToggleView={setScheduleView}
+              onSeeAll={calStatus === "granted" ? () => navigation.navigate("Calendar") : undefined}
             />
           </View>
         )}
-
-        {/* Stats bar */}
-        {/* <View
-          ref={statsBarRef}
-          collapsable={false}
-          style={{ marginTop: 12 }}
-          onLayout={() => setTimeout(() => measureBtn(statsBarRef, "statsBar", 14), 150)}
-        >
-          <StatsBar
-            todayCount={todaysTasks.length}
-            pendingCount={pendingTasks.length}
-            completedCount={semesterCompletedCount}
-          />
-        </View> */}
-
-        {/* Today's / Upcoming schedule */}
 
       </ScrollView>
 
